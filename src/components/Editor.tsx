@@ -94,9 +94,9 @@ export function Editor({ project, note, update }: Props) {
         const last = n.panes.pop()!;
         if (last.body.trim()) n.panes[n.panes.length - 1].body += "\n\n" + last.body;
       }
-      titles.forEach((t, i) => {
-        if (t && !n.panes[i].title) n.panes[i].title = t;
-      });
+      // Un preset con nombres (Por hacer · Haciendo · Hecho) reemplaza los títulos;
+      // uno sin nombres (3 columnas, 6 casillas) respeta los que ya escribiste.
+      if (titles.some(Boolean)) titles.forEach((t, i) => (n.panes[i].title = t));
     });
 
   const layoutMenu = (e: React.MouseEvent) => {
