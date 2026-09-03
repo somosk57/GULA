@@ -1,5 +1,19 @@
 import { useState } from "react";
-import { confirmDlg, notify } from "../dialog";
+import { ask, confirmDlg, notify } from "../dialog";
+
+const VAR_RE = /\{\{\s*([^{}]+?)\s*\}\}/g;
+
+/** Reemplaza {{variables}} preguntando cada una (una sola vez por nombre). */
+async function fillVariables(body: string): Promise<string | null> {
+  const names = Array.from(new Set(Array.from(body.matchAll(VAR_RE), (m) => m[1])));
+  const values: Record<string, string> = {};
+  for (const n of names) {
+    const v = await ask(`Valor para {{${n}}}`, "", { placeholder: n, multiline: true });
+    if (v === null) return null;
+    values[n] = v;
+  }
+  return body.replace(VAR_RE, (_, n) => values[n.trim()] ?? "");
+}
 import { AppState, Project, Prompt, uid } from "../types";
 import { copyText, readClipboard } from "../backend";
 
@@ -45,7 +59,9 @@ export function PromptsPanel({ project, update }: Props) {
   };
 
   const copy = async (p: Prompt) => {
-    await copyText(p.body);
+    const text = await fillVariables(p.body);
+    if (text === null) return;
+    await copyText(text);
     edit(p.id, (x) => (x.lastUsedAt = Date.now()));
     setCopied(p.id);
     setTimeout(() => setCopied(null), 1200);
@@ -81,6 +97,7 @@ export function PromptsPanel({ project, update }: Props) {
                   <span className="prompt-title">{p.title || "(sin título)"}</span>
                   <span className="prompt-sub">
                     {p.id === lastId ? `Último usado · ${ago(p.lastUsedAt!)}` : p.body.slice(0, 70).replace(/\n/g, " ")}
+                    {(() => { const n = new Set(Array.from(p.body.matchAll(VAR_RE), (m) => m[1])).size; return n ? ` · ${n} variable${n === 1 ? "" : "s"}` : ""; })()}
                   </span>
                 </div>
                 <button
@@ -102,7 +119,7 @@ export function PromptsPanel({ project, update }: Props) {
                   <textarea
                     value={p.body}
                     onChange={(e) => edit(p.id, (x) => (x.body = e.target.value))}
-                    placeholder="Texto del prompt…"
+                    placeholder={"Texto del prompt… Usá {{variable}} para que te lo pida al copiar."}
                     spellCheck={false}
                     autoFocus
                   />

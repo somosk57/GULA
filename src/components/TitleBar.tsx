@@ -2,7 +2,9 @@ import { useState } from "react";
 import { copyText, dataDir, exportFiles, listBackups, openPath, pickFolder, readBackup, snapshotNow, win } from "../backend";
 import { ask, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
-import { AppState, Project, newProject } from "../types";
+import { AppState, PROFILES, Project, newProject } from "../types";
+import { ProfileId } from "../profiles";
+import { collectTasks, fmtDate } from "../ai";
 import { buildAiPackage, exportProject } from "../ai";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
@@ -50,8 +52,10 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
     setOpen(false);
     const name = await ask("Nuevo proyecto", "", { placeholder: "Ej: Canal de cocina, App de turnos, Novela…" });
     if (!name?.trim()) return;
+    const profile = await pick("¿Qué tipo de proyecto es?", PROFILES.map((p) => ({ id: p.id, label: p.name, hint: p.hint })));
+    if (!profile) return;
     update((d) => {
-      const p = newProject(name.trim());
+      const p = newProject(name.trim(), profile as ProfileId);
       d.projects.push(p);
       d.activeProjectId = p.id;
       d.activeNoteId[p.id] = p.notes[0].id;
@@ -136,7 +140,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
         { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
-        { label: "GULA v0.3.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v0.4.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -170,18 +174,30 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
           <>
             <div className="backdrop" onClick={() => setOpen(false)} />
             <div className="proj-list">
-              {state.projects.map((p) => (
-                <button
-                  key={p.id}
-                  className={"proj-item" + (p.id === project.id ? " active" : "")}
-                  onClick={() => {
-                    update((d) => (d.activeProjectId = p.id));
-                    setOpen(false);
-                  }}
-                >
-                  {p.name}
-                </button>
-              ))}
+              {state.projects.map((p) => {
+                const pending = collectTasks(p).filter((t) => !t.done).length;
+                const last = [...p.log].sort((a, b) => b.at - a.at)[0];
+                const touched = Math.max(p.lastSessionAt ?? 0, last?.at ?? 0, ...p.notes.map((n) => n.updatedAt));
+                return (
+                  <button
+                    key={p.id}
+                    className={"proj-item" + (p.id === project.id ? " active" : "")}
+                    onClick={() => {
+                      update((d) => (d.activeProjectId = p.id));
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="proj-row">
+                      <span className="proj-title">{p.name}</span>
+                      <span className="proj-when">{touched ? fmtDate(touched) : ""}</span>
+                    </span>
+                    <span className="proj-sub">
+                      {last ? last.text : "sin avances anotados"}
+                      {pending > 0 && <span className="proj-pending">{pending} pendiente{pending === 1 ? "" : "s"}</span>}
+                    </span>
+                  </button>
+                );
+              })}
               <button className="proj-item add" onClick={addProject}>+ Nuevo proyecto</button>
             </div>
           </>

@@ -7,14 +7,14 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 - **Izquierda:** proyectos y sus notas (estilo canales de Discord).
 - **Derecha arriba:** la nota, en markdown. `Ctrl+E` alterna edición/vista; las casillas `- [ ]` se tildan con un clic.
 - **Derecha abajo:** seis pestañas por proyecto (`Ctrl+1..6`, `Ctrl+Tab` para rotar):
-  - **Carpetas:** carpetas, archivos y links pinneados. Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
-  - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). *Pegar del portapapeles* crea uno con lo que tengas copiado.
-  - **Contexto:** la descripción del proyecto para la IA (qué es, stack, decisiones, estado). **Copiar para la IA** arma en un solo texto: contexto + tareas pendientes + últimos avances de la bitácora + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
+  - **Carpetas:** el tablero de accesos del proyecto: carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
+  - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
+  - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimos avances de la bitácora + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
   - **Comandos:** comandos y textos que usás seguido. *Copiar* o **▶ Correr** (abre PowerShell parado en la primera carpeta pinneada y lo ejecuta).
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
   - **Bitácora:** una línea por avance con fecha automática. Para retomar después de días y para la IA.
 
-Las notas se agrupan en **secciones** (clic derecho en el título de la sección o en una nota para mover/renombrar). Los proyectos nuevos arrancan con una plantilla de notas y contexto. Clic derecho en el nombre del proyecto (arriba, centrado): copiar todo para la IA, **exportar a carpeta** como archivos `.md`, renombrar, eliminar.
+Las notas se agrupan en **secciones** (clic derecho en el título de la sección o en una nota para mover/renombrar). Al crear un proyecto elegís un **perfil** (App / software, Novela / escritura, Contenido / marca, Estudio, En blanco) y arranca con sus notas, bloques de contexto, prompts y comandos. El selector de proyectos muestra, por cada uno, el último avance, las tareas pendientes y la última actividad. Notas y accesos se reordenan arrastrando. Clic derecho en el nombre del proyecto (arriba, centrado): copiar todo para la IA, **exportar a carpeta** como archivos `.md`, renombrar, eliminar.
 
 **Bandeja y atajo global:** la X esconde la ventana a la bandeja del sistema (ícono al lado del reloj); `Ctrl+Shift+Space` la muestra/oculta desde cualquier app. "Salir" está en el menú del ícono de la bandeja.
 

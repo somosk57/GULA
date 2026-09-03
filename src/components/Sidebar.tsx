@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ask, confirmDlg } from "../dialog";
+import { useReorder } from "../reorder";
 import { AppState, DEFAULT_GROUP, Project, newNote } from "../types";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
@@ -52,6 +53,20 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });
+
+  const notesRef = useReorder<HTMLDivElement>({
+    item: ".note-item",
+    onDrop: (dragId, overId, before) =>
+      edit((p) => {
+        const from = p.notes.findIndex((n) => n.id === dragId);
+        if (from < 0) return;
+        const [n] = p.notes.splice(from, 1);
+        const overIdx = p.notes.findIndex((x) => x.id === overId);
+        if (overIdx < 0) { p.notes.push(n); return; }
+        n.group = p.notes[overIdx].group;
+        p.notes.splice(before ? overIdx : overIdx + 1, 0, n);
+      }),
+  });
 
   const addGroup = async () => {
     const name = await ask("Nueva sección", "", { placeholder: "Ej: Ideas futuras" });
@@ -155,7 +170,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
         id="search-box"
       />
 
-      <div className="notes">
+      <div className="notes" ref={notesRef}>
         {groups.map((g) => {
           const items = byGroup(g);
           if (q && items.length === 0) return null;
@@ -176,6 +191,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                 items.map((n) => (
                   <button
                     key={n.id}
+                    data-id={n.id}
                     className={"note-item" + (n.id === activeNoteId ? " active" : "")}
                     onClick={() => selectNote(n.id)}
                     onContextMenu={(e) => noteMenu(e, n.id)}

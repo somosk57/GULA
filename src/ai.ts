@@ -30,9 +30,19 @@ export function fmtDate(t: number) {
  * Paquete para pegar en un chat nuevo: contexto + tareas pendientes +
  * últimas entradas de bitácora + último prompt usado.
  */
+/** Texto del contexto: solo los bloques encendidos, cada uno con su título. */
+export function contextText(p: Project, onlyEnabled = true): string {
+  const blocks = p.blocks.filter((b) => (!onlyEnabled || b.enabled) && b.body.trim());
+  if (!blocks.length) return `# Proyecto: ${p.name}`;
+  return `# Proyecto: ${p.name}\n\n` + blocks.map((b) => `## ${b.title}\n${b.body.trim()}`).join("\n\n");
+}
+
+/** Estimación gruesa de tokens (≈ 4 caracteres por token en español/inglés). */
+export const estimateTokens = (text: string) => Math.max(1, Math.round(text.length / 4));
+
 export function buildAiPackage(p: Project): string {
   const parts: string[] = [];
-  parts.push(p.context.trim() || `# Proyecto: ${p.name}`);
+  parts.push(contextText(p));
 
   const pending = collectTasks(p).filter((t) => !t.done);
   if (pending.length) {
@@ -55,7 +65,7 @@ export function buildAiPackage(p: Project): string {
 /** Archivos .md para exportar el proyecto entero. */
 export function exportProject(p: Project): { name: string; content: string }[] {
   const files: { name: string; content: string }[] = [];
-  files.push({ name: "00-contexto.md", content: (p.context.trim() || `# ${p.name}`) + "\n" });
+  files.push({ name: "00-contexto.md", content: contextText(p, false) + "\n" });
   p.notes.forEach((n, i) => {
     files.push({ name: `${String(i + 1).padStart(2, "0")}-${n.title}.md`, content: `# ${n.title}\n\n${n.body}\n` });
   });

@@ -13,6 +13,8 @@ import {
   win,
 } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
+import { siteBadge } from "../sites";
+import { useReorder } from "../reorder";
 
 interface Props {
   project: Project;
@@ -25,13 +27,34 @@ function baseName(p: string) {
   return i >= 0 ? clean.slice(i + 1) : clean;
 }
 
+function niceName(p: string): string {
+  if (/^https?:\/\//i.test(p)) {
+    try {
+      const u = new URL(p);
+      const host = u.hostname.replace(/^www\./, "");
+      const first = u.pathname.split("/").filter(Boolean)[0];
+      return first && first.length < 24 ? `${host}/${first}` : host;
+    } catch { /* cae al nombre por defecto */ }
+  }
+  return baseName(p) || p;
+}
+
 function guessKind(p: string): LinkKind {
   if (/^https?:\/\//i.test(p)) return "url";
   const last = baseName(p);
   return /\.[a-z0-9]{1,5}$/i.test(last) ? "file" : "folder";
 }
 
-function Icon({ kind }: { kind: LinkKind }) {
+function Icon({ kind, path }: { kind: LinkKind; path: string }) {
+  if (kind === "url") {
+    const b = siteBadge(path);
+    if (b)
+      return (
+        <span className="ic badge" style={{ background: b.bg, color: b.fg ?? "#fff" }}>
+          {b.label}
+        </span>
+      );
+  }
   if (kind === "folder")
     return (
       <svg className="ic folder" viewBox="0 0 24 24" width="30" height="30">
@@ -63,7 +86,7 @@ export function LinksPanel({ project, update }: Props) {
       const p = d.projects.find((p) => p.id === project.id)!;
       for (const path of paths) {
         if (p.links.some((l) => l.path === path)) continue;
-        p.links.push({ id: uid(), name: baseName(path) || path, path, kind: guessKind(path) });
+        p.links.push({ id: uid(), name: niceName(path), path, kind: guessKind(path) });
       }
     });
 
@@ -83,6 +106,21 @@ export function LinksPanel({ project, update }: Props) {
       window.removeEventListener("drop", leave);
     };
   }, [project.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const gridRef = useReorder<HTMLDivElement>({
+    item: ".tile",
+    axis: "xy",
+    onDrop: (dragId, overId, before) =>
+      update((d) => {
+        const p = d.projects.find((p) => p.id === project.id)!;
+        const from = p.links.findIndex((l) => l.id === dragId);
+        if (from < 0) return;
+        const [l] = p.links.splice(from, 1);
+        const overIdx = p.links.findIndex((x) => x.id === overId);
+        if (overIdx < 0) { p.links.push(l); return; }
+        p.links.splice(before ? overIdx : overIdx + 1, 0, l);
+      }),
+  });
 
   const open = (l: Link) => (l.kind === "url" ? openUrl(l.path) : openPath(l.path));
 
@@ -157,16 +195,17 @@ export function LinksPanel({ project, update }: Props) {
         )}
         <button className="chip add" onClick={addMenu}>+ Agregar</button>
       </div>
-      <div className="grid">
+      <div className="grid" ref={gridRef}>
         {project.links.map((l) => (
           <button
             key={l.id}
+            data-id={l.id}
             className="tile"
             onClick={() => open(l)}
             onContextMenu={(e) => linkMenu(e, l)}
             title={l.path + "\n(clic derecho: opciones)"}
           >
-            <Icon kind={l.kind} />
+            <Icon kind={l.kind} path={l.path} />
             <span>{l.name}</span>
           </button>
         ))}
