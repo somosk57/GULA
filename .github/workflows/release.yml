@@ -24,7 +24,7 @@ jobs:
             args: ""
           - platform: macos-latest      # Apple Silicon (M1/M2/M3/M4)
             args: "--target aarch64-apple-darwin"
-          - platform: macos-13          # Intel
+          - platform: macos-15-intel    # Intel (macos-13 fue retirado por GitHub)
             args: "--target x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
