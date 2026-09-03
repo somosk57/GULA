@@ -1,0 +1,8 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen/schemas
+*.log
+.DS_Store
+# NUNCA subir la clave privada de firma
+*.key

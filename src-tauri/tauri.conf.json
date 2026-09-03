@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GULA",
+  "version": "0.1.0",
+  "identifier": "com.creator100k.gula",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "GULA",
+        "width": 680,
+        "height": 640,
+        "minWidth": 380,
+        "minHeight": 320,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "app"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "Spanish"
+        ]
+      }
+    },
+    "shortDescription": "Controla tu gula.",
+    "longDescription": "Notas, carpetas, prompts y contexto por proyecto, para trabajar con IA sin perder el hilo."
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYzNENGQTdBNzVDMzQxQkEKUldTNlFjTjFldnBNOCswZlkvK3VuU0VtdGhYOHhPN095TG5PZkVuM3FQekx4czkyb3Q0OFJVSE4K",
+      "endpoints": [
+        "https://github.com/OWNER/gula/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}
