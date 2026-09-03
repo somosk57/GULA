@@ -34,10 +34,111 @@ fn load_state(app: AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn save_state(app: AppHandle, json: String) -> Result<(), String> {
     let file = data_file(&app)?;
+    backup_if_needed(&file);
     // Escritura atómica: primero a .tmp, después rename.
     let tmp = file.with_extension("json.tmp");
     fs::write(&tmp, json).map_err(|e| e.to_string())?;
     fs::rename(&tmp, &file).map_err(|e| e.to_string())
+}
+
+const MAX_BACKUPS: usize = 30;
+
+fn backups_dir(file: &Path) -> PathBuf {
+    file.parent().unwrap_or(Path::new(".")).join("backups")
+}
+
+/// Fecha local AAAA-MM-DD sin dependencias: se aproxima con UTC (alcanza para rotar copias).
+fn today_stamp() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let days = secs / 86_400;
+    // Algoritmo civil-from-days (Howard Hinnant).
+    let z = days as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+/// Antes de sobreescribir data.json, guarda una copia por día (rota las últimas 30).
+fn backup_if_needed(file: &Path) {
+    if !file.exists() {
+        return;
+    }
+    let dir = backups_dir(file);
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let target = dir.join(format!("data-{}.json", today_stamp()));
+    if target.exists() {
+        return;
+    }
+    let _ = fs::copy(file, &target);
+    // Rotar.
+    if let Ok(rd) = fs::read_dir(&dir) {
+        let mut names: Vec<PathBuf> = rd
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().map(|x| x == "json").unwrap_or(false))
+            .collect();
+        names.sort();
+        while names.len() > MAX_BACKUPS {
+            let old = names.remove(0);
+            let _ = fs::remove_file(old);
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct BackupInfo {
+    name: String,
+    size: u64,
+}
+
+#[tauri::command]
+fn list_backups(app: AppHandle) -> Result<Vec<BackupInfo>, String> {
+    let dir = backups_dir(&data_file(&app)?);
+    let mut out = Vec::new();
+    if let Ok(rd) = fs::read_dir(&dir) {
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.extension().map(|x| x == "json").unwrap_or(false) {
+                let size = e.metadata().map(|m| m.len()).unwrap_or(0);
+                out.push(BackupInfo { name: p.file_name().unwrap().to_string_lossy().to_string(), size });
+            }
+        }
+    }
+    out.sort_by(|a, b| b.name.cmp(&a.name));
+    Ok(out)
+}
+
+/// Devuelve el contenido de una copia (el frontend decide si la aplica).
+#[tauri::command]
+fn read_backup(app: AppHandle, name: String) -> Result<String, String> {
+    if name.contains('/') || name.contains('\\') || name.contains("..") {
+        return Err("nombre inválido".into());
+    }
+    let p = backups_dir(&data_file(&app)?).join(name);
+    fs::read_to_string(p).map_err(|e| e.to_string())
+}
+
+/// Copia manual con nombre, antes de restaurar.
+#[tauri::command]
+fn snapshot_now(app: AppHandle, label: String) -> Result<String, String> {
+    let file = data_file(&app)?;
+    let dir = backups_dir(&file);
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let safe: String = label.chars().filter(|c| c.is_alphanumeric() || *c == '-').collect();
+    let name = format!("data-{}-{}.json", today_stamp(), safe);
+    fs::copy(&file, dir.join(&name)).map_err(|e| e.to_string())?;
+    Ok(name)
 }
 
 #[tauri::command]
@@ -328,6 +429,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_command,
             export_files,
+            list_backups,
+            read_backup,
+            snapshot_now,
             load_state,
             save_state,
             data_dir,

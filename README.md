@@ -18,9 +18,9 @@ Las notas se agrupan en **secciones** (clic derecho en el título de la sección
 
 **Bandeja y atajo global:** la X esconde la ventana a la bandeja del sistema (ícono al lado del reloj); `Ctrl+Shift+Space` la muestra/oculta desde cualquier app. "Salir" está en el menú del ícono de la bandeja.
 
-Atajos: `Ctrl+K` buscar · `Ctrl+N` nueva nota · `Ctrl+B` barra lateral · `Ctrl+E` vista/edición · `Ctrl+1..6` pestañas · `Ctrl+Shift+Space` mostrar/ocultar.
+Atajos: `Ctrl+K` buscar en todos los proyectos · `Ctrl+Z` / `Ctrl+Shift+Z` deshacer / rehacer · `Ctrl+N` nueva nota · `Ctrl+B` barra lateral · `Ctrl+E` vista/edición · `Ctrl+1..6` pestañas · `Ctrl+Shift+Space` mostrar/ocultar.
 
-Los datos se guardan en `%APPDATA%\com.creator100k.gula\data.json`. La posición y tamaño de la ventana se recuerdan solos.
+Los datos se guardan en `%APPDATA%\com.creator100k.gula\data.json`, con una copia de seguridad por día en `backups\` (se guardan las últimas 30). Desde el menú `⋯` de la barra de título: restaurar una copia, cambiar tema (oscuro / claro / sistema), abrir la carpeta de datos. La posición y tamaño de la ventana se recuerdan solos.
 
 ## Requisitos (Windows)
 

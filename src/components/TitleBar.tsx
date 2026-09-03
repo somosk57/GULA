@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { copyText, exportFiles, pickFolder, win } from "../backend";
+import { copyText, dataDir, exportFiles, listBackups, openPath, pickFolder, readBackup, snapshotNow, win } from "../backend";
+import { ask, confirmDlg, notify, pick } from "../dialog";
+import { migrate } from "../types";
 import { AppState, Project, newProject } from "../types";
 import { buildAiPackage, exportProject } from "../ai";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -10,10 +12,16 @@ interface Props {
   update: (fn: (d: AppState) => void) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onReplace: (s: AppState) => void;
+  onOpenSearch: () => void;
 }
 
 const I = {
   pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5" /><path d="M9 3h6l-1 7 3 3H7l3-3z" /></svg>,
+  dots: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>,
+  search: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>,
   side: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>,
   chev: <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.3" /></svg>,
   min: <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" strokeWidth="1" /></svg>,
@@ -34,12 +42,13 @@ function TrafficLights() {
   );
 }
 
-export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar }: Props) {
+export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
-  const addProject = () => {
-    const name = prompt("Nombre del proyecto:");
+  const addProject = async () => {
+    setOpen(false);
+    const name = await ask("Nuevo proyecto", "", { placeholder: "Ej: Canal de cocina, App de turnos, Novela…" });
     if (!name?.trim()) return;
     update((d) => {
       const p = newProject(name.trim());
@@ -59,8 +68,8 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar 
       items: [
         {
           label: "Renombrar proyecto",
-          onClick: () => {
-            const t = prompt("Nombre del proyecto:", project.name);
+          onClick: async () => {
+            const t = await ask("Nombre del proyecto", project.name);
             if (t?.trim()) update((d) => (d.projects.find((p) => p.id === project.id)!.name = t.trim()));
           },
         },
@@ -72,22 +81,62 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar 
             if (!dir) return;
             const files = exportProject(project);
             await exportFiles(dir, files);
-            alert(`Exportados ${files.length} archivos a:\n${dir}`);
+            notify(`Exportados ${files.length} archivos`, dir);
           },
         },
         {
           label: "Eliminar proyecto",
           danger: true,
           separator: true,
-          onClick: () => {
-            if (state.projects.length === 1) return alert("No podés eliminar el único proyecto.");
-            if (!confirm(`¿Eliminar el proyecto "${project.name}" con todas sus notas?`)) return;
+          onClick: async () => {
+            if (state.projects.length === 1) return notify("No podés eliminar el único proyecto");
+            if (!(await confirmDlg(`¿Eliminar el proyecto "${project.name}"?`, "Se borran sus notas, prompts, comandos y bitácora. Ctrl+Z lo recupera mientras la app siga abierta.", { danger: true, okLabel: "Eliminar proyecto" }))) return;
             update((d) => {
               d.projects = d.projects.filter((p) => p.id !== project.id);
               d.activeProjectId = d.projects[0].id;
             });
           },
         },
+      ],
+    });
+  };
+
+  const restoreBackup = async () => {
+    const list = await listBackups();
+    const id = await pick(
+      "Restaurar una copia de seguridad",
+      list.map((b) => ({ id: b.name, label: b.name.replace(/^data-|\.json$/g, ""), hint: `${Math.round(b.size / 1024)} KB` })),
+    );
+    if (!id) return;
+    if (!(await confirmDlg("¿Restaurar esta copia?", "Se reemplaza todo por lo que había en esa fecha. Antes guardo una copia de lo actual, y Ctrl+Z también lo recupera.", { okLabel: "Restaurar" }))) return;
+    try {
+      await snapshotNow("antes-de-restaurar");
+      const data = await readBackup(id);
+      onReplace(migrate(data));
+      notify("Copia restaurada", id);
+    } catch (e) {
+      notify("No se pudo restaurar", String(e));
+    }
+  };
+
+  const settingsMenu = (e: React.MouseEvent) => {
+    const mod = IS_MAC ? "⌘" : "Ctrl+";
+    const t = state.theme;
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: `Deshacer  (${mod}Z)`, onClick: onUndo },
+        { label: `Rehacer  (${mod}Shift+Z)`, onClick: onRedo },
+        { label: `Buscar en todo  (${mod}K)`, onClick: onOpenSearch, separator: true },
+        {
+          label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}  →  cambiar`,
+          separator: true,
+          onClick: () => update((d) => (d.theme = d.theme === "dark" ? "light" : d.theme === "light" ? "system" : "dark")),
+        },
+        { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
+        { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
+        { label: "GULA v0.3.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -104,6 +153,12 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar 
       </button>
       <button className={"tb-btn sm" + (sidebarOpen ? "" : " dim")} title={`Mostrar/ocultar notas (${IS_MAC ? "⌘" : "Ctrl+"}B)`} onClick={onToggleSidebar}>
         {I.side}
+      </button>
+      <button className="tb-btn sm" title={`Buscar en todos los proyectos (${IS_MAC ? "⌘" : "Ctrl+"}K)`} onClick={onOpenSearch}>
+        {I.search}
+      </button>
+      <button className="tb-btn sm" title="Más opciones" onClick={settingsMenu}>
+        {I.dots}
       </button>
 
       <div className="tb-center" data-tauri-drag-region>

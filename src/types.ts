@@ -61,6 +61,7 @@ export interface AppState {
   activeNoteId: Record<string, string>; // projectId -> noteId
   bottomTab: Tab;
   alwaysOnTop: boolean;
+  theme: "dark" | "light" | "system";
 }
 
 export const uid = () =>
@@ -124,6 +125,7 @@ export function defaultState(): AppState {
     activeNoteId: { [p.id]: p.notes[0].id },
     bottomTab: "links",
     alwaysOnTop: false,
+    theme: "dark",
   };
 }
 
@@ -151,5 +153,6 @@ export function migrate(raw: unknown): AppState {
     activeNoteId: s.activeNoteId ?? {},
     bottomTab: s.bottomTab ?? "links",
     alwaysOnTop: s.alwaysOnTop ?? false,
+    theme: s.theme ?? "dark",
   };
 }

@@ -10,6 +10,8 @@ import { SnippetsPanel } from "./components/SnippetsPanel";
 import { LogPanel } from "./components/LogPanel";
 import { TasksPanel } from "./components/TasksPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { Dialogs } from "./dialog";
+import { SearchPalette, Hit } from "./components/SearchPalette";
 import { win } from "./backend";
 import { Tab, newNote } from "./types";
 import { collectTasks } from "./ai";
@@ -26,9 +28,11 @@ const TABS: { id: Tab; label: string }[] = [
 
 
 const SPLIT_KEY = "gula-split";
+const IS_MAC_APP = /Mac/i.test(navigator.platform);
 
 export default function App() {
-  const { state, update } = useAppState();
+  const { state, update, replace, undo, redo } = useAppState();
+  const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [split, setSplit] = useState<number>(() => Number(localStorage.getItem(SPLIT_KEY)) || 62);
   const [compact, setCompact] = useState(false);
@@ -44,6 +48,13 @@ export default function App() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Tema: data-theme en <html>; "system" no estampa nada y decide el sistema.
+  useEffect(() => {
+    const t = state?.theme ?? "dark";
+    if (t === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", t);
+  }, [state?.theme]);
 
   // Aplicar "siempre arriba" al arrancar
   useEffect(() => {
@@ -61,7 +72,16 @@ export default function App() {
         else setSidebarOpen((v) => { localStorage.setItem("gula-sidebar", v ? "0" : "1"); return !v; });
       } else if (k === "k") {
         e.preventDefault();
-        document.getElementById("search-box")?.focus();
+        setSearchOpen((v) => !v);
+      } else if (k === "z") {
+        // No pisar el deshacer nativo mientras se tipea en un campo.
+        const t = e.target as HTMLElement;
+        if (t.tagName === "TEXTAREA" || t.tagName === "INPUT") return;
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+      } else if (k === "y" && !IS_MAC_APP) {
+        e.preventDefault();
+        redo();
       } else if (k === "n") {
         e.preventDefault();
         update((d) => {
@@ -84,7 +104,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [update, compact]);
+  }, [update, compact, undo, redo]);
 
   // Divisor arrastrable entre editor y panel de abajo
   useEffect(() => {
@@ -109,6 +129,13 @@ export default function App() {
 
   if (!state) return <div className="loading">GULA<span className="slogan">CONTROLA TU GULA.</span></div>;
 
+  const goTo = (h: Hit) =>
+    update((d) => {
+      d.activeProjectId = h.projectId;
+      if (h.noteId) d.activeNoteId[h.projectId] = h.noteId;
+      if (h.tab) d.bottomTab = h.tab;
+    });
+
   const project = activeProject(state);
   const note = project.notes.find((n) => n.id === state.activeNoteId[project.id]) ?? project.notes[0];
 
@@ -123,8 +150,14 @@ export default function App() {
           if (compact) setDrawer((v) => !v);
           else setSidebarOpen((v) => { localStorage.setItem("gula-sidebar", v ? "0" : "1"); return !v; });
         }}
+        onUndo={undo}
+        onRedo={redo}
+        onReplace={replace}
+        onOpenSearch={() => setSearchOpen(true)}
       />
       <UpdateBanner />
+      <Dialogs />
+      {searchOpen && <SearchPalette state={state} onClose={() => setSearchOpen(false)} onGo={goTo} />}
       <div className="layout">
         {((!compact && sidebarOpen) || (compact && drawer)) && (
           <div className={compact ? "drawer" : undefined} onClick={(e) => {

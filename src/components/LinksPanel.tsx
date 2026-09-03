@@ -1,3 +1,4 @@
+import { ask } from "../dialog";
 import { useEffect, useState } from "react";
 import { AppState, Link, LinkKind, Project, uid } from "../types";
 import {
@@ -94,9 +95,9 @@ export function LinksPanel({ project, update }: Props) {
         { label: "Archivo…", onClick: async () => { const p = await pickFile(); if (p) addLinks([p]); } },
         {
           label: "Link (URL)…",
-          onClick: () => {
-            const u = prompt("URL:", "https://");
-            if (u && u !== "https://") addLinks([u.trim()]);
+          onClick: async () => {
+            const u = await ask("Link (URL)", "https://", { placeholder: "https://…" });
+            if (u && u.trim() !== "https://") addLinks([u.trim()]);
           },
         },
       ],
@@ -117,8 +118,8 @@ export function LinksPanel({ project, update }: Props) {
       { label: l.kind === "url" ? "Copiar URL" : "Copiar ruta", onClick: () => copyText(l.path), separator: true },
       {
         label: "Renombrar",
-        onClick: () => {
-          const t = prompt("Nombre:", l.name);
+        onClick: async () => {
+          const t = await ask("Nombre", l.name);
           if (t?.trim())
             update((d) => {
               d.projects.find((p) => p.id === project.id)!.links.find((x) => x.id === l.id)!.name = t.trim();

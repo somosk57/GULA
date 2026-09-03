@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ask, confirmDlg } from "../dialog";
 import { AppState, DEFAULT_GROUP, Project, newNote } from "../types";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
@@ -52,8 +53,8 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       d.activeNoteId[p.id] = n.id;
     });
 
-  const addGroup = () => {
-    const name = prompt("Nombre de la sección:");
+  const addGroup = async () => {
+    const name = await ask("Nueva sección", "", { placeholder: "Ej: Ideas futuras" });
     if (name?.trim()) addNote(name.trim());
   };
 
@@ -70,15 +71,15 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
         },
         {
           label: "Renombrar",
-          onClick: () => {
-            const t = prompt("Nombre de la nota:", note.title);
+          onClick: async () => {
+            const t = await ask("Nombre de la nota", note.title);
             if (t?.trim()) edit((p) => (p.notes.find((n) => n.id === noteId)!.title = t.trim()));
           },
         },
         {
           label: "Mover a sección…",
-          onClick: () => {
-            const t = prompt(`Sección (existentes: ${groups.join(", ")}):`, note.group);
+          onClick: async () => {
+            const t = await ask("Mover a sección", note.group, { placeholder: groups.join(" · ") });
             if (t?.trim())
               edit((p) => {
                 const i = p.notes.findIndex((n) => n.id === noteId);
@@ -102,8 +103,8 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
           label: "Eliminar",
           danger: true,
           separator: true,
-          onClick: () => {
-            if (!confirm(`¿Eliminar "${note.title}"?`)) return;
+          onClick: async () => {
+            if (!(await confirmDlg(`¿Eliminar "${note.title}"?`, "No se puede deshacer desde acá, pero Ctrl+Z lo recupera.", { danger: true, okLabel: "Eliminar" }))) return;
             edit((p, d) => {
               p.notes = p.notes.filter((n) => n.id !== noteId);
               if (p.notes.length === 0) p.notes.push(newNote());
@@ -124,8 +125,8 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
         { label: "Nueva nota acá", onClick: () => addNote(g) },
         {
           label: "Renombrar sección",
-          onClick: () => {
-            const t = prompt("Nombre de la sección:", g);
+          onClick: async () => {
+            const t = await ask("Nombre de la sección", g);
             if (t?.trim()) edit((p) => p.notes.forEach((n) => n.group === g && (n.group = t.trim())));
           },
         },
@@ -148,7 +149,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
     <aside className="sidebar">
       <input
         className="search"
-        placeholder="Filtrar notas…"
+        placeholder="Filtrar notas de este proyecto…"
         value={search}
         onChange={(e) => onSearch(e.target.value)}
         id="search-box"

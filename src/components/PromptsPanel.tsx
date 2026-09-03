@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { confirmDlg, notify } from "../dialog";
 import { AppState, Project, Prompt, uid } from "../types";
 import { copyText, readClipboard } from "../backend";
 
@@ -38,7 +39,7 @@ export function PromptsPanel({ project, update }: Props) {
 
   const fromClipboard = async () => {
     const t = await readClipboard();
-    if (!t?.trim()) return alert("El portapapeles está vacío.");
+    if (!t?.trim()) return notify("El portapapeles está vacío");
     const firstLine = t.trim().split("\n")[0].slice(0, 60);
     add(t, firstLine || "Prompt pegado");
   };
@@ -50,8 +51,8 @@ export function PromptsPanel({ project, update }: Props) {
     setTimeout(() => setCopied(null), 1200);
   };
 
-  const remove = (p: Prompt) => {
-    if (!confirm(`¿Eliminar el prompt "${p.title}"?`)) return;
+  const remove = async (p: Prompt) => {
+    if (!(await confirmDlg(`¿Eliminar el prompt "${p.title}"?`, undefined, { danger: true, okLabel: "Eliminar" }))) return;
     update((d) => {
       const pr = d.projects.find((x) => x.id === project.id)!;
       pr.prompts = pr.prompts.filter((x) => x.id !== p.id);

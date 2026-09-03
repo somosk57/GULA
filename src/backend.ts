@@ -2,6 +2,7 @@
 // cae a localStorage para poder desarrollar la UI con `npm run dev`.
 import { invoke } from "@tauri-apps/api/core";
 import { AppState } from "./types";
+import { ask, notify } from "./dialog";
 
 const isTauri = "__TAURI_INTERNALS__" in window;
 const LS_KEY = "gula";
@@ -33,6 +34,19 @@ export async function saveState(state: AppState): Promise<void> {
   await invoke("save_state", { json });
 }
 
+export interface BackupInfo { name: string; size: number }
+export async function listBackups(): Promise<BackupInfo[]> {
+  if (!isTauri) return [];
+  return invoke<BackupInfo[]>("list_backups");
+}
+export async function readBackup(name: string): Promise<AppState> {
+  return JSON.parse(await invoke<string>("read_backup", { name })) as AppState;
+}
+export async function snapshotNow(label: string): Promise<string> {
+  if (!isTauri) return "";
+  return invoke<string>("snapshot_now", { label });
+}
+
 export async function dataDir(): Promise<string> {
   if (!isTauri) return "(localStorage)";
   return invoke<string>("data_dir");
@@ -48,7 +62,7 @@ function guard<T extends unknown[]>(fn: (...a: T) => Promise<void>) {
       await fn(...a);
     } catch (e) {
       console.error(e);
-      alert(String(e));
+      notify("No se pudo completar la acción", String(e));
     }
   };
 }
@@ -99,14 +113,14 @@ export async function readClipboard(): Promise<string> {
 }
 
 export async function pickFolder(): Promise<string | null> {
-  if (!isTauri) return prompt("Ruta de la carpeta:");
+  if (!isTauri) return ask("Ruta de la carpeta:");
   const { open } = await import("@tauri-apps/plugin-dialog");
   const r = await open({ directory: true, multiple: false });
   return typeof r === "string" ? r : null;
 }
 
 export async function pickFile(): Promise<string | null> {
-  if (!isTauri) return prompt("Ruta del archivo:");
+  if (!isTauri) return ask("Ruta del archivo:");
   const { open } = await import("@tauri-apps/plugin-dialog");
   const r = await open({ directory: false, multiple: false });
   return typeof r === "string" ? r : null;
