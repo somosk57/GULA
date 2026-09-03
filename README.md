@@ -44,7 +44,7 @@ El repo tiene un workflow de GitHub Actions (`.github/workflows/release.yml`) qu
 
 1. Creá el repo en GitHub y subí el código.
 2. En **Settings → Secrets and variables → Actions** agregá `TAURI_SIGNING_PRIVATE_KEY` (el contenido del archivo `gula.key`) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (vacío si la clave no tiene contraseña).
-3. En `src-tauri/tauri.conf.json` reemplazá `OWNER` en la URL del updater por tu usuario de GitHub.
+3. En `src-tauri/tauri.conf.json` la URL del updater ya apunta a somosk57/GULA.
 
 Después, para cada versión:
 
