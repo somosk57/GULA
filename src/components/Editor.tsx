@@ -42,11 +42,18 @@ export function Editor({ project, note, update }: Props) {
   // Imagen arrastrada desde el Explorador sobre un recuadro con foco → se inserta ahí.
   useEffect(() => {
     let off: (() => void) | undefined;
-    win.onDrop((paths) => {
-      const img = paths.find(isImagePath);
-      if (!img) return;
-      const focused = Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
-      if (focused) insertImage(focused, img);
+    win.onDrop((paths, at) => {
+      const media = paths.filter(isImagePath);
+      if (!media.length) return;
+      // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
+      let target: EditorView | undefined;
+      if (at) {
+        const el = document.elementFromPoint(at.x, at.y)?.closest(".pane, .single");
+        const host = el?.querySelector(".cm-editor");
+        target = Object.values(views.current).find((v) => v.dom === host);
+      }
+      target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
+      if (target) media.forEach((m) => insertImage(target!, m));
     }).then((f) => (off = f));
     return () => off?.();
   }, [note.id]);

@@ -177,12 +177,16 @@ export const win = {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().setAlwaysOnTop(v);
   },
-  /** Escucha archivos/carpetas arrastrados desde el Explorador. */
-  async onDrop(cb: (paths: string[]) => void): Promise<() => void> {
+  /** Escucha archivos/carpetas arrastrados desde el Explorador. `at` es la posición del soltado en px CSS. */
+  async onDrop(cb: (paths: string[], at: { x: number; y: number } | null) => void): Promise<() => void> {
     if (!isTauri) return () => {};
     const { getCurrentWebview } = await import("@tauri-apps/api/webview");
     return getCurrentWebview().onDragDropEvent((ev) => {
-      if (ev.payload.type === "drop") cb(ev.payload.paths);
+      if (ev.payload.type === "drop") {
+        const p = ev.payload.position;
+        const dpr = window.devicePixelRatio || 1;
+        cb(ev.payload.paths, p ? { x: p.x / dpr, y: p.y / dpr } : null);
+      }
     });
   },
 };
