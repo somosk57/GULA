@@ -1,7 +1,9 @@
 import { PROFILES, ProfileId, profileById } from "./profiles";
 
 export type LinkKind = "folder" | "file" | "url";
-export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks";
+export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks" | "cards";
+export type CardKind = "character" | "place" | "item" | "scene";
+export type SceneStatus = "idea" | "draft" | "done";
 
 /** Una columna dentro de una nota. */
 export interface Pane {
@@ -66,10 +68,30 @@ export interface ContextBlock {
   enabled: boolean;
 }
 
+/** Ficha de la biblia: personaje, lugar, objeto o escena. */
+export interface Card {
+  id: string;
+  kind: CardKind;
+  name: string;
+  /** Una línea: lo que la IA necesita saber sí o sí. */
+  summary: string;
+  /** Detalle largo en markdown (no se copia a la IA salvo que el bloque lo pida). */
+  body: string;
+  /** Ruta a una imagen de referencia (local). */
+  image?: string;
+  /** Va en "Copiar para la IA" (nombre + resumen). */
+  inContext: boolean;
+  /** Solo escenas. */
+  status?: SceneStatus;
+  /** Solo escenas: personajes/lugar involucrados, por nombre. */
+  tags?: string[];
+}
+
 export interface Project {
   id: string;
   name: string;
   profile: ProfileId;
+  cards: Card[];
   notes: Note[];
   links: Link[];
   prompts: Prompt[];
@@ -126,6 +148,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     blocks: t.blocks.map((b) => ({ id: uid(), title: b.title, body: fill(b.body), enabled: b.enabled })),
     snippets: t.snippets.map((s) => ({ id: uid(), ...s })),
     log: [],
+    cards: [],
     lastSessionAt: null,
     sessionStartedAt: null,
   };
@@ -167,6 +190,7 @@ export function migrate(raw: unknown): AppState {
     blocks: p.blocks ?? (p.context?.trim() ? [{ id: uid(), title: "Contexto", body: p.context ?? "", enabled: true }] : [{ id: uid(), title: "Qué es", body: "", enabled: true }]),
     snippets: p.snippets ?? [],
     log: p.log ?? [],
+    cards: p.cards ?? [],
     lastSessionAt: p.lastSessionAt ?? null,
     sessionStartedAt: p.sessionStartedAt ?? null,
   }));

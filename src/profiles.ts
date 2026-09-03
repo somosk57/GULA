@@ -49,21 +49,18 @@ export const PROFILES: ProfileTemplate[] = [
   {
     id: "novel",
     name: "Novela / escritura",
-    hint: "Biblia del mundo, guía de estilo, capítulos, resumen hasta acá.",
+    hint: "Fichas de personajes, lugares y escenas; guía de estilo; capítulos.",
     notes: [
       { title: "Premisa", body: "# {name}\n\n¿De qué trata, en tres líneas? ¿Qué pregunta hace la historia?\n\n", group: "General" },
       { title: "Tareas", body: "- [ ] \n", group: "General" },
-      { title: "Personajes", body: "## Protagonista\n- Quiere:\n- Teme:\n- Habla así:\n\n## \n", group: "Biblia" },
-      { title: "Lugares", body: "## \n", group: "Biblia" },
-      { title: "Reglas del mundo", body: "Lo que puede y no puede pasar. Magia, tecnología, política, época.\n", group: "Biblia" },
       { title: "Línea de tiempo", body: "- \n", group: "Biblia" },
+      { title: "Reglas del mundo", body: "Lo que puede y no puede pasar. Magia, tecnología, política, época.\n", group: "Biblia" },
       { title: "Capítulo 1", body: "", group: "Capítulos" },
       { title: "Ideas sueltas", body: "- \n", group: "Ideas futuras" },
     ],
     blocks: [
       { title: "Qué es", body: "{name}: (género, extensión, público, en qué etapa está)", enabled: true },
       { title: "Guía de estilo", body: "- Persona narrativa y tiempo:\n- Tono:\n- Frases cortas o largas:\n- Palabras o recursos que NO quiero:\n- Un párrafo mío de ejemplo:", enabled: true },
-      { title: "Personajes clave", body: "- Nombre — quién es, qué quiere, cómo habla", enabled: true },
       { title: "Reglas del mundo", body: "- ", enabled: false },
       { title: "Resumen hasta acá", body: "Qué pasó en los capítulos anteriores, en orden. Actualizarlo al cerrar cada sesión.", enabled: true },
     ],

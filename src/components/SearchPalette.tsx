@@ -3,7 +3,7 @@ import { AppState, Tab } from "../types";
 
 interface Hit {
   id: string;
-  kind: "note" | "prompt" | "snippet" | "log" | "link" | "project";
+  kind: "note" | "prompt" | "snippet" | "log" | "link" | "project" | "card";
   projectId: string;
   projectName: string;
   title: string;
@@ -19,6 +19,7 @@ const KIND_LABEL: Record<Hit["kind"], string> = {
   log: "bitácora",
   link: "acceso",
   project: "proyecto",
+  card: "ficha",
 };
 
 function excerpt(body: string, q: string) {
@@ -48,6 +49,9 @@ export function search(state: AppState, query: string): Hit[] {
     for (const x of p.log)
       if (has(x.text))
         hits.push({ id: x.id, kind: "log", projectId: p.id, projectName: p.name, title: excerpt(x.text, q), snippet: new Date(x.at).toLocaleDateString("es-AR"), tab: "log" });
+    for (const x of p.cards)
+      if (has(x.name, x.summary, x.body))
+        hits.push({ id: x.id, kind: "card", projectId: p.id, projectName: p.name, title: x.name, snippet: x.summary || excerpt(x.body, q), tab: "cards" });
     for (const x of p.links)
       if (has(x.name, x.path))
         hits.push({ id: x.id, kind: "link", projectId: p.id, projectName: p.name, title: x.name, snippet: x.path, tab: "links" });

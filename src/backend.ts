@@ -1,6 +1,6 @@
 // Capa fina sobre los comandos de Tauri. Si corre en el navegador (sin Tauri),
 // cae a localStorage para poder desarrollar la UI con `npm run dev`.
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { AppState } from "./types";
 import { ask, notify } from "./dialog";
 
@@ -110,6 +110,21 @@ export async function readClipboard(): Promise<string> {
   } catch {
     return "";
   }
+}
+
+/** URL para mostrar una imagen local dentro de la app. */
+export function assetUrl(path: string): string {
+  if (!isTauri) return path;
+  // convertFileSrc es síncrono; import dinámico solo para el fallback web.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return convertFileSrc(path);
+}
+
+export async function pickImage(): Promise<string | null> {
+  if (!isTauri) return ask("Ruta de la imagen:");
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const r = await open({ multiple: false, filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }] });
+  return typeof r === "string" ? r : null;
 }
 
 export async function pickFolder(): Promise<string | null> {

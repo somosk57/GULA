@@ -68,6 +68,17 @@ export function buildAiPackage(p: Project): string {
   const parts: string[] = [];
   parts.push(contextText(p));
 
+  const groups: [string, string][] = [["character", "Personajes"], ["place", "Lugares"], ["item", "Objetos"]];
+  for (const [kind, title] of groups) {
+    const cs = p.cards.filter((c) => c.kind === kind && c.inContext);
+    if (cs.length) parts.push(`## ${title}\n` + cs.map((c) => `- **${c.name}**${c.summary ? `: ${c.summary}` : ""}`).join("\n"));
+  }
+  const scenes = p.cards.filter((c) => c.kind === "scene" && c.inContext);
+  if (scenes.length) {
+    const st = { idea: "idea", draft: "borrador", done: "lista" } as const;
+    parts.push("## Escenas\n" + scenes.map((c) => `- ${c.name} (${st[c.status ?? "idea"]})${c.summary ? `: ${c.summary}` : ""}${c.tags?.length ? ` — ${c.tags.join(", ")}` : ""}`).join("\n"));
+  }
+
   const pending = collectTasks(p).filter((t) => !t.done);
   if (pending.length) {
     parts.push("## Tareas pendientes\n" + pending.slice(0, 20).map((t) => `- [ ] ${t.text}`).join("\n"));
@@ -110,6 +121,19 @@ export function exportProject(p: Project): { name: string; content: string }[] {
       name: "bitacora.md",
       content:
         [...p.log].sort((a, b) => b.at - a.at).map((e) => `- ${new Date(e.at).toLocaleDateString("es-AR")}: ${e.text}`).join("\n") + "\n",
+    });
+  }
+  if (p.cards.length) {
+    const kinds = { character: "Personajes", place: "Lugares", item: "Objetos", scene: "Escenas" } as const;
+    files.push({
+      name: "biblia.md",
+      content: (Object.keys(kinds) as (keyof typeof kinds)[])
+        .map((k) => {
+          const cs = p.cards.filter((c) => c.kind === k);
+          return cs.length ? `# ${kinds[k]}\n\n` + cs.map((c) => `## ${c.name}\n${c.summary ? c.summary + "\n\n" : ""}${c.body}`).join("\n\n") : "";
+        })
+        .filter(Boolean)
+        .join("\n\n") + "\n",
     });
   }
   if (p.links.length) {

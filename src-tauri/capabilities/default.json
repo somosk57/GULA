@@ -25,6 +25,7 @@
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "core:asset:default"
   ]
 }

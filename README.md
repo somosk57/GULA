@@ -5,11 +5,12 @@
 Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola ventana, para trabajar con IA sin perder el hilo. Una ventana chica, minimalista, que podés mover y redimensionar como cualquier otra, y dejar siempre arriba.
 
 - **Izquierda:** proyectos y sus notas (estilo canales de Discord).
-- **Derecha arriba:** la nota, en markdown **en vivo**: los títulos se ven grandes, la negrita en negrita (`Ctrl+B`), cursiva (`Ctrl+I`), las casillas `- [ ]` son casillas reales (clic o `Ctrl+Enter`), Enter continúa listas. `Ctrl+E` muestra la vista renderizada. El botón de columnas divide la nota en 2, 3 o hasta 6 **columnas** (o presets como *Por hacer · Haciendo · Hecho* o *Idea · Prompt · Resultado*) para trabajar varias cosas a la vez sin escribir todo en un solo lugar.
+- **Derecha arriba:** la nota, en markdown **en vivo**: los títulos se ven grandes, la negrita en negrita (`Ctrl+B`), cursiva (`Ctrl+I`), las casillas `- [ ]` son casillas reales (clic o `Ctrl+Enter`), Enter continúa listas. `Ctrl+E` muestra la vista renderizada. El botón de recuadros pasa de 1 → 3 → 6 **columnas** con un clic (clic derecho: presets como *Por hacer · Haciendo · Hecho* o *Idea · Prompt · Resultado*, y agregar/quitar); cada recuadro tiene su propio título editable, como sticky notes integradas para trabajar varias cosas a la vez sin escribir todo en un solo lugar.
 - **Derecha abajo:** seis pestañas por proyecto (`Ctrl+1..6`, `Ctrl+Tab` para rotar):
   - **Carpetas:** el tablero de accesos del proyecto: carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
   - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
   - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimos avances de la bitácora + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
+  - **Fichas:** la biblia del proyecto: personajes, lugares, objetos y escenas, cada una con una línea de resumen (lo que ve la IA), detalle largo, imagen de referencia y un interruptor "Para la IA". Las escenas tienen estado (idea / borrador / lista) y qué personajes y lugares aparecen. Se ordenan arrastrando. Pensado para novelas, pero sirve para cualquier proyecto con "cosas" que la IA tiene que conocer.
   - **Comandos:** comandos y textos que usás seguido. *Copiar* o **▶ Correr** (abre PowerShell parado en la primera carpeta pinneada y lo ejecuta).
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
   - **Bitácora:** una línea por avance con fecha automática. Para retomar después de días y para la IA.
@@ -24,7 +25,7 @@ Las notas se agrupan en **secciones** (clic derecho en el título de la sección
 
 **Bandeja y atajo global:** la X esconde la ventana a la bandeja del sistema (ícono al lado del reloj); `Ctrl+Shift+Space` la muestra/oculta desde cualquier app. "Salir" está en el menú del ícono de la bandeja.
 
-Atajos: `Ctrl+K` buscar en todos los proyectos · `Ctrl+Z` / `Ctrl+Shift+Z` deshacer / rehacer · `Ctrl+N` nueva nota · `Ctrl+B` barra lateral · `Ctrl+E` vista/edición · `Ctrl+1..6` pestañas · `Ctrl+Shift+Space` mostrar/ocultar.
+Atajos: `Ctrl+K` buscar en todos los proyectos · `Ctrl+Z` / `Ctrl+Shift+Z` deshacer / rehacer · `Ctrl+N` nueva nota · `Ctrl+B` barra lateral · `Ctrl+E` vista/edición · `Ctrl+1..7` pestañas · `Ctrl+Shift+Space` mostrar/ocultar.
 
 Los datos se guardan en `%APPDATA%\com.creator100k.gula\data.json`, con una copia de seguridad por día en `backups\` (se guardan las últimas 30). Desde el menú `⋯` de la barra de título: restaurar una copia, cambiar tema (oscuro / claro / sistema), abrir la carpeta de datos. La posición y tamaño de la ventana se recuerdan solos.
 

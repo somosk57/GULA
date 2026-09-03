@@ -504,3 +504,45 @@ body.reordering * { cursor: grabbing !important; }
 .dlg-body { max-height: 50vh; overflow-y: auto; }
 
 .session-dot { width: 7px; height: 7px; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 3px rgba(61,220,132,.2); flex: none; }
+
+/* ---------- Fichas ---------- */
+.cards, .card-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.chip.on { color: var(--text); border-color: var(--accent); background: var(--accent-soft, rgba(79,140,255,.12)); }
+.card-grid {
+  flex: 1; overflow-y: auto; padding: 4px 20px 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-content: start;
+}
+.card {
+  display: flex; flex-direction: column; text-align: left; border-radius: 8px; overflow: hidden;
+  background: var(--bg-input); border: 1px solid var(--line);
+}
+.card:hover { border-color: var(--border-strong); }
+.card.off { opacity: .55; }
+.card-img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; background: var(--bg-code); }
+.card-img.placeholder { display: grid; place-items: center; font-size: 26px; color: var(--text-faint); }
+.card-body { padding: 7px 10px 8px; min-width: 0; }
+.card-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-sub { font-size: 11.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-kind { text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
+.status { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 8px; background: var(--bg-code); }
+.status.draft { color: #e2b04a; }
+.status.done { color: #3ddc84; }
+.card-editor-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 150px 1fr; gap: 14px; padding: 4px 20px 14px; }
+.card-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card-big { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--bg-code); cursor: zoom-in; }
+.card-big.placeholder { display: grid; place-items: center; font-size: 40px; color: var(--text-faint); cursor: default; }
+.card-side-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.card-tags .prompt-sub { width: 100%; }
+.chip.tiny { font-size: 11px; padding: 2px 8px; }
+.card-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 4px; }
+.card-title-input { font-size: 18px; font-weight: 600; }
+.card-summary-input { font-size: 13px; padding: 6px 8px; background: var(--bg-input); border-radius: var(--radius); border: 1px solid var(--line); }
+.card-summary-input:focus { border-color: var(--accent); }
+.card-main .mdeditor { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; background: var(--bg-input); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
+.seg-btn { font-size: 11.5px; padding: 4px 10px; color: var(--text-dim); }
+.seg-btn.on { background: var(--bg-active); color: var(--text); }
+.toggle-chip { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; }
+.toggle-chip input { accent-color: var(--accent); margin: 0; }
+.compact .card-editor-body { grid-template-columns: 1fr; }

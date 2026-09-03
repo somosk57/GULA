@@ -9,6 +9,7 @@ import { ContextPanel } from "./components/ContextPanel";
 import { SnippetsPanel } from "./components/SnippetsPanel";
 import { LogPanel } from "./components/LogPanel";
 import { TasksPanel } from "./components/TasksPanel";
+import { CardsPanel } from "./components/CardsPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { SearchPalette, Hit } from "./components/SearchPalette";
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "links", label: "Carpetas" },
   { id: "prompts", label: "Prompts" },
   { id: "context", label: "Contexto" },
+  { id: "cards", label: "Fichas" },
   { id: "snippets", label: "Comandos" },
   { id: "tasks", label: "Tareas" },
   { id: "log", label: "Bitácora" },
@@ -105,7 +107,7 @@ export default function App() {
           const step = e.shiftKey ? -1 : 1;
           d.bottomTab = TABS[(i + step + TABS.length) % TABS.length].id;
         });
-      } else if (/^[1-6]$/.test(k)) {
+      } else if (/^[1-7]$/.test(k)) {
         e.preventDefault();
         update((d) => (d.bottomTab = TABS[Number(k) - 1].id));
       }
@@ -204,6 +206,7 @@ export default function App() {
                   t.id === "links" ? project.links.length
                   : t.id === "prompts" ? project.prompts.length
                   : t.id === "snippets" ? project.snippets.length
+                  : t.id === "cards" ? project.cards.length
                   : t.id === "tasks" ? collectTasks(project).filter((x) => !x.done).length
                   : 0;
                 return (
@@ -223,6 +226,7 @@ export default function App() {
             {state.bottomTab === "prompts" && <PromptsPanel project={project} update={update} />}
             {state.bottomTab === "context" && <ContextPanel project={project} update={update} />}
             {state.bottomTab === "snippets" && <SnippetsPanel project={project} update={update} />}
+            {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
             {state.bottomTab === "log" && <LogPanel project={project} update={update} />}
           </div>

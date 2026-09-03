@@ -154,7 +154,12 @@ export function Editor({ project, note, update }: Props) {
           placeholder="Título"
           spellCheck={false}
         />
-        <button className="mode-btn" onClick={layoutMenu} title="Columnas: dividí la nota para trabajar varias cosas a la vez">
+        <button
+          className="mode-btn"
+          onClick={() => applyPreset(count < 3 ? ["", "", ""] : count < 6 ? ["", "", "", "", "", ""] : [])}
+          onContextMenu={(e) => { e.preventDefault(); layoutMenu(e); }}
+          title="Recuadros: clic pasa de 1 → 3 → 6 · clic derecho: presets y agregar columna"
+        >
           <LayoutIcon n={count} />
         </button>
         <button
@@ -182,7 +187,7 @@ export function Editor({ project, note, update }: Props) {
                 className="pane-title"
                 value={p.title}
                 onChange={(e) => setPane(p.id, (x) => (x.title = e.target.value))}
-                placeholder={`Columna ${i + 1}`}
+                placeholder={`Título ${i + 1}…`}
                 spellCheck={false}
               />
               <MarkdownEditor
