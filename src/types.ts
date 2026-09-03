@@ -183,7 +183,20 @@ export function migrate(raw: unknown): AppState {
       ...n,
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
-    })),
+    })).map((n) => {
+      // Limpieza: notas de una columna que arrastraron títulos internos "## Columna" de un bug viejo.
+      if (n.panes.length === 1 && /^## (Columna|Por hacer|Haciendo|Hecho|Escena|Notas|Dudas|Idea|Prompt|Resultado)\s*$/m.test(n.panes[0].body)) {
+        const cleaned = n.panes[0].body
+          .split("\n")
+          .filter((l) => !/^## (Columna|Por hacer|Haciendo|Hecho|Escena|Notas|Dudas|Idea|Prompt|Resultado|Imagen|Video)\s*$/.test(l))
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        n.panes[0].body = cleaned;
+        n.body = cleaned;
+      }
+      return n;
+    }),
     links: p.links ?? [],
     prompts: p.prompts ?? [],
     // v2 tenía un solo texto de contexto: pasa a ser el primer bloque.

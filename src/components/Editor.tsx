@@ -110,8 +110,11 @@ export function Editor({ project, note, update }: Props) {
     setNote((n) => {
       const want = Math.max(1, titles.length);
       if (want === 1) {
-        // Volver a una columna: juntar todo en la primera.
-        if (n.panes.length > 1) n.panes = [{ id: n.panes[0].id, title: "", body: n.body }];
+        // Volver a una columna: juntar solo los textos reales (sin los "## título" internos).
+        if (n.panes.length > 1) {
+          const joined = n.panes.map((p) => p.body.trim()).filter(Boolean).join("\n\n");
+          n.panes = [{ id: n.panes[0].id, title: "", body: joined }];
+        }
         return;
       }
       while (n.panes.length < want) n.panes.push({ id: uid(), title: "", body: "" });
