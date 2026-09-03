@@ -546,3 +546,10 @@ body.reordering * { cursor: grabbing !important; }
 .toggle-chip { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; }
 .toggle-chip input { accent-color: var(--accent); margin: 0; }
 .compact .card-editor-body { grid-template-columns: 1fr; }
+
+/* ---------- Imágenes en notas ---------- */
+.cm-image { padding: 4px 0 8px; }
+.cm-image img, .cm-image video { max-width: 100%; max-height: 360px; border-radius: 6px; display: block; background: var(--bg-code); }
+.cm-image.broken { font-size: 12px; color: var(--danger); padding: 4px 0; }
+.md img { max-width: 100%; border-radius: 6px; }
+.single { flex: 1; min-height: 0; display: flex; }

@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
 import { AppState, Note, Pane, Project, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
-import { MarkdownEditor } from "./MarkdownEditor";
+import { MarkdownEditor, insertImage, isImagePath } from "./MarkdownEditor";
+import type { EditorView } from "@codemirror/view";
+import { assetUrl, pickImage, win } from "../backend";
+import { useRef } from "react";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { ask, confirmDlg } from "../dialog";
 
@@ -22,14 +25,31 @@ const PRESETS: { label: string; titles: string[] }[] = [
   { label: "2 columnas", titles: ["", ""] },
   { label: "3 columnas", titles: ["", "", ""] },
   { label: "Por hacer · Haciendo · Hecho", titles: ["Por hacer", "Haciendo", "Hecho"] },
+  { label: "Prompt · Imagen", titles: ["Prompt", "Imagen"] },
+  { label: "Prompt · Imagen · Video", titles: ["Prompt", "Imagen", "Video"] },
+  { label: "Idea · Prompt · Imagen · Video", titles: ["Idea", "Prompt", "Imagen", "Video"] },
   { label: "Idea · Prompt · Resultado", titles: ["Idea", "Prompt", "Resultado"] },
   { label: "Escena · Notas · Dudas", titles: ["Escena", "Notas", "Dudas"] },
+  { label: "Idea · Escena · Personaje · Prompt · Referencias · Video", titles: ["Idea", "Escena", "Personaje", "Prompt", "Referencias", "Video"] },
   { label: "6 casillas", titles: ["", "", "", "", "", ""] },
 ];
 
 export function Editor({ project, note, update }: Props) {
   const [preview, setPreview] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const views = useRef<Record<string, EditorView>>({});
+
+  // Imagen arrastrada desde el Explorador sobre un recuadro con foco → se inserta ahí.
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    win.onDrop((paths) => {
+      const img = paths.find(isImagePath);
+      if (!img) return;
+      const focused = Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
+      if (focused) insertImage(focused, img);
+    }).then((f) => (off = f));
+    return () => off?.();
+  }, [note.id]);
 
   const setNote = (fn: (n: Note) => void) =>
     update((d) => {
@@ -57,7 +77,12 @@ export function Editor({ project, note, update }: Props) {
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const html = useMemo(
-    () => (preview ? (marked.parse(note.body) as string).replace(/<input([^>]*)disabled=""/g, "<input$1") : ""),
+    () =>
+      preview
+        ? (marked.parse(note.body) as string)
+            .replace(/<input([^>]*)disabled=""/g, "<input$1")
+            .replace(/<img src="(?!https?:|data:)([^"]+)"/g, (_, src) => `<img src="${assetUrl(decodeURIComponent(src))}"`)
+        : "",
     [preview, note.body],
   );
 
@@ -115,6 +140,14 @@ export function Editor({ project, note, update }: Props) {
     const i = note.panes.findIndex((x) => x.id === p.id);
     const items: MenuItem[] = [
       {
+        label: "Insertar imagen o video…",
+        onClick: async () => {
+          const path = await pickImage();
+          const v = views.current[p.id];
+          if (path && v) insertImage(v, path);
+        },
+      },
+      {
         label: "Renombrar columna",
         onClick: async () => {
           const t = await ask("Nombre de la columna", p.title);
@@ -142,7 +175,7 @@ export function Editor({ project, note, update }: Props) {
   };
 
   const count = note.panes.length;
-  const cols = count <= 3 ? count : 3;
+  const cols = count <= 3 ? count : count === 4 ? 2 : 3;
 
   return (
     <section className="editor">
@@ -173,12 +206,15 @@ export function Editor({ project, note, update }: Props) {
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
       ) : count === 1 ? (
-        <MarkdownEditor
-          key={note.id + note.panes[0].id}
-          value={note.panes[0].body}
-          onChange={(v) => setPane(note.panes[0].id, (p) => (p.body = v))}
-          placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)"}
-        />
+        <div className="single" onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, note.panes[0]); }}>
+          <MarkdownEditor
+            key={note.id + note.panes[0].id}
+            value={note.panes[0].body}
+            onChange={(v) => setPane(note.panes[0].id, (p) => (p.body = v))}
+            placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)\n![](imagen.png) muestra una imagen"}
+            onReady={(v) => (views.current[note.panes[0].id] = v)}
+          />
+        </div>
       ) : (
         <div className="panes" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {note.panes.map((p, i) => (
@@ -196,6 +232,7 @@ export function Editor({ project, note, update }: Props) {
                 onChange={(v) => setPane(p.id, (x) => (x.body = v))}
                 placeholder="…"
                 compact
+                onReady={(v) => (views.current[p.id] = v)}
               />
             </div>
           ))}

@@ -387,6 +387,43 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Guarda una imagen (base64) en la carpeta de datos y devuelve su ruta.
+#[tauri::command]
+fn save_image(app: AppHandle, base64: String, ext: String) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("images");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let bytes = b64_decode(&base64).ok_or("base64 inválido")?;
+    let safe_ext: String = ext.chars().filter(|c| c.is_ascii_alphanumeric()).take(5).collect();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let file = dir.join(format!("img-{stamp}.{}", if safe_ext.is_empty() { "png".into() } else { safe_ext }));
+    fs::write(&file, bytes).map_err(|e| e.to_string())?;
+    Ok(file.to_string_lossy().to_string())
+}
+
+fn b64_decode(s: &str) -> Option<Vec<u8>> {
+    const T: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    let mut buf = 0u32;
+    let mut bits = 0;
+    for c in s.bytes() {
+        if c == b'=' || c == b'\n' || c == b'\r' {
+            continue;
+        }
+        let v = T.iter().position(|&t| t == c)? as u32;
+        buf = (buf << 6) | v;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buf >> bits) as u8);
+            buf &= (1 << bits) - 1;
+        }
+    }
+    Some(out)
+}
+
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
@@ -430,6 +467,7 @@ pub fn run() {
             run_command,
             export_files,
             list_backups,
+            save_image,
             read_backup,
             snapshot_now,
             load_state,

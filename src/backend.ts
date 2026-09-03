@@ -120,10 +120,24 @@ export function assetUrl(path: string): string {
   return convertFileSrc(path);
 }
 
+/** Guarda una imagen pegada/soltada en la carpeta de datos y devuelve la ruta. */
+export async function saveImage(blob: Blob): Promise<string> {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  const base64 = btoa(bin);
+  const ext = (blob.type.split("/")[1] || "png").replace("jpeg", "jpg");
+  if (!isTauri) return `data:${blob.type};base64,${base64}`;
+  return invoke<string>("save_image", { base64, ext });
+}
+
+export const isImagePath = (p: string) => /\.(png|jpe?g|webp|gif|bmp|svg|mp4|webm|mov|m4v)$/i.test(p);
+export const isVideoPath = (p: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(p);
+
 export async function pickImage(): Promise<string | null> {
   if (!isTauri) return ask("Ruta de la imagen:");
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const r = await open({ multiple: false, filters: [{ name: "Imágenes", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }] });
+  const r = await open({ multiple: false, filters: [{ name: "Imágenes y videos", extensions: ["png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov", "m4v"] }] });
   return typeof r === "string" ? r : null;
 }
 

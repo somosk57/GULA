@@ -2,7 +2,7 @@
 // las casillas son casillas clickeables, y los marcadores (#, **, - [ ]) siguen
 // visibles pero atenuados. Sin cambiar de modo para ver el resultado.
 import { useEffect, useRef } from "react";
-import { EditorState, RangeSetBuilder, Compartment } from "@codemirror/state";
+import { EditorState, RangeSetBuilder, Compartment, StateField } from "@codemirror/state";
 import {
   EditorView, keymap, Decoration, DecorationSet, ViewPlugin, ViewUpdate, WidgetType,
   placeholder as cmPlaceholder, drawSelection, highlightActiveLine,
@@ -11,6 +11,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
+import { assetUrl, isImagePath, isVideoPath, saveImage } from "../backend";
 
 interface Props {
   value: string;
@@ -19,6 +20,8 @@ interface Props {
   autoFocus?: boolean;
   /** Tipografía más chica (para columnas). */
   compact?: boolean;
+  /** Recibe la vista para insertar cosas desde afuera (imágenes). */
+  onReady?: (v: EditorView) => void;
 }
 
 // ---- Estilo del markdown ----
@@ -94,6 +97,77 @@ const checkboxPlugin = ViewPlugin.fromClass(
   },
 );
 
+// ---- Imágenes: ![alt](ruta o url) muestra la imagen debajo de la línea ----
+// Lazy hasta un ")" seguido de espacio o fin de línea, así rutas con paréntesis no lo cortan.
+const IMG_RE = /!\[[^\]]*\]\((\S+?)\)(?=\s|$)/;
+
+function imageSrc(src: string) {
+  if (/^(https?:|data:|asset:|http:\/\/asset\.)/i.test(src)) return src;
+  return assetUrl(src.replace(/^file:\/\/\/?/, ""));
+}
+
+class ImageWidget extends WidgetType {
+  constructor(readonly src: string) { super(); }
+  eq(o: ImageWidget) { return o.src === this.src; }
+  toDOM() {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-image";
+    const el = isVideoPath(this.src) ? document.createElement("video") : document.createElement("img");
+    el.src = imageSrc(this.src);
+    if (el instanceof HTMLVideoElement) {
+      el.controls = true;
+      el.preload = "metadata";
+    } else {
+      el.alt = "";
+    }
+    el.draggable = false;
+    el.onerror = () => { wrap.classList.add("broken"); wrap.textContent = "No se encuentra el archivo: " + this.src; };
+    wrap.appendChild(el);
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+function buildImageDecos(state: EditorState) {
+  const b = new RangeSetBuilder<Decoration>();
+  for (let i = 1; i <= state.doc.lines; i++) {
+    const line = state.doc.line(i);
+    const m = line.text.match(IMG_RE);
+    if (m) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(m[1]), block: true, side: 1 }));
+  }
+  return b.finish();
+}
+
+// Las decoraciones de bloque tienen que venir de un StateField, no de un ViewPlugin.
+const imageField = StateField.define<DecorationSet>({
+  create: buildImageDecos,
+  update(decos, tr) {
+    return tr.docChanged ? buildImageDecos(tr.state) : decos;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+/** Inserta `![](ruta)` en la posición del cursor, en su propia línea. */
+export function insertImage(view: EditorView, path: string) {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const prefix = line.text.trim() ? "\n" : "";
+  const ins = `${prefix}![](${path})\n`;
+  view.dispatch({ changes: { from: line.to, insert: ins }, selection: { anchor: line.to + ins.length } });
+  view.focus();
+}
+
+/** Ctrl+V con una imagen en el portapapeles → se guarda y se inserta. */
+const pasteImages = EditorView.domEventHandlers({
+  paste(e, view) {
+    const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+    if (!files.length) return false;
+    e.preventDefault();
+    saveImage(files[0]).then((p) => insertImage(view, p));
+    return true;
+  },
+});
+
 // ---- Comandos: negrita, cursiva, continuar listas ----
 function wrapSelection(view: EditorView, mark: string) {
   const { from, to } = view.state.selection.main;
@@ -162,7 +236,9 @@ const baseTheme = EditorView.theme({
 
 const compactTheme = EditorView.theme({ "&": { fontSize: "13px" } });
 
-export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compact }: Props) {
+export { isImagePath };
+
+export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compact, onReady }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -181,6 +257,8 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(mdHighlight),
         checkboxPlugin,
+        imageField,
+        pasteImages,
         mdKeymap,
         keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
         cmPlaceholder(placeholder ?? ""),
@@ -193,6 +271,7 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
     });
     const v = new EditorView({ state, parent: host.current });
     view.current = v;
+    onReady?.(v);
     if (autoFocus) v.focus();
     return () => {
       v.destroy();
@@ -215,6 +294,6 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
     view.current?.dispatch({ effects: sizeComp.current.reconfigure(compact ? compactTheme : []) });
   }, [compact]);
 
-  return <div className="mdeditor" ref={host} />;
+  return <div className="mdeditor" ref={host} data-editor="1" />;
 }
 

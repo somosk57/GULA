@@ -93,7 +93,12 @@ export function LinksPanel({ project, update }: Props) {
   // Drag & drop desde el Explorador (evento nativo de Tauri)
   useEffect(() => {
     let off: (() => void) | undefined;
-    win.onDrop((paths) => addLinks(paths)).then((f) => (off = f));
+    win.onDrop((paths) => {
+      // Si hay un editor con foco y son imágenes, las toma el editor (van dentro de la nota).
+      const editorFocused = !!document.activeElement?.closest?.(".cm-editor");
+      const rest = editorFocused ? paths.filter((p) => !/\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(p)) : paths;
+      if (rest.length) addLinks(rest);
+    }).then((f) => (off = f));
     const enter = () => setDragging(true);
     const leave = () => setDragging(false);
     window.addEventListener("dragenter", enter);
