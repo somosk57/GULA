@@ -12,6 +12,7 @@ import { TasksPanel } from "./components/TasksPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { SearchPalette, Hit } from "./components/SearchPalette";
+import { pasteAs } from "./pasteAs";
 import { win } from "./backend";
 import { Tab, newNote } from "./types";
 import { collectTasks } from "./ai";
@@ -73,6 +74,13 @@ export default function App() {
       } else if (k === "k") {
         e.preventDefault();
         setSearchOpen((v) => !v);
+      } else if (k === "v" && e.shiftKey) {
+        e.preventDefault();
+        update((d) => {
+          const p = activeProject(d);
+          // pasteAs es async y usa update por su cuenta; acá solo lo disparamos con el estado actual.
+          setTimeout(() => pasteAs(p, d.activeNoteId[p.id], update), 0);
+        });
       } else if (k === "z") {
         // No pisar el deshacer nativo mientras se tipea en un campo.
         const t = e.target as HTMLElement;
@@ -154,6 +162,7 @@ export default function App() {
         onRedo={redo}
         onReplace={replace}
         onOpenSearch={() => setSearchOpen(true)}
+        onPasteAs={() => pasteAs(project, state.activeNoteId[project.id], update)}
       />
       <UpdateBanner />
       <Dialogs />
@@ -183,6 +192,13 @@ export default function App() {
           />
           <div className="bottom">
             <div className="tabs">
+              <button
+                className="tab-max"
+                title={split <= 20 ? "Volver al tamaño normal" : "Agrandar el panel de abajo"}
+                onClick={() => setSplit((v) => (v <= 20 ? 62 : 12))}
+              >
+                {split <= 20 ? "⤡" : "⤢"}
+              </button>
               {TABS.map((t, i) => {
                 const count =
                   t.id === "links" ? project.links.length

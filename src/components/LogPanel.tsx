@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { AppState, Project, uid } from "../types";
 import { fmtDate } from "../ai";
+import { openUrl } from "../backend";
+import { closeSession, startSession, fmtMinutes } from "../session";
 
 interface Props {
   project: Project;
@@ -31,6 +33,16 @@ export function LogPanel({ project, update }: Props) {
 
   return (
     <div className="log">
+      <div className="panel-actions">
+        {project.sessionStartedAt != null ? (
+          <button className="chip session" onClick={() => closeSession(project, update)}>
+            ● Cerrar sesión · {fmtMinutes(Math.max(1, Math.round((Date.now() - project.sessionStartedAt) / 60000)))}
+          </button>
+        ) : (
+          <button className="chip primary" onClick={() => startSession(project, update)} title="Copia el paquete para la IA y empieza a contar el tiempo">▶ Empezar sesión</button>
+        )}
+        <span className="prompt-sub">{project.log.length} entrada{project.log.length === 1 ? "" : "s"}</span>
+      </div>
       <div className="log-input">
         <input
           value={text}
@@ -49,7 +61,13 @@ export function LogPanel({ project, update }: Props) {
           return (
             <div key={e.id} className="log-entry">
               <span className="log-day">{showDay ? day : ""}</span>
-              <span className="log-text">{e.text}</span>
+              <span className="log-text">
+                {e.text}
+                {e.minutes ? <span className="log-min"> · {fmtMinutes(e.minutes)}</span> : null}
+                {e.link && (
+                  <button className="log-link" onClick={() => openUrl(e.link!)} title={e.link}>↗ chat</button>
+                )}
+              </span>
               <button className="log-del" onClick={() => remove(e.id)} title="Borrar">×</button>
             </div>
           );

@@ -1,0 +1,220 @@
+// Editor markdown "en vivo": los títulos se ven grandes, la negrita en negrita,
+// las casillas son casillas clickeables, y los marcadores (#, **, - [ ]) siguen
+// visibles pero atenuados. Sin cambiar de modo para ver el resultado.
+import { useEffect, useRef } from "react";
+import { EditorState, RangeSetBuilder, Compartment } from "@codemirror/state";
+import {
+  EditorView, keymap, Decoration, DecorationSet, ViewPlugin, ViewUpdate, WidgetType,
+  placeholder as cmPlaceholder, drawSelection, highlightActiveLine,
+} from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
+
+interface Props {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  /** Tipografía más chica (para columnas). */
+  compact?: boolean;
+}
+
+// ---- Estilo del markdown ----
+const mdHighlight = HighlightStyle.define([
+  { tag: t.heading1, class: "cm-h1" },
+  { tag: t.heading2, class: "cm-h2" },
+  { tag: t.heading3, class: "cm-h3" },
+  { tag: t.heading4, class: "cm-h3" },
+  { tag: t.strong, class: "cm-strong" },
+  { tag: t.emphasis, class: "cm-em" },
+  { tag: t.strikethrough, class: "cm-strike" },
+  { tag: t.monospace, class: "cm-code" },
+  { tag: t.link, class: "cm-link" },
+  { tag: t.url, class: "cm-url" },
+  { tag: t.quote, class: "cm-quote" },
+  { tag: t.processingInstruction, class: "cm-marker" }, // #, **, -, >, `
+  { tag: t.list, class: "cm-list" },
+  { tag: t.contentSeparator, class: "cm-hr" },
+]);
+
+// ---- Casillas clickeables ----
+class CheckboxWidget extends WidgetType {
+  constructor(readonly checked: boolean, readonly from: number) { super(); }
+  eq(o: CheckboxWidget) { return o.checked === this.checked && o.from === this.from; }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = "cm-checkbox" + (this.checked ? " checked" : "");
+    el.setAttribute("data-from", String(this.from));
+    el.title = this.checked ? "Marcar pendiente" : "Marcar hecha";
+    return el;
+  }
+  ignoreEvent() { return false; }
+}
+
+const TASK_RE = /^(\s*[-*+]\s+)\[([ xX])\]/;
+
+const checkboxPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) { this.decorations = this.build(view); }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.viewportChanged) this.decorations = this.build(u.view);
+    }
+    build(view: EditorView) {
+      const b = new RangeSetBuilder<Decoration>();
+      for (const { from, to } of view.visibleRanges) {
+        for (let pos = from; pos <= to;) {
+          const line = view.state.doc.lineAt(pos);
+          const m = line.text.match(TASK_RE);
+          if (m) {
+            const start = line.from + m[1].length;
+            b.add(start, start + 3, Decoration.replace({ widget: new CheckboxWidget(m[2] !== " ", start) }));
+          }
+          pos = line.to + 1;
+        }
+      }
+      return b.finish();
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+    eventHandlers: {
+      mousedown(e, view) {
+        const el = (e.target as HTMLElement).closest?.(".cm-checkbox") as HTMLElement | null;
+        if (!el) return false;
+        const from = Number(el.getAttribute("data-from"));
+        const cur = view.state.doc.sliceString(from, from + 3);
+        view.dispatch({ changes: { from, to: from + 3, insert: cur === "[ ]" ? "[x]" : "[ ]" } });
+        e.preventDefault();
+        return true;
+      },
+    },
+  },
+);
+
+// ---- Comandos: negrita, cursiva, continuar listas ----
+function wrapSelection(view: EditorView, mark: string) {
+  const { from, to } = view.state.selection.main;
+  const sel = view.state.doc.sliceString(from, to);
+  const already = sel.startsWith(mark) && sel.endsWith(mark) && sel.length >= mark.length * 2;
+  const insert = already ? sel.slice(mark.length, -mark.length) : mark + (sel || "texto") + mark;
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor: from + (already ? 0 : mark.length), head: from + insert.length - (already ? 0 : mark.length) },
+  });
+  return true;
+}
+
+function continueList(view: EditorView) {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const m = line.text.match(/^(\s*)([-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/);
+  if (!m) return false;
+  const onlyMarker = line.text.trim() === m[0].trim();
+  if (onlyMarker) {
+    // Enter en ítem vacío → salir de la lista.
+    view.dispatch({ changes: { from: line.from, to: line.to, insert: "" } });
+    return true;
+  }
+  let marker = m[0].replace(/\[[xX]\]/, "[ ]");
+  const num = marker.match(/^(\s*)(\d+)\./);
+  if (num) marker = `${num[1]}${Number(num[2]) + 1}. `;
+  const ins = "\n" + marker;
+  view.dispatch({ changes: { from, insert: ins }, selection: { anchor: from + ins.length } });
+  return true;
+}
+
+function toggleTaskLine(view: EditorView) {
+  const line = view.state.doc.lineAt(view.state.selection.main.from);
+  const m = line.text.match(TASK_RE);
+  if (m) {
+    const start = line.from + m[1].length;
+    view.dispatch({ changes: { from: start, to: start + 3, insert: m[2] === " " ? "[x]" : "[ ]" } });
+  } else {
+    const lead = line.text.match(/^\s*/)![0].length;
+    view.dispatch({ changes: { from: line.from + lead, insert: "- [ ] " } });
+  }
+  return true;
+}
+
+const mdKeymap = keymap.of([
+  { key: "Mod-b", run: (v) => wrapSelection(v, "**") },
+  { key: "Mod-i", run: (v) => wrapSelection(v, "*") },
+  { key: "Mod-`", run: (v) => wrapSelection(v, "`") },
+  { key: "Mod-Enter", run: toggleTaskLine },
+  { key: "Enter", run: continueList },
+]);
+
+const baseTheme = EditorView.theme({
+  "&": { height: "100%", fontSize: "14px", backgroundColor: "transparent" },
+  ".cm-scroller": { fontFamily: "inherit", lineHeight: "1.6", overflow: "auto" },
+  ".cm-content": { padding: "0 0 40px", caretColor: "var(--text)" },
+  ".cm-line": { padding: "0 2px" },
+  "&.cm-focused": { outline: "none" },
+  ".cm-activeLine": { backgroundColor: "transparent" },
+  "&.cm-focused .cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--bg-hover) 60%, transparent)" },
+  ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": { backgroundColor: "color-mix(in srgb, var(--accent) 30%, transparent) !important" },
+  ".cm-cursor": { borderLeftColor: "var(--text)" },
+  ".cm-placeholder": { color: "var(--text-faint)", fontStyle: "normal" },
+});
+
+const compactTheme = EditorView.theme({ "&": { fontSize: "13px" } });
+
+export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compact }: Props) {
+  const host = useRef<HTMLDivElement>(null);
+  const view = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const sizeComp = useRef(new Compartment());
+
+  useEffect(() => {
+    if (!host.current) return;
+    const state = EditorState.create({
+      doc: value,
+      extensions: [
+        history(),
+        drawSelection(),
+        highlightActiveLine(),
+        EditorView.lineWrapping,
+        markdown({ base: markdownLanguage }),
+        syntaxHighlighting(mdHighlight),
+        checkboxPlugin,
+        mdKeymap,
+        keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),
+        cmPlaceholder(placeholder ?? ""),
+        baseTheme,
+        sizeComp.current.of(compact ? compactTheme : []),
+        EditorView.updateListener.of((u) => {
+          if (u.docChanged) onChangeRef.current(u.state.doc.toString());
+        }),
+      ],
+    });
+    const v = new EditorView({ state, parent: host.current });
+    view.current = v;
+    if (autoFocus) v.focus();
+    return () => {
+      v.destroy();
+      view.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cambios externos (otra nota, deshacer, tareas tildadas desde la pestaña Tareas).
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const cur = v.state.doc.toString();
+    if (cur !== value) {
+      v.dispatch({ changes: { from: 0, to: cur.length, insert: value } });
+    }
+  }, [value]);
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: sizeComp.current.reconfigure(compact ? compactTheme : []) });
+  }, [compact]);
+
+  return <div className="mdeditor" ref={host} />;
+}
+

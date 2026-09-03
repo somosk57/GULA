@@ -18,10 +18,12 @@ interface Props {
   onRedo: () => void;
   onReplace: (s: AppState) => void;
   onOpenSearch: () => void;
+  onPasteAs: () => void;
 }
 
 const I = {
   pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5" /><path d="M9 3h6l-1 7 3 3H7l3-3z" /></svg>,
+  paste: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11v6M9 14h6" /></svg>,
   dots: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>,
   search: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>,
   side: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></svg>,
@@ -44,7 +46,7 @@ function TrafficLights() {
   );
 }
 
-export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch }: Props) {
+export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -133,6 +135,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Deshacer  (${mod}Z)`, onClick: onUndo },
         { label: `Rehacer  (${mod}Shift+Z)`, onClick: onRedo },
         { label: `Buscar en todo  (${mod}K)`, onClick: onOpenSearch, separator: true },
+        { label: `Pegar como…  (${mod}Shift+V)`, onClick: onPasteAs },
         {
           label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}  →  cambiar`,
           separator: true,
@@ -140,7 +143,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
         { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
-        { label: "GULA v0.4.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v0.5.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -161,12 +164,16 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       <button className="tb-btn sm" title={`Buscar en todos los proyectos (${IS_MAC ? "⌘" : "Ctrl+"}K)`} onClick={onOpenSearch}>
         {I.search}
       </button>
+      <button className="tb-btn sm" title={`Pegar como… nota, bloque, prompt, comando o bitácora (${IS_MAC ? "⌘" : "Ctrl+"}Shift+V)`} onClick={onPasteAs}>
+        {I.paste}
+      </button>
       <button className="tb-btn sm" title="Más opciones" onClick={settingsMenu}>
         {I.dots}
       </button>
 
       <div className="tb-center" data-tauri-drag-region>
         <button className="proj-name" onClick={() => setOpen((v) => !v)} onContextMenu={projectMenu} title="Cambiar de proyecto · clic derecho: opciones">
+          {project.sessionStartedAt != null && <span className="session-dot" title="Sesión en curso" />}
           <span>{project.name}</span>
           {I.chev}
         </button>

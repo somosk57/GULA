@@ -1,4 +1,28 @@
-import { Project } from "./types";
+import { Note, Project, syncNote } from "./types";
+
+/** Tilda/destilda la tarea que está en la línea `line` del texto completo de la nota (funciona con columnas). */
+export function toggleTaskInNote(n: Note, line: number) {
+  const flip = (s: string) => s.replace(/\[([ xX])\]/, (_, x) => (x === " " ? "[x]" : "[ ]"));
+  if (n.panes.length <= 1) {
+    const lines = n.body.split("\n");
+    lines[line] = flip(lines[line] ?? "");
+    n.panes[0].body = lines.join("\n");
+  } else {
+    // Mismo recorrido que joinPanes: "## título" + cuerpo, separados por línea vacía.
+    let cursor = 0;
+    for (const p of n.panes) {
+      const bodyLines = p.body.split("\n");
+      const start = cursor + 1; // después de "## título"
+      if (line >= start && line < start + bodyLines.length) {
+        bodyLines[line - start] = flip(bodyLines[line - start]);
+        p.body = bodyLines.join("\n");
+        break;
+      }
+      cursor = start + bodyLines.length + 1; // + línea vacía separadora
+    }
+  }
+  syncNote(n);
+}
 
 export interface TaskItem {
   noteId: string;

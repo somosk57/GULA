@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AppState, Project } from "../types";
-import { collectTasks } from "../ai";
+import { collectTasks, toggleTaskInNote } from "../ai";
 
 interface Props {
   project: Project;
@@ -17,10 +17,7 @@ export function TasksPanel({ project, update }: Props) {
   const toggle = (noteId: string, line: number) =>
     update((d) => {
       const n = d.projects.find((p) => p.id === project.id)!.notes.find((n) => n.id === noteId)!;
-      const lines = n.body.split("\n");
-      lines[line] = lines[line].replace(/\[([ xX])\]/, (_, x) => (x === " " ? "[x]" : "[ ]"));
-      n.body = lines.join("\n");
-      n.updatedAt = Date.now();
+      toggleTaskInNote(n, line);
     });
 
   const goTo = (noteId: string) =>

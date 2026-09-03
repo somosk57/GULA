@@ -3,10 +3,20 @@ import { PROFILES, ProfileId, profileById } from "./profiles";
 export type LinkKind = "folder" | "file" | "url";
 export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks";
 
-export interface Note {
+/** Una columna dentro de una nota. */
+export interface Pane {
   id: string;
   title: string;
   body: string;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  /** Texto completo de la nota. Con varias columnas es el texto derivado de `panes` (para buscar, tareas, IA). */
+  body: string;
+  /** Columnas. Siempre al menos una; panes[0].body === body cuando hay una sola. */
+  panes: Pane[];
   pinned: boolean;
   updatedAt: number;
   /** Sección en la barra lateral (ej: "General", "Ideas futuras"). */
@@ -42,6 +52,10 @@ export interface LogEntry {
   id: string;
   at: number;
   text: string;
+  /** Link al chat u otra referencia de esa sesión. */
+  link?: string;
+  /** Duración de la sesión en minutos, si la entrada cerró una sesión. */
+  minutes?: number;
 }
 
 /** Un bloque del contexto (Qué es, Estilo, Decisiones…). Los apagados no van en "Copiar para la IA". */
@@ -65,6 +79,8 @@ export interface Project {
   log: LogEntry[];
   /** Última vez que se hizo "Copiar para la IA" (para la pantalla de proyectos). */
   lastSessionAt: number | null;
+  /** Sesión de trabajo abierta (Empezar sesión → Cerrar sesión). */
+  sessionStartedAt: number | null;
 }
 
 export interface AppState {
@@ -81,7 +97,20 @@ export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP): Note {
-  return { id: uid(), title, body, pinned: false, updatedAt: Date.now(), group };
+  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), group };
+}
+
+/** Texto completo de una nota a partir de sus columnas. */
+export function joinPanes(panes: Pane[]): string {
+  if (panes.length <= 1) return panes[0]?.body ?? "";
+  return panes.map((p) => `## ${p.title || "Columna"}\n${p.body}`).join("\n\n");
+}
+
+/** Recalcula `body` después de editar columnas. Llamar siempre tras tocar `panes`. */
+export function syncNote(n: Note) {
+  if (n.panes.length === 0) n.panes.push({ id: uid(), title: "", body: "" });
+  n.body = joinPanes(n.panes);
+  n.updatedAt = Date.now();
 }
 
 export function newProject(name: string, profile: ProfileId = "blank"): Project {
@@ -98,6 +127,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     snippets: t.snippets.map((s) => ({ id: uid(), ...s })),
     log: [],
     lastSessionAt: null,
+    sessionStartedAt: null,
   };
 }
 
@@ -126,7 +156,11 @@ export function migrate(raw: unknown): AppState {
     id: p.id ?? uid(),
     name: p.name ?? "Proyecto",
     profile: p.profile ?? "blank",
-    notes: (p.notes?.length ? p.notes : [newNote()]).map((n) => ({ ...n, group: n.group || DEFAULT_GROUP })),
+    notes: (p.notes?.length ? p.notes : [newNote()]).map((n) => ({
+      ...n,
+      group: n.group || DEFAULT_GROUP,
+      panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
+    })),
     links: p.links ?? [],
     prompts: p.prompts ?? [],
     // v2 tenía un solo texto de contexto: pasa a ser el primer bloque.
@@ -134,6 +168,7 @@ export function migrate(raw: unknown): AppState {
     snippets: p.snippets ?? [],
     log: p.log ?? [],
     lastSessionAt: p.lastSessionAt ?? null,
+    sessionStartedAt: p.sessionStartedAt ?? null,
   }));
   if (projects.length === 0) return defaultState();
   const activeProjectId = projects.some((p) => p.id === s.activeProjectId)

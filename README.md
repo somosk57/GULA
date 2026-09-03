@@ -5,7 +5,7 @@
 Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola ventana, para trabajar con IA sin perder el hilo. Una ventana chica, minimalista, que podés mover y redimensionar como cualquier otra, y dejar siempre arriba.
 
 - **Izquierda:** proyectos y sus notas (estilo canales de Discord).
-- **Derecha arriba:** la nota, en markdown. `Ctrl+E` alterna edición/vista; las casillas `- [ ]` se tildan con un clic.
+- **Derecha arriba:** la nota, en markdown **en vivo**: los títulos se ven grandes, la negrita en negrita (`Ctrl+B`), cursiva (`Ctrl+I`), las casillas `- [ ]` son casillas reales (clic o `Ctrl+Enter`), Enter continúa listas. `Ctrl+E` muestra la vista renderizada. El botón de columnas divide la nota en 2, 3 o hasta 6 **columnas** (o presets como *Por hacer · Haciendo · Hecho* o *Idea · Prompt · Resultado*) para trabajar varias cosas a la vez sin escribir todo en un solo lugar.
 - **Derecha abajo:** seis pestañas por proyecto (`Ctrl+1..6`, `Ctrl+Tab` para rotar):
   - **Carpetas:** el tablero de accesos del proyecto: carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
   - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
@@ -13,6 +13,12 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
   - **Comandos:** comandos y textos que usás seguido. *Copiar* o **▶ Correr** (abre PowerShell parado en la primera carpeta pinneada y lo ejecuta).
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
   - **Bitácora:** una línea por avance con fecha automática. Para retomar después de días y para la IA.
+
+**Ciclo de sesión:** *▶ Empezar sesión* (en Contexto o Bitácora) copia el paquete para la IA y empieza a contar el tiempo (aparece un punto verde al lado del proyecto). *● Cerrar sesión* te pregunta qué lograste y el link del chat, y lo guarda en la bitácora con la duración. Así los chats viejos quedan indexados por lo que resolvieron.
+
+**Pegar como… (`Ctrl+Shift+V` o el ícono del portapapeles):** lo que tengas copiado (una respuesta de la IA, un prompt que funcionó, un comando) entra a GULA como nota nueva, al final de la nota abierta, bloque de contexto, prompt, comando o entrada de bitácora.
+
+El botón ⤢ al lado de las pestañas agranda el panel de abajo para editar contexto o prompts largos con comodidad.
 
 Las notas se agrupan en **secciones** (clic derecho en el título de la sección o en una nota para mover/renombrar). Al crear un proyecto elegís un **perfil** (App / software, Novela / escritura, Contenido / marca, Estudio, En blanco) y arranca con sus notas, bloques de contexto, prompts y comandos. El selector de proyectos muestra, por cada uno, el último avance, las tareas pendientes y la última actividad. Notas y accesos se reordenan arrastrando. Clic derecho en el nombre del proyecto (arriba, centrado): copiar todo para la IA, **exportar a carpeta** como archivos `.md`, renombrar, eliminar.
 

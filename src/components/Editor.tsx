@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { AppState, Note, Project } from "../types";
+import { AppState, Note, Pane, Project, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
+import { MarkdownEditor } from "./MarkdownEditor";
+import { ContextMenu, MenuItem } from "./ContextMenu";
+import { ask, confirmDlg } from "../dialog";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -11,18 +14,31 @@ interface Props {
   update: (fn: (d: AppState) => void) => void;
 }
 
-const TASK_RE = /^(\s*[-*+]\s+\[)([ xX])(\])/;
+const MAX_PANES = 6;
+
+/** Presets de columnas: un workflow dentro de la nota. */
+const PRESETS: { label: string; titles: string[] }[] = [
+  { label: "1 columna", titles: [] },
+  { label: "2 columnas", titles: ["", ""] },
+  { label: "3 columnas", titles: ["", "", ""] },
+  { label: "Por hacer · Haciendo · Hecho", titles: ["Por hacer", "Haciendo", "Hecho"] },
+  { label: "Idea · Prompt · Resultado", titles: ["Idea", "Prompt", "Resultado"] },
+  { label: "Escena · Notas · Dudas", titles: ["Escena", "Notas", "Dudas"] },
+  { label: "6 casillas", titles: ["", "", "", "", "", ""] },
+];
 
 export function Editor({ project, note, update }: Props) {
   const [preview, setPreview] = useState(false);
-  const taRef = useRef<HTMLTextAreaElement>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
   const setNote = (fn: (n: Note) => void) =>
     update((d) => {
       const n = d.projects.find((p) => p.id === project.id)!.notes.find((n) => n.id === note.id)!;
       fn(n);
-      n.updatedAt = Date.now();
+      syncNote(n);
     });
+
+  const setPane = (paneId: string, fn: (p: Pane) => void) => setNote((n) => fn(n.panes.find((p) => p.id === paneId)!));
 
   // Ctrl+E alterna edición / vista
   useEffect(() => {
@@ -36,12 +52,14 @@ export function Editor({ project, note, update }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Al cambiar de nota, volver a modo edición si la nota está vacía
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const html = useMemo(() => (preview ? (marked.parse(note.body) as string).replace(/<input([^>]*)disabled=""/g, "<input$1") : ""), [preview, note.body]);
+  const html = useMemo(
+    () => (preview ? (marked.parse(note.body) as string).replace(/<input([^>]*)disabled=""/g, "<input$1") : ""),
+    [preview, note.body],
+  );
 
   // Clic en checkbox del preview → flipear en el markdown original
   const onPreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -56,50 +74,75 @@ export function Editor({ project, note, update }: Props) {
     const boxes = Array.from(e.currentTarget.querySelectorAll("input[type=checkbox]"));
     const idx = boxes.indexOf(t);
     let seen = -1;
-    const lines = note.body.split("\n").map((line) => {
-      const m = line.match(TASK_RE);
-      if (!m) return line;
-      seen++;
-      if (seen !== idx) return line;
-      return line.replace(TASK_RE, (_, a, x, c) => a + (x === " " ? "x" : " ") + c);
-    });
-    setNote((n) => (n.body = lines.join("\n")));
-  };
-
-  // Tab inserta 2 espacios, Enter continúa listas
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const ta = e.currentTarget;
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const s = ta.selectionStart;
-      const v = ta.value.slice(0, s) + "  " + ta.value.slice(ta.selectionEnd);
-      setNote((n) => (n.body = v));
-      requestAnimationFrame(() => ta.setSelectionRange(s + 2, s + 2));
-    } else if (e.key === "Enter" && !e.shiftKey) {
-      const s = ta.selectionStart;
-      const lineStart = ta.value.lastIndexOf("\n", s - 1) + 1;
-      const line = ta.value.slice(lineStart, s);
-      const m = line.match(/^(\s*)([-*+]\s+(\[[ xX]\]\s+)?|\d+\.\s+)/);
-      if (m) {
-        const onlyMarker = line.trim() === m[0].trim();
-        e.preventDefault();
-        if (onlyMarker) {
-          // Enter en ítem vacío → salir de la lista
-          const v = ta.value.slice(0, lineStart) + ta.value.slice(s);
-          setNote((n) => (n.body = v));
-          requestAnimationFrame(() => ta.setSelectionRange(lineStart, lineStart));
-        } else {
-          let marker = m[0].replace(/\[[xX]\]/, "[ ]");
-          const num = marker.match(/^(\s*)(\d+)\./);
-          if (num) marker = `${num[1]}${Number(num[2]) + 1}. `;
-          const ins = "\n" + marker;
-          const v = ta.value.slice(0, s) + ins + ta.value.slice(ta.selectionEnd);
-          setNote((n) => (n.body = v));
-          requestAnimationFrame(() => ta.setSelectionRange(s + ins.length, s + ins.length));
-        }
-      }
+    const TASK = /^(\s*[-*+]\s+\[)([ xX])(\])/;
+    const lineNo = note.body.split("\n").findIndex((line) => TASK.test(line) && ++seen === idx);
+    if (lineNo >= 0) {
+      import("../ai").then(({ toggleTaskInNote }) => setNote((n) => toggleTaskInNote(n, lineNo)));
     }
   };
+
+  const applyPreset = (titles: string[]) =>
+    setNote((n) => {
+      const want = Math.max(1, titles.length);
+      if (want === 1) {
+        // Volver a una columna: juntar todo en la primera.
+        if (n.panes.length > 1) n.panes = [{ id: n.panes[0].id, title: "", body: n.body }];
+        return;
+      }
+      while (n.panes.length < want) n.panes.push({ id: uid(), title: "", body: "" });
+      while (n.panes.length > want) {
+        const last = n.panes.pop()!;
+        if (last.body.trim()) n.panes[n.panes.length - 1].body += "\n\n" + last.body;
+      }
+      titles.forEach((t, i) => {
+        if (t && !n.panes[i].title) n.panes[i].title = t;
+      });
+    });
+
+  const layoutMenu = (e: React.MouseEvent) => {
+    const items: MenuItem[] = PRESETS.map((p) => ({ label: p.label, onClick: () => applyPreset(p.titles) }));
+    if (note.panes.length < MAX_PANES)
+      items.push({
+        label: "+ Agregar columna",
+        separator: true,
+        onClick: () => setNote((n) => n.panes.push({ id: uid(), title: "", body: "" })),
+      });
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
+
+  const paneMenu = (e: React.MouseEvent, p: Pane) => {
+    e.preventDefault();
+    const i = note.panes.findIndex((x) => x.id === p.id);
+    const items: MenuItem[] = [
+      {
+        label: "Renombrar columna",
+        onClick: async () => {
+          const t = await ask("Nombre de la columna", p.title);
+          if (t !== null) setPane(p.id, (x) => (x.title = t.trim()));
+        },
+      },
+      { label: "Mover a la izquierda", onClick: () => setNote((n) => { if (i > 0) [n.panes[i - 1], n.panes[i]] = [n.panes[i], n.panes[i - 1]]; }) },
+      { label: "Mover a la derecha", onClick: () => setNote((n) => { if (i < n.panes.length - 1) [n.panes[i + 1], n.panes[i]] = [n.panes[i], n.panes[i + 1]]; }) },
+    ];
+    if (note.panes.length > 1)
+      items.push({
+        label: "Quitar columna",
+        danger: true,
+        separator: true,
+        onClick: async () => {
+          if (p.body.trim() && !(await confirmDlg("¿Quitar esta columna?", "Su texto se pasa al final de la columna anterior.", { okLabel: "Quitar" }))) return;
+          setNote((n) => {
+            const j = n.panes.findIndex((x) => x.id === p.id);
+            const [gone] = n.panes.splice(j, 1);
+            if (gone.body.trim()) n.panes[Math.max(0, j - 1)].body += "\n\n" + gone.body;
+          });
+        },
+      });
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
+
+  const count = note.panes.length;
+  const cols = count <= 3 ? count : 3;
 
   return (
     <section className="editor">
@@ -111,6 +154,9 @@ export function Editor({ project, note, update }: Props) {
           placeholder="Título"
           spellCheck={false}
         />
+        <button className="mode-btn" onClick={layoutMenu} title="Columnas: dividí la nota para trabajar varias cosas a la vez">
+          <LayoutIcon n={count} />
+        </button>
         <button
           className={"mode-btn" + (preview ? " active" : "")}
           onClick={() => setPreview((v) => !v)}
@@ -121,17 +167,46 @@ export function Editor({ project, note, update }: Props) {
       </div>
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
-      ) : (
-        <textarea
-          ref={taRef}
-          className="body"
-          value={note.body}
-          onChange={(e) => setNote((n) => (n.body = e.target.value))}
-          onKeyDown={onKeyDown}
-          placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita**"}
-          spellCheck={false}
+      ) : count === 1 ? (
+        <MarkdownEditor
+          key={note.id + note.panes[0].id}
+          value={note.panes[0].body}
+          onChange={(v) => setPane(note.panes[0].id, (p) => (p.body = v))}
+          placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)"}
         />
+      ) : (
+        <div className="panes" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {note.panes.map((p, i) => (
+            <div key={p.id} className="pane" onContextMenu={(e) => paneMenu(e, p)}>
+              <input
+                className="pane-title"
+                value={p.title}
+                onChange={(e) => setPane(p.id, (x) => (x.title = e.target.value))}
+                placeholder={`Columna ${i + 1}`}
+                spellCheck={false}
+              />
+              <MarkdownEditor
+                key={note.id + p.id}
+                value={p.body}
+                onChange={(v) => setPane(p.id, (x) => (x.body = v))}
+                placeholder="…"
+                compact
+              />
+            </div>
+          ))}
+        </div>
       )}
+      {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </section>
+  );
+}
+
+function LayoutIcon({ n }: { n: number }) {
+  const cells = n <= 1 ? [[0, 0, 12, 10]] : n === 2 ? [[0, 0, 5.5, 10], [6.5, 0, 5.5, 10]] : n === 3 ? [[0, 0, 3.5, 10], [4.25, 0, 3.5, 10], [8.5, 0, 3.5, 10]]
+    : [[0, 0, 3.5, 4.5], [4.25, 0, 3.5, 4.5], [8.5, 0, 3.5, 4.5], [0, 5.5, 3.5, 4.5], [4.25, 5.5, 3.5, 4.5], [8.5, 5.5, 3.5, 4.5]].slice(0, n);
+  return (
+    <svg width="14" height="12" viewBox="0 0 12 10">
+      {cells.map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} rx="1" fill="currentColor" />)}
+    </svg>
   );
 }

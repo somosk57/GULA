@@ -2,7 +2,8 @@ import { useState } from "react";
 import { AppState, ContextBlock, Project, uid } from "../types";
 import { copyText } from "../backend";
 import { buildAiPackage, contextText, estimateTokens } from "../ai";
-import { ask, confirmDlg } from "../dialog";
+import { ask, confirmDlg, notify } from "../dialog";
+import { closeSession, startSession, fmtMinutes } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -82,12 +83,23 @@ export function ContextPanel({ project, update }: Props) {
   const tokens = estimateTokens(pkg);
   const ctxTokens = estimateTokens(contextText(project));
   const on = project.blocks.filter((b) => b.enabled).length;
+  const inSession = project.sessionStartedAt != null;
+  const elapsed = inSession ? Math.max(1, Math.round((Date.now() - project.sessionStartedAt!) / 60000)) : 0;
 
   return (
     <div className="context">
       <div className="panel-actions">
+        {inSession ? (
+          <button className="chip session" onClick={() => closeSession(project, update)} title="Anota qué lograste en la bitácora y cierra la sesión">
+            ● Cerrar sesión · {fmtMinutes(elapsed)}
+          </button>
+        ) : (
+          <button className="chip primary" onClick={() => startSession(project, update)} title="Copia el paquete para la IA y empieza a contar el tiempo">
+            ▶ Empezar sesión
+          </button>
+        )}
         <button
-          className={"chip primary" + (copied === "ai" ? " ok" : "")}
+          className={"chip" + (copied === "ai" ? " ok" : "")}
           onClick={async () => {
             await copyText(pkg);
             update((d) => (d.projects.find((p) => p.id === project.id)!.lastSessionAt = Date.now()));
@@ -97,15 +109,8 @@ export function ContextPanel({ project, update }: Props) {
         >
           {copied === "ai" ? "Copiado ✓" : "Copiar para la IA"}
         </button>
-        <button
-          className={"chip" + (copied === "ctx" ? " ok" : "")}
-          onClick={async () => {
-            await copyText(contextText(project));
-            flash("ctx");
-          }}
-          title="Solo los bloques encendidos"
-        >
-          {copied === "ctx" ? "Copiado ✓" : "Solo contexto"}
+        <button className="chip" onClick={() => notify("Esto es lo que se copia", pkg)} title="Ver el paquete completo antes de copiarlo">
+          Ver
         </button>
         <span className="prompt-sub tokens" title={`Contexto ≈ ${ctxTokens} tokens · paquete completo ≈ ${tokens} tokens`}>
           ≈ {tokens.toLocaleString("es-AR")} tokens · {on}/{project.blocks.length} bloques
