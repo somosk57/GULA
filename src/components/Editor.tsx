@@ -184,9 +184,13 @@ export function Editor({ project, note, update }: Props) {
         />
         <button
           className="mode-btn"
-          onClick={() => applyPreset(count < 3 ? ["", "", ""] : count < 6 ? ["", "", "", "", "", ""] : [])}
+          onClick={() => {
+            const cycle = [1, 2, 3, 4, 6];
+            const next = cycle[(cycle.indexOf(count) + 1) % cycle.length] ?? 1;
+            applyPreset(Array(next).fill(""));
+          }}
           onContextMenu={(e) => { e.preventDefault(); layoutMenu(e); }}
-          title="Recuadros: clic pasa de 1 → 3 → 6 · clic derecho: elegir cantidad"
+          title="Recuadros: clic pasa de 1 → 2 → 3 → 4 → 6 · clic derecho: elegir cantidad"
         >
           <LayoutIcon n={count} />
         </button>
