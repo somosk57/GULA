@@ -31,6 +31,20 @@ export interface Note {
   createdAt: number;
   /** Sección en la barra lateral (ej: "General", "Ideas futuras"). */
   group: string;
+  /** Mientras sea true, el título se deduce de la primera línea escrita. Se apaga al editar el título a mano. */
+  autoTitle: boolean;
+}
+
+/** Título automático: primera línea con texto (sin marcas de markdown), máx. 60. */
+export function deriveTitle(n: Note): string {
+  const pane = n.panes.find((p) => /idea|t[ií]tulo|tema/i.test(p.title)) ?? n.panes[0];
+  for (const src of [pane, ...n.panes]) {
+    for (const raw of src.body.split("\n")) {
+      const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
+      if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 60);
+    }
+  }
+  return "Nueva nota";
 }
 
 export const DEFAULT_GROUP = "General";
@@ -102,6 +116,8 @@ export interface Project {
   /** Etapa del proyecto y "ahora estoy en…": la respuesta a "¿en qué paso estoy?". */
   stage: Stage;
   now: string;
+  /** Carpeta donde se copian las imágenes/videos/audios que se insertan (si está definida). */
+  assetsDir?: string;
   cards: Card[];
   notes: Note[];
   links: Link[];
@@ -126,13 +142,17 @@ export interface AppState {
   theme: "dark" | "light" | "system";
   /** Orden de las notas en la barra: manual (arrastrar) o por fecha (más nuevas arriba). */
   noteSort: "manual" | "date";
+  /** Atajo global para mostrar/ocultar la ventana. */
+  shortcut: string;
+  /** Ya pasó por el primer arranque. */
+  onboarded: boolean;
 }
 
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP): Note {
-  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group };
+  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota" };
 }
 
 /** Texto completo de una nota a partir de sus columnas. */
@@ -173,8 +193,10 @@ export { PROFILES };
 
 export function defaultState(): AppState {
   const p = newProject("Mi proyecto", "blank");
+  p.notes[0].title = "Cómo usar GULA";
+  p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Escribí acá lo que quieras. Soporta **markdown** simple (Ctrl+E para ver).\n\n- [ ] Primera tarea\n- [x] Tarea hecha\n\nAbajo: carpetas, prompts, contexto para la IA, comandos y bitácora.\n\nCreá un proyecto nuevo desde el nombre de arriba para elegir un perfil (App, Novela, Contenido, Estudio).";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- Arrastrá imágenes, videos o audios desde el Explorador a un recuadro.\n- **Copiar para la IA** (pestaña Contexto) arma todo lo que un chat nuevo necesita saber.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],
@@ -184,6 +206,8 @@ export function defaultState(): AppState {
     alwaysOnTop: false,
     theme: "dark",
     noteSort: "manual",
+    shortcut: "Ctrl+Shift+Space",
+    onboarded: false,
   };
 }
 
@@ -202,6 +226,7 @@ export function migrate(raw: unknown): AppState {
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
       createdAt: n.createdAt ?? n.updatedAt ?? Date.now(),
+      autoTitle: n.autoTitle ?? n.title === "Nueva nota",
     })).map((n) => {
       // Limpieza: notas de una columna que arrastraron títulos internos "## Columna" de un bug viejo.
       if (n.panes.length === 1 && /^## (Columna|Por hacer|Haciendo|Hecho|Escena|Notas|Dudas|Idea|Prompt|Resultado)\s*$/m.test(n.panes[0].body)) {
@@ -239,5 +264,7 @@ export function migrate(raw: unknown): AppState {
     alwaysOnTop: s.alwaysOnTop ?? false,
     theme: s.theme ?? "dark",
     noteSort: s.noteSort ?? "manual",
+    shortcut: s.shortcut ?? "Ctrl+Shift+Space",
+    onboarded: s.onboarded ?? true,
   };
 }

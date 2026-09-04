@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { AppState, Note, Pane, Project, syncNote, uid } from "../types";
+import { AppState, Note, Pane, Project, deriveTitle, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
 import { MarkdownEditor, insertImage, isImagePath } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
-import { assetUrl, pickImage, win } from "../backend";
+import { assetUrl, copyToDir, pickImage, win } from "../backend";
 import { useRef } from "react";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { ask, confirmDlg } from "../dialog";
@@ -38,10 +38,14 @@ export function Editor({ project, note, update }: Props) {
         target = Object.values(views.current).find((v) => v.dom === host);
       }
       target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
-      if (target) media.forEach((m) => insertImage(target!, m));
+      if (!target) return;
+      const t = target;
+      (async () => {
+        for (const m of media) insertImage(t, project.assetsDir ? await copyToDir(m, project.assetsDir).catch(() => m) : m);
+      })();
     }).then((f) => (off = f));
     return () => off?.();
-  }, [note.id]);
+  }, [note.id, project.assetsDir]);
 
   const setNote = (fn: (n: Note) => void) =>
     update((d) => {
@@ -50,7 +54,11 @@ export function Editor({ project, note, update }: Props) {
       syncNote(n);
     });
 
-  const setPane = (paneId: string, fn: (p: Pane) => void) => setNote((n) => fn(n.panes.find((p) => p.id === paneId)!));
+  const setPane = (paneId: string, fn: (p: Pane) => void) =>
+    setNote((n) => {
+      fn(n.panes.find((p) => p.id === paneId)!);
+      if (n.autoTitle) n.title = deriveTitle(n);
+    });
 
   // Ctrl+E alterna edición / vista
   useEffect(() => {
@@ -126,15 +134,17 @@ export function Editor({ project, note, update }: Props) {
       {
         label: "Insertar imagen, video o audio…",
         onClick: async () => {
-          const path = await pickImage();
+          const picked = await pickImage();
           const v = views.current[p.id];
-          if (path && v) insertImage(v, path);
+          if (!picked || !v) return;
+          const path = project.assetsDir ? await copyToDir(picked, project.assetsDir).catch(() => picked) : picked;
+          insertImage(v, path);
         },
       },
       {
-        label: "Renombrar columna",
+        label: "Renombrar recuadro",
         onClick: async () => {
-          const t = await ask("Nombre de la columna", p.title);
+          const t = await ask("Nombre del recuadro", p.title);
           if (t !== null) setPane(p.id, (x) => (x.title = t.trim()));
         },
       },
@@ -143,11 +153,11 @@ export function Editor({ project, note, update }: Props) {
     ];
     if (note.panes.length > 1)
       items.push({
-        label: "Quitar columna",
+        label: "Quitar recuadro",
         danger: true,
         separator: true,
         onClick: async () => {
-          if (p.body.trim() && !(await confirmDlg("¿Quitar esta columna?", "Su texto se pasa al final de la columna anterior.", { okLabel: "Quitar" }))) return;
+          if (p.body.trim() && !(await confirmDlg("¿Quitar este recuadro?", "Su texto pasa al final del recuadro anterior.", { okLabel: "Quitar" }))) return;
           setNote((n) => {
             const j = n.panes.findIndex((x) => x.id === p.id);
             const [gone] = n.panes.splice(j, 1);
@@ -167,8 +177,14 @@ export function Editor({ project, note, update }: Props) {
         <input
           className="note-title"
           value={note.title}
-          onChange={(e) => setNote((n) => (n.title = e.target.value))}
-          placeholder="Título"
+          onChange={(e) => setNote((n) => { n.title = e.target.value; n.autoTitle = false; })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              Object.values(views.current)[0]?.focus();
+            }
+          }}
+          placeholder="Título (o escribí abajo y se completa solo)"
           spellCheck={false}
         />
         <button

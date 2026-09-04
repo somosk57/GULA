@@ -1,15 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppState, Note, Project } from "../types";
-import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText } from "../backend";
+import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
   project: Project;
   update: (fn: (d: AppState) => void) => void;
+  /** Para la galería de todos los proyectos. */
+  allProjects?: Project[];
 }
 
 interface Item {
+  projectId: string;
   src: string;
   kind: "image" | "video" | "audio";
   note: Note;
@@ -29,7 +32,7 @@ export function collectMedia(p: Project): Item[] {
         if (!src) continue;
         const kind = isVideoPath(src) ? "video" : isAudioPath(src) ? "audio" : "image";
         const own = pane.body.split("\n").filter((l) => !matchImage(l)).join("\n").trim();
-        out.push({ src, kind, note: n, paneTitle: pane.title, prompt: (promptPane?.body ?? own).trim() });
+        out.push({ projectId: p.id, src, kind, note: n, paneTitle: pane.title, prompt: (promptPane?.body ?? own).trim() });
       }
     }
   }
@@ -38,15 +41,38 @@ export function collectMedia(p: Project): Item[] {
 
 const srcOf = (s: string) => (/^(https?:|data:)/i.test(s) ? s : assetUrl(s));
 
-export function GalleryPanel({ project, update }: Props) {
+export function GalleryPanel({ project, update, allProjects }: Props) {
   const [kind, setKind] = useState<"all" | Item["kind"]>("all");
+  const [scope, setScope] = useState<"project" | "all">("project");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const items = useMemo(() => collectMedia(project), [project]);
+  const [broken, setBroken] = useState<Set<string>>(new Set());
+  const items = useMemo(
+    () => (scope === "all" && allProjects ? allProjects.flatMap(collectMedia) : collectMedia(project)),
+    [project, allProjects, scope],
+  );
+
+  // Detectar archivos que ya no están (movidos o borrados).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const bad = new Set<string>();
+      for (const it of items) {
+        if (/^(https?:|data:)/i.test(it.src)) continue;
+        if (!(await pathExists(it.src))) bad.add(it.src);
+      }
+      if (alive) setBroken(bad);
+    })();
+    return () => { alive = false; };
+  }, [items]);
   const shown = items.filter((i) => kind === "all" || i.kind === kind);
   const counts = { image: 0, video: 0, audio: 0 };
   items.forEach((i) => counts[i.kind]++);
 
-  const goTo = (n: Note) => update((d) => (d.activeNoteId[project.id] = n.id));
+  const goTo = (n: Note, projectId = project.id) =>
+    update((d) => {
+      d.activeProjectId = projectId;
+      d.activeNoteId[projectId] = n.id;
+    });
 
   const itemMenu = (e: React.MouseEvent, it: Item) => {
     e.preventDefault();
@@ -54,7 +80,7 @@ export function GalleryPanel({ project, update }: Props) {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "Ir a la nota", onClick: () => goTo(it.note) },
+        { label: "Ir a la nota", onClick: () => goTo(it.note, it.projectId) },
         { label: "Abrir archivo", onClick: () => openPath(it.src) },
         { label: "Mostrar en Explorador", onClick: () => revealInExplorer(it.src) },
         { label: "Copiar prompt", onClick: () => copyText(it.prompt), separator: true },
@@ -71,14 +97,20 @@ export function GalleryPanel({ project, update }: Props) {
             {k === "all" ? `Todo ${items.length}` : k === "image" ? `Imágenes ${counts.image}` : k === "video" ? `Videos ${counts.video}` : `Audios ${counts.audio}`}
           </button>
         ))}
+        {broken.size > 0 && <span className="chip broken-chip" title="Archivos que ya no están en su ruta: movidos, renombrados o borrados">⚠ {broken.size} sin archivo</span>}
+        {allProjects && allProjects.length > 1 && (
+          <button className={"chip add" + (scope === "all" ? " on" : "")} onClick={() => setScope((s) => (s === "all" ? "project" : "all"))}>
+            {scope === "all" ? "Todos los proyectos" : "Solo este proyecto"}
+          </button>
+        )}
       </div>
       <div className="gallery-grid">
         {shown.map((it, i) => (
           <div
             key={it.src + i}
-            className={"gitem " + it.kind}
-            title={(it.prompt ? it.prompt.slice(0, 300) + "\n\n" : "") + `— ${it.note.title}${it.paneTitle ? " · " + it.paneTitle : ""}`}
-            onClick={() => goTo(it.note)}
+            className={"gitem " + it.kind + (broken.has(it.src) ? " broken" : "")}
+            title={(broken.has(it.src) ? "⚠ No se encuentra el archivo\n" : "") + (it.prompt ? it.prompt.slice(0, 300) + "\n\n" : "") + `— ${it.note.title}${it.paneTitle ? " · " + it.paneTitle : ""}`}
+            onClick={() => goTo(it.note, it.projectId)}
             onDoubleClick={() => openPath(it.src)}
             onContextMenu={(e) => itemMenu(e, it)}
           >
@@ -86,7 +118,7 @@ export function GalleryPanel({ project, update }: Props) {
             {it.kind === "video" && <video src={srcOf(it.src)} preload="metadata" muted />}
             {it.kind === "audio" && <div className="gaudio">♪<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             <div className="gcap">
-              <span className="gtitle">{it.note.title}</span>
+              <span className="gtitle">{scope === "all" ? `${allProjects?.find((p) => p.id === it.projectId)?.name ?? ""} · ` : ""}{it.note.title}</span>
               {it.prompt && <span className="gprompt">{it.prompt.slice(0, 80)}</span>}
             </div>
           </div>

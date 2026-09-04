@@ -117,7 +117,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
           label: "Renombrar",
           onClick: async () => {
             const t = await ask("Nombre de la nota", note.title);
-            if (t?.trim()) edit((p) => (p.notes.find((n) => n.id === noteId)!.title = t.trim()));
+            if (t?.trim()) edit((p) => { const x = p.notes.find((n) => n.id === noteId)!; x.title = t.trim(); x.autoTitle = false; });
           },
         },
         {
@@ -260,6 +260,10 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                       data-id={n.id}
                       className={"note-item" + (n.id === activeNoteId ? " active" : "") + (m.thumb ? " has-thumb" : "")}
                       onClick={() => selectNote(n.id)}
+                      onDoubleClick={async () => {
+                        const t = await ask("Nombre de la nota", n.title);
+                        if (t?.trim()) edit((p) => { const x = p.notes.find((y) => y.id === n.id)!; x.title = t.trim(); x.autoTitle = false; });
+                      }}
                       onContextMenu={(e) => noteMenu(e, n.id)}
                       title={n.title}
                     >

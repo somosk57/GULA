@@ -6,7 +6,7 @@ GULA es el diario de tu trabajo con IA: qué hiciste, qué salió, con qué prom
 
 Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola ventana, para trabajar con IA sin perder el hilo. Una ventana chica, minimalista, que podés mover y redimensionar como cualquier otra, y dejar siempre arriba.
 
-- **Izquierda:** las notas del proyecto en secciones, con miniatura si tienen imagen, íconos de video/audio y cantidad de recuadros; orden manual o por fecha (botón ☰/⇅). Arriba, la **etapa** del proyecto (Idea / En marcha / Pausado / Terminado, clic para cambiar) y la línea **"Ahora estoy en…"**. Una nota nueva en una sección nace con los mismos recuadros que la última de esa sección (clic derecho → *Nueva a partir de esta*).
+- **Izquierda:** las notas del proyecto en secciones, con miniatura si tienen imagen, íconos de video/audio y cantidad de recuadros; orden manual o por fecha (botón ☰/⇅). Arriba, la **etapa** del proyecto (Idea / En marcha / Pausado / Terminado, clic para cambiar) y la línea **"Ahora estoy en…"**. Una nota nueva en una sección nace con los mismos recuadros que la última de esa sección (clic derecho → *Nueva a partir de esta*), y toma el título de la primera línea que escribas hasta que le pongas uno a mano (doble clic para renombrar).
 - **Derecha arriba:** la nota, en markdown **en vivo**: los títulos se ven grandes, la negrita en negrita (`Ctrl+B`), cursiva (`Ctrl+I`), las casillas `- [ ]` son casillas reales (clic o `Ctrl+Enter`), Enter continúa listas. `Ctrl+E` muestra la vista renderizada. El botón de recuadros pasa de 1 → 2 → 3 → 4 → 6 **columnas** con un clic; cada recuadro tiene su propio título, que escribís vos, como sticky notes integradas. Cualquier recuadro muestra **imágenes, videos y audio** (mp3, wav, ogg, m4a, flac): arrastrá un archivo desde el Explorador, pegá una imagen con `Ctrl+V`, o clic derecho → *Insertar imagen o video…*; queda como `![](ruta)` y se ve ahí mismo. para trabajar varias cosas a la vez sin escribir todo en un solo lugar.
 - **Derecha abajo:** siete pestañas por proyecto (`Ctrl+1..7`, `Ctrl+Tab` para rotar):
   - **Accesos:** el tablero del proyecto (y debajo los **comandos** que usás seguido, con *Copiar* o **▶ Correr** en PowerShell): carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
@@ -19,6 +19,10 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Ciclo de sesión:** *▶ Empezar sesión* (en Contexto o Bitácora) copia el paquete para la IA y empieza a contar el tiempo (aparece un punto verde al lado del proyecto). *● Cerrar sesión* te pregunta qué lograste y el link del chat, y lo guarda en la bitácora con la duración. Así los chats viejos quedan indexados por lo que resolvieron.
 
+**Hoy (`Ctrl+H` o el ícono de casa):** todos los proyectos de un vistazo: etapa, "ahora estoy en", pendientes, última actividad, y las notas de los últimos 7 días de todos los proyectos.
+
+**Carpeta de assets** (en Accesos): si la elegís, cada imagen, video o audio que insertes en una nota se copia ahí, así la nota no se rompe si movés el original. La Galería marca con ⚠ los archivos que ya no están, y puede mostrar los resultados de todos los proyectos.
+
 **Informe del proyecto** (clic derecho en el nombre del proyecto): un texto ordenado que explica qué es, en qué etapa está, qué se decidió, qué se fue haciendo, qué falta, qué fichas y prompts hay, y el registro cronológico de notas con sus resultados. Todo el proyecto o los últimos 7 días, resumido o completo; se copia, se guarda como `.md` o se lee ahí.
 
 **Captura distribuida:** en Bitácora, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: bitácora, nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
@@ -29,11 +33,11 @@ El botón ⤢ al lado de las pestañas agranda el panel de abajo para editar con
 
 Las notas se agrupan en **secciones** (clic derecho en el título de la sección o en una nota para mover/renombrar). Al crear un proyecto elegís un **perfil** (App / software, Novela / escritura, Contenido / marca, Estudio, En blanco) y arranca con sus notas, bloques de contexto, prompts y comandos. El selector de proyectos muestra, por cada uno, el último avance, las tareas pendientes y la última actividad. Notas y accesos se reordenan arrastrando. Clic derecho en el nombre del proyecto (arriba, centrado): copiar todo para la IA, **exportar a carpeta** como archivos `.md`, renombrar, eliminar.
 
-**Bandeja y atajo global:** la X esconde la ventana a la bandeja del sistema (ícono al lado del reloj); `Ctrl+Shift+Space` la muestra/oculta desde cualquier app. "Salir" está en el menú del ícono de la bandeja.
+**Bandeja y atajo global:** la X esconde la ventana a la bandeja del sistema (ícono al lado del reloj); `Ctrl+Shift+Space` (configurable en `⋯`) la muestra/oculta desde cualquier app. "Salir" está en el menú del ícono de la bandeja.
 
 Atajos: `Ctrl+K` buscar en todos los proyectos · `Ctrl+Z` / `Ctrl+Shift+Z` deshacer / rehacer · `Ctrl+N` nueva nota · `Ctrl+B` barra lateral · `Ctrl+E` vista/edición · `Ctrl+1..7` pestañas · `Ctrl+Shift+Space` mostrar/ocultar.
 
-Los datos se guardan en `%APPDATA%\com.creator100k.gula\data.json`, con una copia de seguridad por día en `backups\` (se guardan las últimas 30). Desde el menú `⋯` de la barra de título: restaurar una copia, cambiar tema (oscuro / claro / sistema), abrir la carpeta de datos. La posición y tamaño de la ventana se recuerdan solos.
+Los datos se guardan en `%APPDATA%\com.creator100k.gula\data.json`, con una copia de seguridad por día en `backups\` (se guardan las últimas 30). Desde el menú `⋯` de la barra de título: restaurar una copia, cambiar tema (oscuro / claro / sistema), cambiar el atajo global, abrir la carpeta de datos, o **mover los datos a otra carpeta** (por ejemplo dentro de OneDrive para usar GULA en dos PCs). La posición y tamaño de la ventana se recuerdan solos.
 
 ## Requisitos (Windows)
 

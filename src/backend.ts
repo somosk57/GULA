@@ -47,6 +47,11 @@ export async function snapshotNow(label: string): Promise<string> {
   return invoke<string>("snapshot_now", { label });
 }
 
+export async function setDataLocation(dir: string): Promise<string> {
+  if (!isTauri) return dir;
+  return invoke<string>("set_data_location", { dir });
+}
+
 export async function dataDir(): Promise<string> {
   if (!isTauri) return "(localStorage)";
   return invoke<string>("data_dir");
@@ -134,6 +139,26 @@ export async function saveImage(blob: Blob): Promise<string> {
 export const isImagePath = (p: string) => /\.(png|jpe?g|webp|gif|bmp|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)$/i.test(p);
 export const isVideoPath = (p: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(p);
 export const isAudioPath = (p: string) => /\.(mp3|wav|ogg|m4a|flac|aac)(\?.*)?$/i.test(p);
+
+export async function setShortcut(accel: string): Promise<string | null> {
+  if (!isTauri) return null;
+  try {
+    await invoke("set_shortcut", { accel });
+    return null;
+  } catch (e) {
+    return String(e);
+  }
+}
+
+export async function copyToDir(src: string, dir: string): Promise<string> {
+  if (!isTauri) return src;
+  return invoke<string>("copy_to_dir", { src, dir });
+}
+
+export async function pathExists(path: string): Promise<boolean> {
+  if (!isTauri) return true;
+  return invoke<boolean>("path_exists", { path });
+}
 
 export async function pickImage(): Promise<string | null> {
   if (!isTauri) return ask("Ruta de la imagen:");

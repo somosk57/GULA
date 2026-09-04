@@ -201,6 +201,14 @@ export function LinksPanel({ project, update }: Props) {
             Abrir todo
           </button>
         )}
+        <button
+          className={"chip" + (project.assetsDir ? " on" : "")}
+          title={project.assetsDir ? `Las imágenes/videos que insertes se copian a: ${project.assetsDir}\n(clic derecho: quitar)` : "Elegí una carpeta y todo lo que insertes en las notas se copia ahí (así no se rompe si movés el original)"}
+          onClick={async () => { const d = await pickFolder(); if (d) update((x) => (x.projects.find((p) => p.id === project.id)!.assetsDir = d)); }}
+          onContextMenu={(e) => { e.preventDefault(); if (project.assetsDir) update((x) => (x.projects.find((p) => p.id === project.id)!.assetsDir = undefined)); }}
+        >
+          {project.assetsDir ? "✓ Assets: " + project.assetsDir.split(/[\\/]/).pop() : "Carpeta de assets…"}
+        </button>
         <button className="chip add" onClick={addMenu}>+ Agregar</button>
       </div>
       <div className="grid" ref={gridRef}>

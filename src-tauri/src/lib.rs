@@ -15,11 +15,72 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// Ruta del archivo de datos: %APPDATA%\com.creator100k.gula\data.json
-fn data_file(app: &AppHandle) -> Result<PathBuf, String> {
+/// Carpeta base de la app (%APPDATA%\com.creator100k.gula). Ahí vive `location.txt`
+/// si el usuario movió los datos a otra carpeta (por ejemplo dentro de OneDrive).
+fn base_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("data.json"))
+    Ok(dir)
+}
+
+/// Carpeta donde están data.json, backups/ e images/.
+fn data_dir_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let base = base_dir(app)?;
+    let pointer = base.join("location.txt");
+    if let Ok(custom) = fs::read_to_string(&pointer) {
+        let custom = custom.trim();
+        if !custom.is_empty() {
+            let p = PathBuf::from(custom);
+            if p.is_dir() {
+                return Ok(p);
+            }
+        }
+    }
+    Ok(base)
+}
+
+/// Ruta del archivo de datos.
+fn data_file(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(data_dir_path(app)?.join("data.json"))
+}
+
+/// Mueve data.json, backups/ e images/ a otra carpeta y deja el puntero. Devuelve la carpeta nueva.
+#[tauri::command]
+fn set_data_location(app: AppHandle, dir: String) -> Result<String, String> {
+    let from = data_dir_path(&app)?;
+    let to = PathBuf::from(&dir);
+    fs::create_dir_all(&to).map_err(|e| e.to_string())?;
+    if fs::canonicalize(&from).ok() == fs::canonicalize(&to).ok() {
+        return Ok(to.to_string_lossy().to_string());
+    }
+    // Si en la carpeta nueva ya hay un data.json (otra PC), no lo pisamos: el usuario elige.
+    if to.join("data.json").exists() && from.join("data.json").exists() {
+        let stamp = today_stamp();
+        let _ = fs::copy(from.join("data.json"), to.join(format!("data-desde-otra-pc-{stamp}.json")));
+    } else if from.join("data.json").exists() {
+        fs::copy(from.join("data.json"), to.join("data.json")).map_err(|e| e.to_string())?;
+    }
+    for sub in ["backups", "images"] {
+        let src = from.join(sub);
+        if src.is_dir() {
+            let dst = to.join(sub);
+            let _ = fs::create_dir_all(&dst);
+            if let Ok(rd) = fs::read_dir(&src) {
+                for e in rd.flatten() {
+                    let d = dst.join(e.file_name());
+                    if !d.exists() { let _ = fs::copy(e.path(), d); }
+                }
+            }
+        }
+    }
+    let base = base_dir(&app)?;
+    let pointer = base.join("location.txt");
+    if fs::canonicalize(&to).ok() == fs::canonicalize(&base).ok() {
+        let _ = fs::remove_file(&pointer);
+    } else {
+        fs::write(&pointer, to.to_string_lossy().as_bytes()).map_err(|e| e.to_string())?;
+    }
+    Ok(to.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -143,10 +204,7 @@ fn snapshot_now(app: AppHandle, label: String) -> Result<String, String> {
 
 #[tauri::command]
 fn data_dir(app: AppHandle) -> Result<String, String> {
-    Ok(data_file(&app)?
-        .parent()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default())
+    Ok(data_dir_path(&app)?.to_string_lossy().to_string())
 }
 
 fn run_detached(mut cmd: Command) -> Result<(), String> {
@@ -424,6 +482,40 @@ fn b64_decode(s: &str) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// Cambia el atajo global (ej. "Ctrl+Shift+Space", "Alt+G"). Devuelve error si no se puede registrar.
+#[tauri::command]
+fn set_shortcut(app: AppHandle, accel: String) -> Result<(), String> {
+    let gs = app.global_shortcut();
+    gs.unregister_all().map_err(|e| e.to_string())?;
+    let sc: Shortcut = accel.parse().map_err(|e| format!("Atajo inválido: {e}"))?;
+    gs.register(sc).map_err(|e| format!("No se pudo registrar {accel}: {e}"))
+}
+
+/// Copia un archivo a una carpeta (assets del proyecto). Devuelve la ruta nueva; si ya existe, no pisa.
+#[tauri::command]
+fn copy_to_dir(src: String, dir: String) -> Result<String, String> {
+    let from = PathBuf::from(&src);
+    let name = from.file_name().ok_or("archivo inválido")?.to_string_lossy().to_string();
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut to = PathBuf::from(&dir).join(&name);
+    if to.exists() {
+        // Si es el mismo archivo, nada que copiar.
+        if let (Ok(a), Ok(b)) = (fs::canonicalize(&from), fs::canonicalize(&to)) {
+            if a == b { return Ok(to.to_string_lossy().to_string()); }
+        }
+        let stem = from.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let ext = from.extension().map(|s| format!(".{}", s.to_string_lossy())).unwrap_or_default();
+        let mut i = 2;
+        loop {
+            to = PathBuf::from(&dir).join(format!("{stem}-{i}{ext}"));
+            if !to.exists() { break; }
+            i += 1;
+        }
+    }
+    fs::copy(&from, &to).map_err(|e| e.to_string())?;
+    Ok(to.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
@@ -440,9 +532,9 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, shortcut, event| {
-                    let hot = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-                    if event.state == ShortcutState::Pressed && shortcut == &hot {
+                .with_handler(|app, _shortcut, event| {
+                    // Solo hay un atajo registrado a la vez: el de mostrar/ocultar.
+                    if event.state == ShortcutState::Pressed {
                         toggle_window(app);
                     }
                 })
@@ -450,10 +542,8 @@ pub fn run() {
         )
         .setup(|app| {
             setup_tray(app.handle())?;
-            let hot = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
-            if let Err(e) = app.global_shortcut().register(hot) {
-                eprintln!("No se pudo registrar Ctrl+Shift+Space: {e}");
-            }
+            // El frontend registra el atajo guardado apenas carga (set_shortcut).
+            let _ = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -468,6 +558,9 @@ pub fn run() {
             export_files,
             list_backups,
             save_image,
+            set_shortcut,
+            set_data_location,
+            copy_to_dir,
             read_backup,
             snapshot_now,
             load_state,

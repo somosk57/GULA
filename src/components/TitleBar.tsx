@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { copyText, dataDir, exportFiles, listBackups, openPath, pickFolder, readBackup, snapshotNow, win } from "../backend";
+import { copyText, dataDir, exportFiles, listBackups, loadState, openPath, pickFolder, readBackup, setDataLocation, snapshotNow, win } from "../backend";
 import { ask, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
 import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
@@ -20,10 +20,12 @@ interface Props {
   onReplace: (s: AppState) => void;
   onOpenSearch: () => void;
   onPasteAs: () => void;
+  onHome: () => void;
 }
 
 const I = {
   pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 17v5" /><path d="M9 3h6l-1 7 3 3H7l3-3z" /></svg>,
+  home: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /></svg>,
   paste: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11v6M9 14h6" /></svg>,
   dots: <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>,
   search: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>,
@@ -47,7 +49,7 @@ function TrafficLights() {
   );
 }
 
-export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs }: Props) {
+export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -163,14 +165,38 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Rehacer  (${mod}Shift+Z)`, onClick: onRedo },
         { label: `Buscar en todo  (${mod}K)`, onClick: onOpenSearch, separator: true },
         { label: `Pegar como…  (${mod}Shift+V)`, onClick: onPasteAs },
+        { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
         {
           label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}  →  cambiar`,
           separator: true,
           onClick: () => update((d) => (d.theme = d.theme === "dark" ? "light" : d.theme === "light" ? "system" : "dark")),
         },
+        {
+          label: `Atajo global: ${state.shortcut}  →  cambiar`,
+          onClick: async () => {
+            const v = await ask("Atajo para mostrar/ocultar GULA", state.shortcut, { placeholder: "Ej: Ctrl+Shift+Space, Alt+G, Ctrl+Alt+N" });
+            if (v?.trim()) update((d) => (d.shortcut = v.trim()));
+          },
+        },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
         { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
-        { label: "GULA v0.9.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        {
+          label: "Mover los datos a otra carpeta… (OneDrive, Drive)",
+          onClick: async () => {
+            const dir = await pickFolder();
+            if (!dir) return;
+            if (!(await confirmDlg("¿Mover los datos de GULA?", `Se copian data.json, las copias de seguridad y las imágenes pegadas a:\n${dir}\n\nSi ahí ya hay datos de otra PC, se conservan y se usan esos.`, { okLabel: "Mover" }))) return;
+            try {
+              const to = await setDataLocation(dir);
+              const fresh = await loadState();
+              if (fresh) onReplace(migrate(fresh));
+              notify("Datos movidos", to);
+            } catch (e) {
+              notify("No se pudieron mover", String(e));
+            }
+          },
+        },
+        { label: "GULA v1.0.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -187,6 +213,9 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       </button>
       <button className={"tb-btn sm" + (sidebarOpen ? "" : " dim")} title={`Mostrar/ocultar notas (${IS_MAC ? "⌘" : "Ctrl+"}B)`} onClick={onToggleSidebar}>
         {I.side}
+      </button>
+      <button className="tb-btn sm" title={`Hoy: todos los proyectos de un vistazo (${IS_MAC ? "⌘" : "Ctrl+"}H)`} onClick={onHome}>
+        {I.home}
       </button>
       <button className="tb-btn sm" title={`Buscar en todos los proyectos (${IS_MAC ? "⌘" : "Ctrl+"}K)`} onClick={onOpenSearch}>
         {I.search}
@@ -236,6 +265,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
                 );
               })}
               <button className="proj-item add" onClick={addProject}>+ Nuevo proyecto</button>
+            <button className="proj-item add" onClick={() => { setOpen(false); onHome(); }}>⌂ Ver todos (Hoy)</button>
             </div>
           </>
         )}

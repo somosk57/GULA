@@ -121,7 +121,7 @@ export const PROFILES: ProfileTemplate[] = [
     id: "blank",
     name: "En blanco",
     hint: "Una nota y nada más.",
-    notes: [{ title: "Idea principal", body: "", group: "General" }],
+    notes: [{ title: "Nueva nota", body: "", group: "General" }],
     blocks: [{ title: "Qué es", body: "", enabled: true }],
     prompts: [],
     snippets: [],

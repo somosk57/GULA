@@ -14,7 +14,10 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { SearchPalette, Hit } from "./components/SearchPalette";
 import { pasteAs } from "./pasteAs";
-import { win } from "./backend";
+import { HomeOverlay } from "./components/HomeOverlay";
+import { firstRun } from "./onboarding";
+import { setShortcut, win } from "./backend";
+import { notify } from "./dialog";
 import { Tab, newNote, uid } from "./types";
 import { collectTasks } from "./ai";
 import "./styles.css";
@@ -36,6 +39,7 @@ const IS_MAC_APP = /Mac/i.test(navigator.platform);
 export default function App() {
   const { state, update, replace, undo, redo } = useAppState();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [homeOpen, setHomeOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [split, setSplit] = useState<number>(() => Number(localStorage.getItem(SPLIT_KEY)) || 62);
   const [compact, setCompact] = useState(false);
@@ -64,6 +68,19 @@ export default function App() {
     else document.documentElement.setAttribute("data-theme", t);
   }, [state?.theme]);
 
+  // Primer arranque: bienvenida + crear el primer proyecto con perfil.
+  useEffect(() => {
+    if (state && !state.onboarded) firstRun(update);
+  }, [state?.onboarded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Atajo global: registrar el guardado (y avisar si está tomado por otro programa).
+  useEffect(() => {
+    if (!state?.shortcut) return;
+    setShortcut(state.shortcut).then((err) => {
+      if (err) notify("No pude registrar el atajo global", `${state.shortcut}: probablemente lo usa otro programa. Cambialo desde el menú ⋯.`);
+    });
+  }, [state?.shortcut]);
+
   // Aplicar "siempre arriba" al arrancar
   useEffect(() => {
     if (state) win.setAlwaysOnTop(state.alwaysOnTop);
@@ -81,6 +98,9 @@ export default function App() {
       } else if (k === "k") {
         e.preventDefault();
         setSearchOpen((v) => !v);
+      } else if (k === "h") {
+        e.preventDefault();
+        setHomeOpen((v) => !v);
       } else if (k === "v" && e.shiftKey) {
         e.preventDefault();
         update((d) => {
@@ -175,10 +195,18 @@ export default function App() {
         onReplace={replace}
         onOpenSearch={() => setSearchOpen(true)}
         onPasteAs={() => pasteAs(project, state.activeNoteId[project.id], update)}
+        onHome={() => setHomeOpen(true)}
       />
       <UpdateBanner />
       <Dialogs />
       {searchOpen && <SearchPalette state={state} onClose={() => setSearchOpen(false)} onGo={goTo} />}
+      {homeOpen && (
+        <HomeOverlay
+          state={state}
+          onClose={() => setHomeOpen(false)}
+          onGo={(pid, nid) => update((d) => { d.activeProjectId = pid; if (nid) d.activeNoteId[pid] = nid; })}
+        />
+      )}
       <div className="layout">
         {((!compact && sidebarOpen) || (compact && drawer)) && (
           <div className={compact ? "drawer" : undefined} onClick={(e) => {
@@ -236,7 +264,7 @@ export default function App() {
             {state.bottomTab === "links" && <LinksPanel project={project} update={update} />}
             {state.bottomTab === "prompts" && <PromptsPanel project={project} update={update} />}
             {state.bottomTab === "context" && <ContextPanel project={project} update={update} />}
-            {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} />}
+            {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} allProjects={state.projects} />}
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
             {state.bottomTab === "log" && <LogPanel project={project} update={update} />}
