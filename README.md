@@ -23,7 +23,7 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Marcas de color:** cada imagen, video o audio se marca con un color desde el recuadro (puntitos al pasar el mouse) o desde la Galería: **azul = Maestro** (la referencia mayor), **verde = Sirve**, **amarillo = Más o menos**, **rojo = No sirve**. La Galería ordena por marca y filtra por color, la lista de notas muestra un punto con la mejor marca de cada nota, y los maestros van como "referencias" en *Copiar para la IA* y en el Informe.
 
-**Carpeta de assets** (en Accesos): si la elegís, cada imagen, video o audio que insertes en una nota se copia ahí, así la nota no se rompe si movés el original. La Galería marca con ⚠ los archivos que ya no están, y puede mostrar los resultados de todos los proyectos.
+**Colecciones** (en Galería, *+ Colección*): carpetas de tu PC con el nombre que quieras (Clips, Highlights, Artworks, Docs, Assets…). La Galería muestra lo que hay adentro, leído del disco: imágenes, videos, audios y documentos, con las mismas marcas de color. Clic derecho en una colección: abrir la carpeta, renombrar, cambiar carpeta, o marcarla como el lugar donde se copian los archivos que insertes en notas (así la nota no se rompe si movés el original). La Galería también marca con ⚠ los archivos de las notas que ya no están, y puede mostrar los resultados de todos los proyectos.
 
 **Informe del proyecto** (clic derecho en el nombre del proyecto): un texto ordenado que explica qué es, en qué etapa está, qué se decidió, qué se fue haciendo, qué falta, qué fichas y prompts hay, y el registro cronológico de notas con sus resultados. Todo el proyecto o los últimos 7 días, resumido o completo; se copia, se guarda como `.md` o se lee ahí.
 

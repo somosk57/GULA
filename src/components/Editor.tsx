@@ -40,12 +40,13 @@ export function Editor({ project, note, update }: Props) {
       target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
       if (!target) return;
       const t = target;
+      const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
       (async () => {
-        for (const m of media) insertImage(t, project.assetsDir ? await copyToDir(m, project.assetsDir).catch(() => m) : m);
+        for (const m of media) insertImage(t, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
       })();
     }).then((f) => (off = f));
     return () => off?.();
-  }, [note.id, project.assetsDir]);
+  }, [note.id, project.copyTo, project.collections]);
 
   const setNote = (fn: (n: Note) => void) =>
     update((d) => {
@@ -143,7 +144,8 @@ export function Editor({ project, note, update }: Props) {
           const picked = await pickImage();
           const v = views.current[p.id];
           if (!picked || !v) return;
-          const path = project.assetsDir ? await copyToDir(picked, project.assetsDir).catch(() => picked) : picked;
+          const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
+          const path = copyDir ? await copyToDir(picked, copyDir).catch(() => picked) : picked;
           insertImage(v, path);
         },
       },

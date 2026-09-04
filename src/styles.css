@@ -656,3 +656,7 @@ body.reordering * { cursor: grabbing !important; }
 .gitem:hover .gmarks { opacity: 1; }
 .mark-dot.tiny { width: 10px; height: 10px; }
 .note-mark { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+.panel-actions.sources { padding-bottom: 0; flex-wrap: wrap; row-gap: 4px; }
+.chip.copy-target { border-style: dashed; }
+.gdoc { font-weight: 700; font-size: 14px; letter-spacing: .06em; color: var(--text-dim); }

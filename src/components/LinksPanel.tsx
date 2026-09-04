@@ -202,12 +202,21 @@ export function LinksPanel({ project, update }: Props) {
           </button>
         )}
         <button
-          className={"chip" + (project.assetsDir ? " on" : "")}
-          title={project.assetsDir ? `Las imágenes/videos que insertes se copian a: ${project.assetsDir}\n(clic derecho: quitar)` : "Elegí una carpeta y todo lo que insertes en las notas se copia ahí (así no se rompe si movés el original)"}
-          onClick={async () => { const d = await pickFolder(); if (d) update((x) => (x.projects.find((p) => p.id === project.id)!.assetsDir = d)); }}
-          onContextMenu={(e) => { e.preventDefault(); if (project.assetsDir) update((x) => (x.projects.find((p) => p.id === project.id)!.assetsDir = undefined)); }}
+          className="chip"
+          title="Colecciones: carpetas con nombre (Clips, Artworks, Docs…) que la Galería muestra"
+          onClick={async () => {
+            const name = await ask("Nombre de la colección", "", { placeholder: "Ej: Clips, Highlights, Artworks, Docs, Assets…" });
+            if (!name?.trim()) return;
+            const dir = await pickFolder();
+            if (!dir) return;
+            update((d) => {
+              const p = d.projects.find((p) => p.id === project.id)!;
+              p.collections.push({ id: uid(), name: name.trim(), path: dir });
+              d.bottomTab = "gallery";
+            });
+          }}
         >
-          {project.assetsDir ? "✓ Assets: " + project.assetsDir.split(/[\\/]/).pop() : "Carpeta de assets…"}
+          + Colección
         </button>
         <button className="chip add" onClick={addMenu}>+ Agregar</button>
       </div>

@@ -516,6 +516,56 @@ fn copy_to_dir(src: String, dir: String) -> Result<String, String> {
     Ok(to.to_string_lossy().to_string())
 }
 
+#[derive(serde::Serialize)]
+struct DirEntryInfo {
+    path: String,
+    name: String,
+    /// "image" | "video" | "audio" | "doc" | "other"
+    kind: String,
+    modified: u64,
+    size: u64,
+}
+
+/// Lista los archivos de una carpeta (sin recursión profunda: hasta 2 niveles) para una colección.
+#[tauri::command]
+fn list_dir_media(dir: String) -> Result<Vec<DirEntryInfo>, String> {
+    fn kind_of(name: &str) -> &'static str {
+        let lower = name.to_lowercase();
+        let ext = lower.rsplit('.').next().unwrap_or("");
+        match ext {
+            "png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "svg" | "avif" => "image",
+            "mp4" | "webm" | "mov" | "m4v" | "mkv" => "video",
+            "mp3" | "wav" | "ogg" | "m4a" | "flac" | "aac" => "audio",
+            "pdf" | "docx" | "doc" | "txt" | "md" | "pptx" | "xlsx" | "csv" | "json" | "psd" | "ai" | "fig" | "blend" | "aep" | "prproj" => "doc",
+            _ => "other",
+        }
+    }
+    fn walk(dir: &Path, depth: u8, out: &mut Vec<DirEntryInfo>) {
+        let Ok(rd) = fs::read_dir(dir) else { return };
+        for e in rd.flatten() {
+            let p = e.path();
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') { continue; }
+            if p.is_dir() {
+                if depth < 2 { walk(&p, depth + 1, out); }
+                continue;
+            }
+            let meta = e.metadata().ok();
+            let modified = meta.as_ref().and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as u64).unwrap_or(0);
+            let size = meta.map(|m| m.len()).unwrap_or(0);
+            out.push(DirEntryInfo { path: p.to_string_lossy().to_string(), name, kind: kind_of(&p.to_string_lossy()).into(), modified, size });
+            if out.len() >= 2000 { return; }
+        }
+    }
+    let base = PathBuf::from(&dir);
+    if !base.is_dir() { return Err("La carpeta no existe".into()); }
+    let mut out = Vec::new();
+    walk(&base, 0, &mut out);
+    out.sort_by(|a, b| b.modified.cmp(&a.modified));
+    Ok(out)
+}
+
 #[tauri::command]
 fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
@@ -561,6 +611,7 @@ pub fn run() {
             set_shortcut,
             set_data_location,
             copy_to_dir,
+            list_dir_media,
             read_backup,
             snapshot_now,
             load_state,

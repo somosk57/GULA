@@ -119,6 +119,13 @@ export interface Card {
   tags?: string[];
 }
 
+/** Una carpeta con nombre propio dentro del proyecto. */
+export interface Collection {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -126,8 +133,10 @@ export interface Project {
   /** Etapa del proyecto y "ahora estoy en…": la respuesta a "¿en qué paso estoy?". */
   stage: Stage;
   now: string;
-  /** Carpeta donde se copian las imágenes/videos/audios que se insertan (si está definida). */
-  assetsDir?: string;
+  /** Colecciones: carpetas con nombre (Clips, Artworks, Docs…) que la Galería muestra. */
+  collections: Collection[];
+  /** Id de la colección a la que se copian los archivos que insertás en notas (opcional). */
+  copyTo?: string;
   /** Marcas por archivo (clave: ruta o URL tal como está en la nota). */
   marks: Record<string, Mark>;
   cards: Card[];
@@ -197,6 +206,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     log: [],
     cards: [],
     marks: {},
+    collections: [],
     lastSessionAt: null,
     sessionStartedAt: null,
   };
@@ -262,6 +272,9 @@ export function migrate(raw: unknown): AppState {
     log: p.log ?? [],
     cards: p.cards ?? [],
     marks: p.marks ?? {},
+    // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
+    collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),
+    copyTo: p.copyTo ?? ((p as { assetsDir?: string }).assetsDir ? "assets-" + (p.id ?? uid()) : undefined),
     lastSessionAt: p.lastSessionAt ?? null,
     sessionStartedAt: p.sessionStartedAt ?? null,
   }));

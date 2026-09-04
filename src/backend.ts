@@ -155,6 +155,12 @@ export async function copyToDir(src: string, dir: string): Promise<string> {
   return invoke<string>("copy_to_dir", { src, dir });
 }
 
+export interface DirEntryInfo { path: string; name: string; kind: "image" | "video" | "audio" | "doc" | "other"; modified: number; size: number }
+export async function listDirMedia(dir: string): Promise<DirEntryInfo[]> {
+  if (!isTauri) return [];
+  return invoke<DirEntryInfo[]>("list_dir_media", { dir });
+}
+
 export async function pathExists(path: string): Promise<boolean> {
   if (!isTauri) return true;
   return invoke<boolean>("path_exists", { path });

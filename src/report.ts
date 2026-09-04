@@ -101,8 +101,9 @@ export function buildReport(p: Project, o: ReportOptions): string {
   }
 
   // Accesos
-  if (p.links.length || p.snippets.length) {
+  if (p.links.length || p.snippets.length || p.collections.length) {
     S.push("\n## Dónde están las cosas");
+    for (const c of p.collections) S.push(`- colección "${c.name}": ${c.path}`);
     for (const l of p.links) S.push(`- ${l.name}: ${l.path}`);
     for (const s of p.snippets) S.push(`- comando "${s.title}": \`${s.body}\``);
   }
