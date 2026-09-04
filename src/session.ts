@@ -1,6 +1,7 @@
 // Ciclo de sesión: "Empezar sesión" copia el paquete para la IA y anota la hora;
-// "Cerrar sesión" pide qué se logró y lo guarda en la bitácora con el link del chat.
-import { AppState, Project, uid } from "./types";
+// "Cerrar sesión" pide qué se logró y lo anota en la entrada del día con el link del chat.
+import { AppState, Project } from "./types";
+import { appendToDay } from "./diary";
 import { copyText } from "./backend";
 import { buildAiPackage } from "./ai";
 import { ask, notify } from "./dialog";
@@ -29,7 +30,8 @@ export async function closeSession(project: Project, update: Update) {
   update((d) => {
     const p = d.projects.find((p) => p.id === project.id)!;
     if (text.trim()) {
-      p.log.unshift({ id: uid(), at: Date.now(), text: text.trim(), minutes, link: link?.trim() || undefined });
+      const n = appendToDay(p, [`Sesión de ${fmtMinutes(minutes)}: ${text.trim().replace(/\s+/g, " ")}${link?.trim() ? ` — ${link.trim()}` : ""}`]);
+      d.activeNoteId[p.id] = n.id;
     }
     p.sessionStartedAt = null;
   });

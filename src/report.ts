@@ -46,13 +46,6 @@ export function buildReport(p: Project, o: ReportOptions): string {
     }
   }
 
-  // Bitácora (cronológica, vieja → nueva)
-  const log = [...p.log].filter((e) => e.at >= since).sort((a, b) => a.at - b.at);
-  if (log.length) {
-    S.push("\n## Qué se fue haciendo");
-    for (const e of log) S.push(`- ${fmtDate(e.at)}: ${e.text}${e.minutes ? ` (${e.minutes} min)` : ""}${e.link ? ` — ${e.link}` : ""}`);
-  }
-
   // Tareas
   const tasks = collectTasks(p);
   const pending = tasks.filter((t) => !t.done);

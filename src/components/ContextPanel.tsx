@@ -90,7 +90,7 @@ export function ContextPanel({ project, update }: Props) {
     <div className="context">
       <div className="panel-actions">
         {inSession ? (
-          <button className="chip session" onClick={() => closeSession(project, update)} title="Anota qué lograste en la bitácora y cierra la sesión">
+          <button className="chip session" onClick={() => closeSession(project, update)} title="Anota qué lograste en la entrada del día y cierra la sesión">
             ● Cerrar sesión · {fmtMinutes(elapsed)}
           </button>
         ) : (
@@ -105,7 +105,7 @@ export function ContextPanel({ project, update }: Props) {
             update((d) => (d.projects.find((p) => p.id === project.id)!.lastSessionAt = Date.now()));
             flash("ai");
           }}
-          title="Bloques encendidos + tareas pendientes + bitácora reciente + último prompt. Listo para un chat nuevo."
+          title="Bloques encendidos + tareas pendientes + últimas sesiones + último prompt. Listo para un chat nuevo."
         >
           {copied === "ai" ? "Copiado ✓" : "Copiar para la IA"}
         </button>

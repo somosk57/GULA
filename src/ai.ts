@@ -1,4 +1,5 @@
 import { Note, Project, syncNote } from "./types";
+import { SESSIONS_GROUP } from "./diary";
 
 /** Tilda/destilda la tarea que está en la línea `line` del texto completo de la nota (funciona con columnas). */
 export function toggleTaskInNote(n: Note, line: number) {
@@ -52,7 +53,7 @@ export function fmtDate(t: number) {
 
 /**
  * Paquete para pegar en un chat nuevo: contexto + tareas pendientes +
- * últimas entradas de bitácora + último prompt usado.
+ * últimas sesiones + último prompt usado.
  */
 /** Texto del contexto: solo los bloques encendidos, cada uno con su título. */
 export function contextText(p: Project, onlyEnabled = true): string {
@@ -87,9 +88,9 @@ export function buildAiPackage(p: Project): string {
     parts.push("## Tareas pendientes\n" + pending.slice(0, 20).map((t) => `- [ ] ${t.text}`).join("\n"));
   }
 
-  const log = [...p.log].sort((a, b) => b.at - a.at).slice(0, 8);
-  if (log.length) {
-    parts.push("## Últimos avances\n" + log.map((e) => `- ${fmtDate(e.at)}: ${e.text}`).join("\n"));
+  const days = p.notes.filter((n) => n.group === SESSIONS_GROUP).sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
+  if (days.length) {
+    parts.push("## Últimas sesiones\n" + days.map((n) => `### ${n.title}\n${n.body.trim()}`).join("\n\n"));
   }
 
   const last = [...p.prompts].filter((x) => x.lastUsedAt).sort((a, b) => b.lastUsedAt! - a.lastUsedAt!)[0];
@@ -117,13 +118,6 @@ export function exportProject(p: Project): { name: string; content: string }[] {
     files.push({
       name: "comandos.md",
       content: p.snippets.map((s) => `- **${s.title}**: \`${s.body}\``).join("\n") + "\n",
-    });
-  }
-  if (p.log.length) {
-    files.push({
-      name: "bitacora.md",
-      content:
-        [...p.log].sort((a, b) => b.at - a.at).map((e) => `- ${new Date(e.at).toLocaleDateString("es-AR")}: ${e.text}`).join("\n") + "\n",
     });
   }
   if (p.cards.length) {

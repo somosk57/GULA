@@ -6,7 +6,6 @@ import { Editor } from "./components/Editor";
 import { LinksPanel } from "./components/LinksPanel";
 import { PromptsPanel } from "./components/PromptsPanel";
 import { ContextPanel } from "./components/ContextPanel";
-import { LogPanel } from "./components/LogPanel";
 import { TasksPanel } from "./components/TasksPanel";
 import { CardsPanel } from "./components/CardsPanel";
 import { GalleryPanel, collectMedia } from "./components/GalleryPanel";
@@ -29,7 +28,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "context", label: "Contexto" },
   { id: "cards", label: "Fichas" },
   { id: "tasks", label: "Tareas" },
-  { id: "log", label: "Bitácora" },
 ];
 
 
@@ -267,7 +265,6 @@ export default function App() {
             {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} allProjects={state.projects} />}
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
-            {state.bottomTab === "log" && <LogPanel project={project} update={update} />}
           </div>
         </div>
       </div>

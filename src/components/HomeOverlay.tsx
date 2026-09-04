@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { AppState, Note, Project, STAGES } from "../types";
 import { collectTasks, fmtDate } from "../ai";
 import { collectMedia } from "./GalleryPanel";
+import { lastDiaryLine } from "../diary";
 import { assetUrl } from "../backend";
 
 interface Props {
@@ -26,7 +27,7 @@ export function HomeOverlay({ state, onClose, onGo }: Props) {
     () =>
       [...state.projects]
         .map((p) => {
-          const lastLog = [...p.log].sort((a, b) => b.at - a.at)[0];
+          const lastLog = lastDiaryLine(p);
           const touched = Math.max(p.lastSessionAt ?? 0, lastLog?.at ?? 0, ...p.notes.map((n) => n.updatedAt));
           const pending = collectTasks(p).filter((t) => !t.done).length;
           const thumb = collectMedia(p).find((m) => m.kind === "image")?.src ?? null;

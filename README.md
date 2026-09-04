@@ -12,12 +12,11 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
   - **Accesos:** el tablero del proyecto (y debajo los **comandos** que usás seguido, con *Copiar* o **▶ Correr** en PowerShell): carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
   - **Galería:** todas las imágenes, videos y audios de las notas del proyecto en una grilla; al pasar el mouse ves el prompt que lo generó. Clic: ir a la nota · doble clic: abrir · clic derecho: copiar prompt o ruta.
   - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
-  - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimos avances de la bitácora + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
+  - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimas sesiones del diario + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
   - **Fichas:** la biblia del proyecto: personajes, lugares, objetos y escenas, cada una con una línea de resumen (lo que ve la IA), detalle largo, imagen de referencia y un interruptor "Para la IA". Las escenas tienen estado (idea / borrador / lista) y qué personajes y lugares aparecen. Se ordenan arrastrando. Pensado para novelas, pero sirve para cualquier proyecto con "cosas" que la IA tiene que conocer.
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
-  - **Bitácora:** una línea por avance con fecha automática. Para retomar después de días y para la IA.
 
-**Ciclo de sesión:** *▶ Empezar sesión* (en Contexto o Bitácora) copia el paquete para la IA y empieza a contar el tiempo (aparece un punto verde al lado del proyecto). *● Cerrar sesión* te pregunta qué lograste y el link del chat, y lo guarda en la bitácora con la duración. Así los chats viejos quedan indexados por lo que resolvieron.
+**Ciclo de sesión:** *▶ Empezar sesión* (en Contexto) copia el paquete para la IA y empieza a contar el tiempo (aparece un punto verde al lado del proyecto). *● Cerrar sesión* te pregunta qué lograste y el link del chat, y lo anota en la entrada del día con la duración. Así los chats viejos quedan indexados por lo que resolvieron.
 
 **Hoy (`Ctrl+H` o el ícono de casa):** todos los proyectos de un vistazo: etapa, "ahora estoy en", pendientes, última actividad, y las notas de los últimos 7 días de todos los proyectos.
 
@@ -25,15 +24,15 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Colecciones** (en Galería, *+ Colección*): carpetas de tu PC con el nombre que quieras (Clips, Highlights, Artworks, Docs, Assets…). La Galería muestra lo que hay adentro, leído del disco: imágenes, videos, audios y documentos, con las mismas marcas de color. Clic derecho en una colección: abrir la carpeta, renombrar, cambiar carpeta, o marcarla como el lugar donde se copian los archivos que insertes en notas (así la nota no se rompe si movés el original). La Galería también marca con ⚠ los archivos de las notas que ya no están, y puede mostrar los resultados de todos los proyectos.
 
+**Marcas por nota:** clic derecho sobre una nota en la barra izquierda → Maestro / Sirve / Más o menos / No sirve. El punto de color aparece al lado del título y en el Informe. Los cuatro puntos debajo del filtro ocultan las notas de ese color ("Hide rojo": un clic y desaparecen; otro clic y vuelven). Si no marcás la nota, hereda la mejor marca de sus archivos.
+
+**El diario tiene una sola cronología:** no hay Bitácora aparte. Todo lo que pasa en un día (lo que repartís del cierre, las sesiones con su duración, lo que pegás como "línea del día") va a una nota con la fecha ("4 sep 2026") en la sección Sesiones, junto a las demás entradas.
+
 **Informe del proyecto** (clic derecho en el nombre del proyecto): un texto ordenado que explica qué es, en qué etapa está, qué se decidió, qué se fue haciendo, qué falta, qué fichas y prompts hay, y el registro cronológico de notas con sus resultados. Todo el proyecto o los últimos 7 días, resumido o completo; se copia, se guarda como `.md` o se lee ahí.
 
-**Captura distribuida:** en Bitácora, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Marcas por nota
+**Captura distribuida:** en Contexto, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: la entrada del día (sección Sesiones), nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
 
-Clic derecho sobre una nota en la barra izquierda → Maestro / Sirve / Más o menos / No sirve. El punto de color aparece al lado del título y en el Informe. Los cuatro puntos debajo del filtro ocultan las notas de ese color ("Hide rojo": un clic y desaparecen; otro clic y vuelven). Si no marcás la nota, hereda la mejor marca de sus archivos.
-
-## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: bitácora, nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
-
-**Pegar como… (`Ctrl+Shift+V` o el ícono del portapapeles):** lo que tengas copiado (una respuesta de la IA, un prompt que funcionó, un comando) entra a GULA como nota nueva, al final de la nota abierta, bloque de contexto, prompt, comando o entrada de bitácora.
+**Pegar como… (`Ctrl+Shift+V` o el ícono del portapapeles):** lo que tengas copiado (una respuesta de la IA, un prompt que funcionó, un comando) entra a GULA como nota nueva, al final de la nota abierta, bloque de contexto, prompt, comando o entrada de línea en la entrada del día.
 
 El botón ⤢ al lado de las pestañas agranda el panel de abajo para editar contexto o prompts largos con comodidad.
 
@@ -106,7 +105,7 @@ src/                      frontend (React + TypeScript)
     ContextPanel.tsx      contexto + "Copiar para la IA"
     SnippetsPanel.tsx     comandos
     TasksPanel.tsx        tareas agregadas
-    LogPanel.tsx          bitácora
+    diary.ts (src)        entrada del día: una sola cronología
   ai.ts                   arma el paquete para la IA, junta tareas, exporta a .md
 src-tauri/
   src/lib.rs              comandos: guardar/cargar, abrir carpeta, PowerShell, Explorador, VS Code, exportar, bandeja, atajo global

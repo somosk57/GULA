@@ -1,7 +1,8 @@
+import { foldLogIntoDiary } from "./diary";
 import { PROFILES, ProfileId, profileById } from "./profiles";
 
 export type LinkKind = "folder" | "file" | "url";
-export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks" | "cards" | "gallery";
+export type Tab = "links" | "prompts" | "context" | "snippets" | "tasks" | "cards" | "gallery";
 export type CardKind = "character" | "place" | "item" | "scene";
 export type SceneStatus = "idea" | "draft" | "done";
 export type Stage = "idea" | "active" | "paused" | "done";
@@ -297,6 +298,7 @@ export function migrate(raw: unknown): AppState {
     sessionStartedAt: p.sessionStartedAt ?? null,
   }));
   if (projects.length === 0) return defaultState();
+  for (const p of projects) foldLogIntoDiary(p);
   const activeProjectId = projects.some((p) => p.id === s.activeProjectId)
     ? s.activeProjectId!
     : projects[0].id;
@@ -305,7 +307,7 @@ export function migrate(raw: unknown): AppState {
     projects,
     activeProjectId,
     activeNoteId: s.activeNoteId ?? {},
-    bottomTab: s.bottomTab ?? "links",
+    bottomTab: (s.bottomTab as string) === "log" ? "context" : s.bottomTab ?? "links",
     alwaysOnTop: s.alwaysOnTop ?? false,
     theme: s.theme ?? "dark",
     noteSort: s.noteSort ?? "manual",

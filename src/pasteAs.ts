@@ -1,6 +1,7 @@
 // "Pegar como…": lo que tengas copiado (una respuesta de la IA, un prompt que
-// funcionó, un comando) entra a GULA como nota, bloque, prompt, comando o bitácora.
+// funcionó, un comando) entra a GULA como nota, bloque, prompt, comando o línea del día.
 import { AppState, Project, Tab, newNote, syncNote, uid } from "./types";
+import { SESSIONS_GROUP, appendToDay } from "./diary";
 import { readClipboard } from "./backend";
 import { ask, notify, pick } from "./dialog";
 import { applyCapture, parseCapture } from "./capture";
@@ -26,7 +27,7 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
     { id: "block", label: "Bloque de contexto", hint: "entra en Copiar para la IA" },
     { id: "prompt", label: "Prompt", hint: "para reutilizar" },
     { id: "snippet", label: looksLikeCommand ? "Comando (parece uno)" : "Comando", hint: "▶ Correr" },
-    { id: "log", label: "Entrada de bitácora", hint: "con fecha de hoy" },
+    { id: "log", label: "Línea en la entrada del día", hint: "sección Sesiones" },
   ]);
   if (!choice) return;
 
@@ -34,7 +35,8 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
     let summary: string[] = [];
     update((d) => {
       summary = applyCapture(d, project.id, parsed);
-      d.bottomTab = "log";
+      const day = d.projects.find((p) => p.id === project.id)!.notes.find((n) => n.group === SESSIONS_GROUP && new Date(n.createdAt).toDateString() === new Date().toDateString());
+      if (day) d.activeNoteId[project.id] = day.id;
     });
     setTimeout(() => notify("Repartido", summary.join(" · ") || "No había nada que repartir."), 50);
     return;
@@ -76,8 +78,7 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
         tab = "snippets";
         break;
       case "log":
-        p.log.unshift({ id: uid(), at: now, text: text.trim().replace(/\s+/g, " ").slice(0, 300) });
-        tab = "log";
+        d.activeNoteId[p.id] = appendToDay(p, [text.trim().replace(/\s+/g, " ").slice(0, 300)]).id;
         break;
     }
     if (tab) d.bottomTab = tab;

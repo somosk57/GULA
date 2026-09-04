@@ -3,7 +3,7 @@ import { AppState, Tab } from "../types";
 
 interface Hit {
   id: string;
-  kind: "note" | "prompt" | "snippet" | "log" | "link" | "project" | "card";
+  kind: "note" | "prompt" | "snippet" | "link" | "project" | "card";
   projectId: string;
   projectName: string;
   title: string;
@@ -16,7 +16,6 @@ const KIND_LABEL: Record<Hit["kind"], string> = {
   note: "nota",
   prompt: "prompt",
   snippet: "comando",
-  log: "bitácora",
   link: "acceso",
   project: "proyecto",
   card: "ficha",
@@ -29,7 +28,7 @@ function excerpt(body: string, q: string) {
   return (start > 0 ? "…" : "") + body.slice(start, i + q.length + 50).replace(/\n/g, " ");
 }
 
-/** Busca en todos los proyectos: notas, prompts, comandos, bitácora, accesos. */
+/** Busca en todos los proyectos: notas, prompts, comandos, accesos. */
 export function search(state: AppState, query: string): Hit[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -46,9 +45,6 @@ export function search(state: AppState, query: string): Hit[] {
     for (const x of p.snippets)
       if (has(x.title, x.body))
         hits.push({ id: x.id, kind: "snippet", projectId: p.id, projectName: p.name, title: x.title, snippet: x.body, tab: "snippets" });
-    for (const x of p.log)
-      if (has(x.text))
-        hits.push({ id: x.id, kind: "log", projectId: p.id, projectName: p.name, title: excerpt(x.text, q), snippet: new Date(x.at).toLocaleDateString("es-AR"), tab: "log" });
     for (const x of p.cards)
       if (has(x.name, x.summary, x.body))
         hits.push({ id: x.id, kind: "card", projectId: p.id, projectName: p.name, title: x.name, snippet: x.summary || excerpt(x.body, q), tab: "cards" });
@@ -111,7 +107,7 @@ export function SearchPalette({ state, onClose, onGo }: Props) {
             </button>
           ))}
           {q && hits.length === 0 && <div className="empty">Nada con “{q}”.</div>}
-          {!q && <div className="empty">Escribí para buscar en notas, prompts, comandos, bitácora y accesos de todos los proyectos.</div>}
+          {!q && <div className="empty">Escribí para buscar en notas, prompts, comandos y accesos de todos los proyectos.</div>}
         </div>
       </div>
     </div>

@@ -1,7 +1,8 @@
 // Captura distribuida: pegás la respuesta de cierre de la IA (con los encabezados
-// fijos) y GULA la reparte: Hecho → bitácora, Pendiente → nota de tareas,
+// fijos) y GULA la reparte: Hecho → entrada del día, Pendiente → nota de tareas,
 // Decisiones → bloque de contexto, Prompts → prompts, Fichas → fichas, Ahora → "ahora estoy en".
 import { AppState, CardKind, Project, newNote, syncNote, uid } from "./types";
+import { appendToDay } from "./diary";
 
 const HEADS = ["hecho", "pendiente", "decisiones", "prompts", "fichas", "ahora", "notas"] as const;
 type Head = (typeof HEADS)[number];
@@ -43,8 +44,8 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
 
   if (c.hecho?.trim()) {
     const ls = items(c.hecho);
-    ls.forEach((t, i) => p.log.unshift({ id: uid(), at: now - i, text: t }));
-    done.push(`${ls.length} en bitácora`);
+    appendToDay(p, ls, { heading: "Hecho" });
+    done.push(`${ls.length} en la entrada del día`);
   }
   if (c.pendiente?.trim()) {
     const ls = items(c.pendiente);
@@ -61,6 +62,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
     if (!b) { b = { id: uid(), title: "Decisiones tomadas", body: "", enabled: true }; p.blocks.push(b); }
     const stamp = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
     b.body = (b.body.trim() ? b.body.trim() + "\n" : "") + ls.map((t) => `- (${stamp}) ${t}`).join("\n");
+    appendToDay(p, ls, { heading: "Decisiones" });
     done.push(`${ls.length} decisiones`);
   }
   if (c.prompts?.trim()) {

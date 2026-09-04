@@ -2,6 +2,7 @@ import { useState } from "react";
 import { copyText, dataDir, exportFiles, listBackups, loadState, openPath, pickFolder, readBackup, setDataLocation, snapshotNow, win } from "../backend";
 import { ask, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
+import { lastDiaryLine } from "../diary";
 import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
 import { ProfileId } from "../profiles";
 import { collectTasks, fmtDate } from "../ai";
@@ -125,7 +126,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
           separator: true,
           onClick: async () => {
             if (state.projects.length === 1) return notify("No podés eliminar el único proyecto");
-            if (!(await confirmDlg(`¿Eliminar el proyecto "${project.name}"?`, "Se borran sus notas, prompts, comandos y bitácora. Ctrl+Z lo recupera mientras la app siga abierta.", { danger: true, okLabel: "Eliminar proyecto" }))) return;
+            if (!(await confirmDlg(`¿Eliminar el proyecto "${project.name}"?`, "Se borran sus notas, prompts, comandos y sesiones. Ctrl+Z lo recupera mientras la app siga abierta.", { danger: true, okLabel: "Eliminar proyecto" }))) return;
             update((d) => {
               d.projects = d.projects.filter((p) => p.id !== project.id);
               d.activeProjectId = d.projects[0].id;
@@ -196,7 +197,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v1.3.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v1.4.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -220,7 +221,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       <button className="tb-btn sm" title={`Buscar en todos los proyectos (${IS_MAC ? "⌘" : "Ctrl+"}K)`} onClick={onOpenSearch}>
         {I.search}
       </button>
-      <button className="tb-btn sm" title={`Pegar como… nota, bloque, prompt, comando o bitácora (${IS_MAC ? "⌘" : "Ctrl+"}Shift+V)`} onClick={onPasteAs}>
+      <button className="tb-btn sm" title={`Pegar como… nota, bloque, prompt, comando o entrada del día (${IS_MAC ? "⌘" : "Ctrl+"}Shift+V)`} onClick={onPasteAs}>
         {I.paste}
       </button>
       <button className="tb-btn sm" title="Más opciones" onClick={settingsMenu}>
@@ -239,7 +240,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             <div className="proj-list">
               {state.projects.map((p) => {
                 const pending = collectTasks(p).filter((t) => !t.done).length;
-                const last = [...p.log].sort((a, b) => b.at - a.at)[0];
+                const last = lastDiaryLine(p);
                 const touched = Math.max(p.lastSessionAt ?? 0, last?.at ?? 0, ...p.notes.map((n) => n.updatedAt));
                 return (
                   <button
