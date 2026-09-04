@@ -217,7 +217,7 @@ export function Editor({ project, note, update }: Props) {
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
       ) : count === 1 ? (
-        <div className="single" onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, note.panes[0]); }}>
+        <div className="single" data-pane={note.panes[0].id} onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, note.panes[0]); }}>
           <MarkdownEditor
             key={note.id + note.panes[0].id}
             value={note.panes[0].body}
@@ -231,7 +231,7 @@ export function Editor({ project, note, update }: Props) {
       ) : (
         <div className="panes" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {note.panes.map((p, i) => (
-            <div key={p.id} className="pane" onContextMenu={(e) => paneMenu(e, p)}>
+            <div key={p.id} className="pane" data-pane={p.id} onContextMenu={(e) => paneMenu(e, p)}>
               <input
                 className="pane-title"
                 value={p.title}

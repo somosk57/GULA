@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppState, activeProject } from "./store";
 import { TitleBar, createProject } from "./components/TitleBar";
 import { ProjectRail } from "./components/ProjectRail";
+import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
 import { LinksPanel } from "./components/LinksPanel";
@@ -39,6 +40,7 @@ export default function App() {
   const { state, update, replace, undo, redo } = useAppState();
   const [searchOpen, setSearchOpen] = useState(false);
   const [homeOpen, setHomeOpen] = useState(false);
+  const [keysOpen, setKeysOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [split, setSplit] = useState<number>(() => Number(localStorage.getItem(SPLIT_KEY)) || 62);
   const [compact, setCompact] = useState(false);
@@ -100,6 +102,9 @@ export default function App() {
       } else if (k === "h") {
         e.preventDefault();
         setHomeOpen((v) => !v);
+      } else if (k === "/" || k === "?") {
+        e.preventDefault();
+        setKeysOpen((v) => !v);
       } else if (k === "v" && e.shiftKey) {
         e.preventDefault();
         update((d) => {
@@ -205,10 +210,12 @@ export default function App() {
         onOpenSearch={() => setSearchOpen(true)}
         onPasteAs={() => pasteAs(project, state.activeNoteId[project.id], update)}
         onHome={() => setHomeOpen(true)}
+        onKeys={() => setKeysOpen(true)}
       />
       <UpdateBanner />
       <Dialogs />
       {searchOpen && <SearchPalette state={state} onClose={() => setSearchOpen(false)} onGo={goTo} />}
+      {keysOpen && <ShortcutsOverlay onClose={() => setKeysOpen(false)} />}
       {homeOpen && (
         <HomeOverlay
           state={state}

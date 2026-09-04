@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppState, ContextBlock, Project, uid } from "../types";
 import { fmtAgo } from "../ai";
 import { copyText } from "../backend";
-import { buildAiPackage, collectTasks, contextText, estimateTokens } from "../ai";
+import { buildAiPackage, collectTasks } from "../ai";
 import { ask, confirmDlg, notify } from "../dialog";
 import { closeSession, startSession, fmtMinutes, openInAi, copyClosingPrompt } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -14,7 +14,7 @@ interface Props {
 
 /**
  * Contexto en bloques. Cada bloque tiene interruptor: los apagados no van en
- * "Copiar para la IA". Arriba, cuántos tokens aproximados tiene el paquete.
+ * "Copiar para la IA".
  */
 export function ContextPanel({ project, update }: Props) {
   const [copied, setCopied] = useState<string | null>(null);
@@ -81,8 +81,6 @@ export function ContextPanel({ project, update }: Props) {
   };
 
   const pkg = buildAiPackage(project);
-  const tokens = estimateTokens(pkg);
-  const ctxTokens = estimateTokens(contextText(project));
   const setPkg = (fn: (o: Project["pkg"]) => Project["pkg"]) => update((d) => { const p = d.projects.find((p) => p.id === project.id)!; p.pkg = fn(p.pkg); });
   const on = project.blocks.filter((b) => b.enabled).length;
   const inSession = project.sessionStartedAt != null;
@@ -129,9 +127,7 @@ export function ContextPanel({ project, update }: Props) {
         >
           Abrir en ▾
         </button>
-        <span className="prompt-sub tokens" title={`Contexto ≈ ${ctxTokens} tokens · paquete completo ≈ ${tokens} tokens`}>
-          ≈ {tokens.toLocaleString("es-AR")} tokens · {on}/{project.blocks.length} bloques
-        </span>
+        <span className="prompt-sub tokens">{on}/{project.blocks.length} bloques</span>
         <button className="chip add" onClick={addBlock}>+ Bloque</button>
       </div>
       <div className="pkg-row" title="Qué entra en Copiar para la IA, además de los bloques encendidos">
@@ -151,7 +147,6 @@ export function ContextPanel({ project, update }: Props) {
       <div className="block-list">
         {project.blocks.map((b) => {
           const isOpen = open === b.id;
-          const t = estimateTokens(b.body);
           return (
             <div key={b.id} className={"block" + (b.enabled ? "" : " off") + (isOpen ? " open" : "")} onContextMenu={(e) => blockMenu(e, b)}>
               <div className="block-head">
@@ -164,7 +159,7 @@ export function ContextPanel({ project, update }: Props) {
                 <button className="block-title" onClick={() => setOpen(isOpen ? null : b.id)}>
                   <span>{b.title}</span>
                   <span className="block-meta">
-                    {b.body.trim() ? `≈ ${t} tok` : "vacío"}{b.updatedAt ? ` · ${fmtAgo(b.updatedAt)}` : ""} · {isOpen ? "cerrar" : "editar"}
+                    {b.body.trim() ? `${b.body.trim().split(/\s+/).length} palabras` : "vacío"}{b.updatedAt ? ` · ${fmtAgo(b.updatedAt)}` : ""} · {isOpen ? "cerrar" : "editar"}
                   </span>
                 </button>
               </div>

@@ -22,6 +22,7 @@ interface Props {
   onOpenSearch: () => void;
   onPasteAs: () => void;
   onHome: () => void;
+  onKeys: () => void;
 }
 
 const I = {
@@ -64,7 +65,7 @@ export async function createProject(update: (fn: (d: AppState) => void) => void)
   });
 }
 
-export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome }: Props) {
+export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome, onKeys }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -171,6 +172,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Buscar en todo  (${mod}K)`, onClick: onOpenSearch, separator: true },
         { label: `Pegar como…  (${mod}Shift+V)`, onClick: onPasteAs },
         { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
+        { label: `Atajos de teclado  (${mod}/)`, onClick: onKeys },
         {
           label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}  →  cambiar`,
           separator: true,
@@ -205,7 +207,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v2.0.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v2.1.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };

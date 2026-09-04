@@ -246,7 +246,7 @@ export function defaultState(): AppState {
   p.notes[0].title = "Cómo usar GULA";
   p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- Arrastrá imágenes, videos o audios desde el Explorador a un recuadro.\n- **Copiar para la IA** (pestaña Contexto) arma todo lo que un chat nuevo necesita saber.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Ctrl+/ muestra todos los atajos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],

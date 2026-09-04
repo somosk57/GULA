@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, uid } from "../types";
-import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame } from "../backend";
+import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, syncNote, uid } from "../types";
+import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame, moveToSubdir } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -128,7 +128,65 @@ function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote, onN
   );
 }
 
+/** Arrastre con el mouse (el drag&drop de HTML5 pelea con el de Tauri en Windows): la casilla sigue al cursor
+ *  y al soltar sobre un recuadro de la nota, o sobre una nota de la barra izquierda, se inserta ahí. */
+function useMediaDrag(onDrop: (it: Item, target: { paneId?: string; noteId?: string }) => void) {
+  return (e: React.MouseEvent, it: Item, thumbEl: HTMLElement) => {
+    if (e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY;
+    let ghost: HTMLElement | null = null;
+    let over: Element | null = null;
+    const move = (ev: MouseEvent) => {
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8) return;
+        ghost = thumbEl.cloneNode(true) as HTMLElement;
+        ghost.className = "drag-ghost";
+        document.body.appendChild(ghost);
+        document.body.classList.add("dragging-media");
+      }
+      ghost.style.left = ev.clientX + 12 + "px";
+      ghost.style.top = ev.clientY + 12 + "px";
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const t = under?.closest("[data-pane], .note-item") ?? null;
+      if (t !== over) { over?.classList.remove("drop-here"); over = t; over?.classList.add("drop-here"); }
+    };
+    const up = (ev: MouseEvent) => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      over?.classList.remove("drop-here");
+      document.body.classList.remove("dragging-media");
+      if (!ghost) return;
+      ghost.remove();
+      ev.preventDefault();
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const pane = under?.closest("[data-pane]") as HTMLElement | null;
+      const note = under?.closest(".note-item") as HTMLElement | null;
+      if (pane) onDrop(it, { paneId: pane.dataset.pane });
+      else if (note) onDrop(it, { noteId: note.dataset.id });
+      // Un clic normal (sin arrastre) sigue abriendo la vista grande: lo maneja onClick.
+      suppressClick = true;
+      setTimeout(() => (suppressClick = false), 0);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+}
+let suppressClick = false;
+
 export function GalleryPanel({ project, update, allProjects }: Props) {
+  const startDrag = useMediaDrag((it, target) =>
+    update((d) => {
+      const p = d.projects.find((p) => p.id === project.id)!;
+      const n = target.paneId
+        ? p.notes.find((n) => n.panes.some((x) => x.id === target.paneId))
+        : p.notes.find((n) => n.id === target.noteId);
+      if (!n) return;
+      const pane = target.paneId ? n.panes.find((x) => x.id === target.paneId)! : n.panes[n.panes.length - 1];
+      pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + `![](<${it.src}>)\n`;
+      syncNote(n);
+      d.activeNoteId[p.id] = n.id;
+    }),
+  );
   const [limit, setLimit] = useState(PAGE);
   const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.tile")) || 140; } catch { return 140; } });
   const [lbSrc, setLbSrc] = useState<string | null>(null);
@@ -139,6 +197,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   const [source, setSource] = useState<string>("all");
   const [files, setFiles] = useState<(DirEntryInfo & { collection: string })[]>([]);
   const [loose, setLoose] = useState(false);
+  const [q, setQ] = useState("");
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [markFilter, setMarkFilter] = useState<Mark | "all">("all");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -194,9 +253,23 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   const shown = items
     .filter((i) => kind === "all" || i.kind === kind || (kind === "doc" && i.kind === "other"))
     .filter((i) => markFilter === "all" || markOf(i) === markFilter)
-    .filter((i) => !loose || !i.note);
+    .filter((i) => !loose || !i.note)
+    .filter((i) => { const s = q.trim().toLowerCase(); return !s || i.src.toLowerCase().includes(s) || i.prompt.toLowerCase().includes(s) || (i.note?.title ?? "").toLowerCase().includes(s) || i.paneTitle.toLowerCase().includes(s); });
   const looseCount = items.filter((i) => !i.note).length;
-  useEffect(() => setLimit(PAGE), [kind, source, scope, markFilter, loose, project.id]);
+  // Rojos sueltos de las colecciones: candidatos a irse a _descartados.
+  const redLoose = items.filter((i) => !i.note && markOf(i) === "bad" && !/^(https?:|data:)/i.test(i.src));
+  const discardReds = async () => {
+    if (!redLoose.length) return;
+    if (!(await confirmDlg(`¿Mover ${redLoose.length} archivo${redLoose.length === 1 ? "" : "s"} rojo${redLoose.length === 1 ? "" : "s"} a "_descartados"?`, "No se borra nada: cada uno va a una subcarpeta _descartados dentro de su carpeta. La marca roja se mantiene.", { okLabel: "Mover" }))) return;
+    const moved: [string, string][] = [];
+    for (const it of redLoose) { try { moved.push([it.src, await moveToSubdir(it.src)]); } catch { /* sigue con el resto */ } }
+    update((d) => {
+      const p = d.projects.find((p) => p.id === project.id)!;
+      for (const [from, to] of moved) { delete p.marks[from]; p.marks[to] = "bad"; }
+    });
+    setFiles((fs) => fs.filter((f) => !moved.some(([from]) => from === f.path)));
+  };
+  useEffect(() => setLimit(PAGE), [kind, source, scope, markFilter, loose, q, project.id]);
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
@@ -266,6 +339,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   return (
     <div className="gallery">
       <div className="panel-actions sources">
+        <input className="gsearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar archivo, prompt o nota…" spellCheck={false} />
         <button className={"chip" + (source === "all" ? " on" : "")} onClick={() => setSource("all")} title="Todo junto: lo de las notas y lo de las colecciones, cada archivo una vez">Todo</button>
         <button className={"chip" + (source === "notes" ? " on" : "")} onClick={() => setSource("notes")} title="Solo lo que está en las notas del proyecto">En las notas</button>
         {project.collections.map((c) => (
@@ -354,6 +428,11 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             Sueltos {looseCount}
           </button>
         )}
+        {redLoose.length > 0 && (
+          <button className="chip" style={{ color: "#ff5f57", borderColor: "#ff5f57" }} title="Mueve los archivos rojos que no están en ninguna entrada a una subcarpeta _descartados (no borra nada)" onClick={discardReds}>
+            Apartar rojos {redLoose.length}
+          </button>
+        )}
         {broken.size > 0 && <span className="chip broken-chip" title="Archivos que ya no están en su ruta: movidos, renombrados o borrados">⚠ {broken.size} sin archivo</span>}
         {loadErr && <span className="chip broken-chip">⚠ {loadErr}</span>}
         {!collection && allProjects && allProjects.length > 1 && (
@@ -369,7 +448,8 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             className={"gitem " + it.kind + (broken.has(it.src) ? " broken" : "") + (markOf(it) ? " marked" : "")}
             style={markOf(it) ? { borderColor: markColor(markOf(it))!, boxShadow: `inset 0 0 0 2px ${markColor(markOf(it))}` } : undefined}
             title={(broken.has(it.src) ? "⚠ No se encuentra el archivo\n" : "") + (it.prompt ? it.prompt.slice(0, 300) + "\n\n" : "") + `— ${it.note ? it.note.title : it.paneTitle}${it.note && it.paneTitle ? " · " + it.paneTitle : ""}`}
-            onClick={() => setLbSrc(it.src)}
+            onClick={() => { if (!suppressClick) setLbSrc(it.src); }}
+            onMouseDown={(e) => startDrag(e, it, e.currentTarget)}
             onDoubleClick={() => openPath(it.src)}
             onContextMenu={(e) => itemMenu(e, it)}
           >

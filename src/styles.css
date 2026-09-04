@@ -702,3 +702,22 @@ body.reordering * { cursor: grabbing !important; }
 .pkg-chip { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--line); color: var(--text-faint); text-decoration: line-through; }
 .pkg-chip.on { color: var(--text-dim); text-decoration: none; border-color: var(--border-strong); }
 .pkg-chip:hover { color: var(--text); }
+
+/* ---------- Arrastrar desde la Galería ---------- */
+.drag-ghost { position: fixed; z-index: 9999; width: 90px; height: 90px; border-radius: 8px; overflow: hidden; pointer-events: none; opacity: .85; box-shadow: 0 8px 24px var(--shadow); border: 1px solid var(--border-strong); background: var(--bg-input); }
+.drag-ghost img, .drag-ghost video { width: 100%; height: 100%; object-fit: cover; }
+.drag-ghost .gcap, .drag-ghost .gmarks, .drag-ghost .gnote { display: none; }
+body.dragging-media { cursor: copy; user-select: none; }
+body.dragging-media .pane, body.dragging-media .single, body.dragging-media .note-item { transition: box-shadow .1s; }
+.drop-here { box-shadow: inset 0 0 0 2px var(--accent) !important; border-radius: 8px; }
+.gsearch { font-size: 12px; padding: 3px 8px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--bg-input); color: var(--text); width: 180px; }
+.gsearch:focus { border-color: var(--border-strong); }
+
+/* ---------- Atajos ---------- */
+.home.keys { width: min(760px, calc(100vw - 32px)); }
+.keys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 4px 18px 16px; overflow: auto; min-height: 0; }
+.keys-group { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; align-self: start; justify-content: start; }
+.keys-grid { align-items: start; }
+.keys-row { display: flex; gap: 10px; align-items: baseline; font-size: 12.5px; color: var(--text-dim); }
+.keys-row kbd { font-family: inherit; font-size: 11px; color: var(--text); background: var(--bg-input); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; white-space: nowrap; flex: none; min-width: 90px; text-align: center; }
+@media (max-width: 640px) { .keys-grid { grid-template-columns: 1fr; } }

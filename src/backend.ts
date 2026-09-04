@@ -167,6 +167,12 @@ export async function thumbnail(path: string): Promise<string> {
   return invoke<string>("thumbnail", { path });
 }
 
+/** Mueve un archivo a <su carpeta>/<sub>/ (sin pisar). Devuelve la ruta nueva. */
+export async function moveToSubdir(path: string, sub = "_descartados"): Promise<string> {
+  if (!isTauri) return path;
+  return invoke<string>("move_to_subdir", { path, sub });
+}
+
 export async function getThumb(path: string): Promise<string | null> {
   if (!isTauri) return null;
   return invoke<string | null>("get_thumb", { path });

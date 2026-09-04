@@ -12,7 +12,7 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
   - **Accesos:** el tablero del proyecto (y debajo los **comandos** que usás seguido, con *Copiar* o **▶ Correr** en PowerShell): carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
   - **Galería:** todas las imágenes, videos y audios de las notas del proyecto en una grilla; al pasar el mouse ves el prompt que lo generó. Clic: ir a la nota · doble clic: abrir · clic derecho: copiar prompt o ruta.
   - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
-  - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimas sesiones del diario + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
+  - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimas sesiones del diario + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
   - **Fichas:** la biblia del proyecto: personajes, lugares, objetos y escenas, cada una con una línea de resumen (lo que ve la IA), detalle largo, imagen de referencia y un interruptor "Para la IA". Las escenas tienen estado (idea / borrador / lista) y qué personajes y lugares aparecen. Se ordenan arrastrando. Pensado para novelas, pero sirve para cualquier proyecto con "cosas" que la IA tiene que conocer.
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
 
@@ -24,7 +24,17 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Colecciones** (en Galería, *+ Colección*): carpetas de tu PC con el nombre que quieras (Clips, Highlights, Artworks, Docs, Assets…). La Galería muestra lo que hay adentro, leído del disco: imágenes, videos, audios y documentos, con las mismas marcas de color. Clic derecho en una colección: abrir la carpeta, renombrar, cambiar carpeta, o marcarla como el lugar donde se copian los archivos que insertes en notas (así la nota no se rompe si movés el original). La Galería también marca con ⚠ los archivos de las notas que ya no están, y puede mostrar los resultados de todos los proyectos.
 
-**Qué entra en el paquete:** debajo de los botones de Contexto hay una fila "Entra:" con fichas, tareas, maestros, último prompt y sesiones (0, 1 o 3). Un clic apaga o prende cada parte, el contador de tokens se actualiza al instante, y la elección queda guardada por proyecto. Para escribir la escena 12 no hace falta mandarle a la IA la novela entera.
+**Arrastrar desde la Galería:** agarrá una casilla y soltala sobre un recuadro de la nota abierta, o sobre una nota de la barra izquierda: se inserta ahí. Un clic normal sigue abriendo la vista grande.
+
+**Buscar en la Galería:** la cajita de arriba filtra por nombre de archivo, prompt, nota o recuadro.
+
+**Apartar rojos:** cuando en una colección hay archivos marcados rojos que no están en ninguna entrada, aparece el chip "Apartar rojos N": los mueve a una subcarpeta `_descartados` dentro de su carpeta (no borra nada, y las carpetas que empiezan con `_` no se listan).
+
+**Informe más legible:** arriba de todo va "Lo que quedó" (entradas maestro / sirve); las rojas se pliegan en una lista "Descartado" al final del registro.
+
+**Atajos:** `Ctrl+/` (o ⋯ → Atajos) muestra todos los atajos en una pantalla.
+
+**Qué entra en el paquete:** debajo de los botones de Contexto hay una fila "Entra:" con fichas, tareas, maestros, último prompt y sesiones (0, 1 o 3). Un clic apaga o prende cada parte, y la elección queda guardada por proyecto. Para escribir la escena 12 no hace falta mandarle a la IA la novela entera.
 
 **Columna de proyectos:** cuando hay más de un proyecto aparece una columna angosta a la izquierda (como los servidores de Discord) con un cuadrado por proyecto: la imagen maestra o las iniciales, un punto verde si hay sesión abierta y el número de tareas pendientes. Un clic y cambiás de proyecto; `Ctrl+Shift+1…9` va al proyecto N y `Ctrl+Shift+↑/↓` pasa al anterior/siguiente. Se puede ocultar desde el menú ⋯.
 

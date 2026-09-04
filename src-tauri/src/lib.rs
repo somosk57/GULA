@@ -542,6 +542,30 @@ fn thumb_key(path: &str) -> Result<(u64, u64), String> {
     Ok((h, meta.len()))
 }
 
+/// Mueve un archivo a una subcarpeta hermana (ej. "_descartados") sin pisar nada. Devuelve la ruta nueva.
+#[tauri::command]
+fn move_to_subdir(path: String, sub: String) -> Result<String, String> {
+    let src = PathBuf::from(&path);
+    let parent = src.parent().ok_or("sin carpeta")?;
+    let safe: String = sub.chars().filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-').collect();
+    let dir = parent.join(if safe.is_empty() { "_descartados".to_string() } else { safe });
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let name = src.file_name().ok_or("sin nombre")?.to_string_lossy().to_string();
+    let mut dest = dir.join(&name);
+    let mut n = 2;
+    while dest.exists() {
+        let stem = src.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+        let ext = src.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+        dest = dir.join(format!("{stem}-{n}{ext}"));
+        n += 1;
+    }
+    if fs::rename(&src, &dest).is_err() {
+        fs::copy(&src, &dest).map_err(|e| e.to_string())?;
+        fs::remove_file(&src).map_err(|e| e.to_string())?;
+    }
+    Ok(dest.to_string_lossy().to_string())
+}
+
 /// Miniatura ya generada para un archivo (videos: la genera el frontend), o null.
 #[tauri::command]
 fn get_thumb(app: AppHandle, path: String) -> Result<Option<String>, String> {
@@ -621,7 +645,7 @@ fn list_dir_media(dir: String) -> Result<Vec<DirEntryInfo>, String> {
         for e in rd.flatten() {
             let p = e.path();
             let name = e.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') { continue; }
+            if name.starts_with('.') || name.starts_with('_') { continue; }
             if p.is_dir() {
                 if depth < 2 { walk(&p, depth + 1, out); }
                 continue;
@@ -690,6 +714,7 @@ pub fn run() {
             list_dir_media,
             thumbnail,
             get_thumb,
+            move_to_subdir,
             put_thumb,
             read_backup,
             snapshot_now,

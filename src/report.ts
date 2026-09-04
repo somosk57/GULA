@@ -29,6 +29,16 @@ export function buildReport(p: Project, o: ReportOptions): string {
   S.push(`Generado el ${new Date().toLocaleDateString("es-AR")} desde GULA.${o.range === "week" ? " Cubre los últimos 7 días." : ""}`);
   S.push(`\n## En qué está\n- Etapa: **${stage}**${p.now ? `\n- Ahora estoy en: ${p.now}${p.nowAt ? ` (escrito el ${fmtDate(p.nowAt)})` : ""}` : ""}`);
 
+  // Lo que quedó: entradas marcadas maestro / sirve, arriba de todo.
+  const kept = p.notes.filter((n) => { const m = noteMark(n, p.marks); return m === "master" || m === "good"; });
+  if (kept.length) {
+    S.push("\n## Lo que quedó (maestro / sirve)");
+    for (const n of kept) {
+      const m = noteMark(n, p.marks);
+      S.push(`- **${n.title}** [${MARKS.find((x) => x.id === m)?.short}] — ${fmtDate(n.createdAt)}${noteSummary(n.body) ? `: ${noteSummary(n.body)}` : ""}`);
+    }
+  }
+
   // Contexto (bloques encendidos y apagados: el informe es completo)
   const ctx = contextText(p, false);
   if (ctx.trim()) S.push("\n" + ctx.replace(/^# Proyecto:.*\n?/, "## Qué es y cómo trabajamos\n"));
@@ -60,8 +70,10 @@ export function buildReport(p: Project, o: ReportOptions): string {
   const notes = [...p.notes].filter((n) => n.updatedAt >= since).sort((a, b) => a.createdAt - b.createdAt);
   if (notes.length) {
     S.push(`\n## Registro (${notes.length} entrada${notes.length === 1 ? "" : "s"}, en orden cronológico)`);
+    const bad = notes.filter((n) => noteMark(n, p.marks) === "bad");
     for (const n of notes) {
       const nm = noteMark(n, p.marks);
+      if (nm === "bad") continue;
       S.push(`\n### ${n.title} — ${fmtDate(n.createdAt)}${n.group && n.group !== "General" ? ` · ${n.group}` : ""}${nm ? ` [${MARKS.find((x) => x.id === nm)?.short}]` : ""}`);
       if (n.panes.length > 1) {
         for (const pane of n.panes) {
@@ -74,6 +86,10 @@ export function buildReport(p: Project, o: ReportOptions): string {
         const body = n.panes[0].body.trim();
         if (body) S.push(o.fullNotes ? body : noteSummary(body));
       }
+    }
+    if (bad.length) {
+      S.push(`\n### Descartado (${bad.length})`);
+      for (const n of bad) S.push(`- ${n.title} — ${fmtDate(n.createdAt)}`);
     }
   }
 
