@@ -96,6 +96,7 @@ export function LinksPanel({ project, update, showCommands = true }: Props) {
   // Drag & drop desde el Explorador (evento nativo de Tauri)
   useEffect(() => {
     let off: (() => void) | undefined;
+    let dead = false;
     win.onDrop((paths, at) => {
       // Solo si se soltó sobre el panel de abajo; lo que cae sobre la nota lo toma el editor.
       if (at) {
@@ -103,14 +104,21 @@ export function LinksPanel({ project, update, showCommands = true }: Props) {
         if (!el?.closest(".bottom")) return;
       }
       addLinks(paths);
-    }).then((f) => (off = f));
+    }).then((f) => {
+      off = f;
+      // Si el efecto se limpió mientras se registraba, soltarlo ya (si no, quedan
+      // dos listeners y el archivo entra dos veces).
+      if (dead) f();
+    });
     const enter = () => setDragging(true);
     const leave = () => setDragging(false);
     window.addEventListener("dragenter", enter);
     window.addEventListener("dragleave", leave);
     window.addEventListener("drop", leave);
     return () => {
+      dead = true;
       off?.();
+      off = undefined;
       window.removeEventListener("dragenter", enter);
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", leave);

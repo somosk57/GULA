@@ -29,46 +29,22 @@ export function Editor({ project, note, update, keys }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
-  // Imagen arrastrada desde el Explorador sobre un recuadro con foco → se inserta ahí.
+  // Un solo listener de "archivo soltado" para toda la vida del editor.
+  // (Antes se re-registraba en cada cambio de estado y el archivo entraba dos o más veces.)
+  const onDropRef = useRef<(paths: string[], at: { x: number; y: number } | null) => void>(() => {});
   useEffect(() => {
     let off: (() => void) | undefined;
-    win.onDrop((paths, at) => {
-      const media = paths.filter(isImagePath);
-      if (!media.length) return;
-      // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
-      let target: EditorView | undefined;
-      const copyDirNow = project.collections.find((c) => c.id === project.copyTo)?.path;
-      if (at) {
-        const under = document.elementFromPoint(at.x, at.y);
-        if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso, no una imagen de la nota
-        // Un cuadrado de la colección no tiene editor abierto: se escribe directo en su texto.
-        const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
-        const paneId = card?.dataset.pane;
-        if (paneId) {
-          (async () => {
-            const lines: string[] = [];
-            for (const m of media) lines.push(`![](<${copyDirNow ? await copyToDir(m, copyDirNow).catch(() => m) : m}>)`);
-            setNote((n) => {
-              const pane = n.panes.find((x) => x.id === paneId);
-              if (pane) pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + lines.join("\n") + "\n";
-            });
-          })();
-          return;
-        }
-        const el = under?.closest(".pane, .single");
-        const host = el?.querySelector(".cm-editor");
-        target = Object.values(views.current).find((v) => v.dom === host);
-      }
-      target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
-      if (!target) return;
-      const t = target;
-      const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
-      (async () => {
-        for (const m of media) insertImage(t, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
-      })();
-    }).then((f) => (off = f));
-    return () => off?.();
-  }, [note.id, project.copyTo, project.collections]);
+    let dead = false;
+    win.onDrop((paths, at) => onDropRef.current(paths, at)).then((f) => {
+      off = f;
+      if (dead) f();
+    });
+    return () => {
+      dead = true;
+      off?.();
+      off = undefined;
+    };
+  }, []);
 
   const setNote = (fn: (n: Note) => void) =>
     update((d) => {
@@ -240,6 +216,43 @@ export function Editor({ project, note, update, keys }: Props) {
     if (grid) setFocusPane(id);
   };
 
+  // Imagen arrastrada desde el Explorador sobre un recuadro o un cuadro de la colección.
+  onDropRef.current = (paths, at) => {
+    const media = paths.filter(isImagePath);
+    if (!media.length) return;
+    // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
+    let target: EditorView | undefined;
+    const copyDirNow = project.collections.find((c) => c.id === project.copyTo)?.path;
+    if (at) {
+      const under = document.elementFromPoint(at.x, at.y);
+      if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso, no una imagen de la nota
+      // Un cuadrado de la colección no tiene editor abierto: se escribe directo en su texto.
+      const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
+      const paneId = card?.dataset.pane;
+      if (paneId) {
+        (async () => {
+          const lines: string[] = [];
+          for (const m of media) lines.push(`![](<${copyDirNow ? await copyToDir(m, copyDirNow).catch(() => m) : m}>)`);
+          setNote((n) => {
+            const pane = n.panes.find((x) => x.id === paneId);
+            if (pane) pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + lines.join("\n") + "\n";
+          });
+        })();
+        return;
+      }
+      const el = under?.closest(".pane, .single");
+      const host = el?.querySelector(".cm-editor");
+      target = Object.values(views.current).find((v) => v.dom === host);
+    }
+    target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
+    if (!target) return;
+    const t = target;
+    const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
+    (async () => {
+      for (const m of media) insertImage(t, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
+    })();
+  };
+
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const i = note.panes.findIndex((x) => x.id === p.id);
@@ -349,7 +362,9 @@ export function Editor({ project, note, update, keys }: Props) {
             <button className="mode-btn wide" onClick={addPane} title="Sumar un cuadro a la colección">+ Cuadro</button>
           </>
         )}
-        {!grid && (
+        {/* El repartidor 1→2→3→4→6 es de la mesa de trabajo. Una colección tiene los cuadros
+            que vos quieras, así que con más de 6 no aparece y nada se puede fundir. */}
+        {!grid && count <= 6 && (
           <button className="mode-btn" onClick={cyclePreset} title="Recuadros: 1 → 2 → 3 → 4 → 6">
             <LayoutIcon n={count} />
           </button>
