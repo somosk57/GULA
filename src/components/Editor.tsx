@@ -48,7 +48,9 @@ export function Editor({ project, note, update }: Props) {
       // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
       let target: EditorView | undefined;
       if (at) {
-        const el = document.elementFromPoint(at.x, at.y)?.closest(".pane, .single");
+        const under = document.elementFromPoint(at.x, at.y);
+        if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso, no una imagen de la nota
+        const el = under?.closest(".pane, .single");
         const host = el?.querySelector(".cm-editor");
         target = Object.values(views.current).find((v) => v.dom === host);
       }

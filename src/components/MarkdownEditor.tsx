@@ -98,8 +98,14 @@ const checkboxPlugin = ViewPlugin.fromClass(
 );
 
 // ---- Imágenes: ![alt](ruta o url) muestra la imagen debajo de la línea ----
-// Lazy hasta un ")" seguido de espacio o fin de línea, así rutas con paréntesis no lo cortan.
-const IMG_RE = /!\[[^\]]*\]\((\S+?)\)(?=\s|$)/;
+// Acepta `![](<ruta con espacios>)`, `![](ruta)` y, si la línea es solo la imagen, rutas con espacios sin <>.
+const IMG_RE_ANGLE = /!\[[^\]]*\]\(<([^>]+)>\)/;
+const IMG_RE_STRICT = /!\[[^\]]*\]\((\S+?)\)(?=\s|$)/;
+const IMG_RE_LOOSE = /^\s*!\[[^\]]*\]\((.+)\)\s*$/;
+export function matchImage(line: string): string | null {
+  const m = line.match(IMG_RE_ANGLE) ?? line.match(IMG_RE_STRICT) ?? line.match(IMG_RE_LOOSE);
+  return m ? m[1].trim() : null;
+}
 
 function imageSrc(src: string) {
   if (/^(https?:|data:|asset:|http:\/\/asset\.)/i.test(src)) return src;
@@ -121,7 +127,10 @@ class ImageWidget extends WidgetType {
       el.alt = "";
     }
     el.draggable = false;
-    el.onerror = () => { wrap.classList.add("broken"); wrap.textContent = "No se encuentra el archivo: " + this.src; };
+    el.onerror = () => {
+      wrap.classList.add("broken");
+      wrap.textContent = (el instanceof HTMLVideoElement ? "No se puede reproducir (¿formato no soportado? probá .mp4 H.264): " : "No se encuentra el archivo: ") + this.src;
+    };
     wrap.appendChild(el);
     return wrap;
   }
@@ -132,8 +141,8 @@ function buildImageDecos(state: EditorState) {
   const b = new RangeSetBuilder<Decoration>();
   for (let i = 1; i <= state.doc.lines; i++) {
     const line = state.doc.line(i);
-    const m = line.text.match(IMG_RE);
-    if (m) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(m[1]), block: true, side: 1 }));
+    const src = matchImage(line.text);
+    if (src) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(src), block: true, side: 1 }));
   }
   return b.finish();
 }
@@ -152,7 +161,8 @@ export function insertImage(view: EditorView, path: string) {
   const { from } = view.state.selection.main;
   const line = view.state.doc.lineAt(from);
   const prefix = line.text.trim() ? "\n" : "";
-  const ins = `${prefix}![](${path})\n`;
+  // Con <> para que las rutas con espacios sean markdown válido.
+  const ins = `${prefix}![](<${path}>)\n`;
   view.dispatch({ changes: { from: line.to, insert: ins }, selection: { anchor: line.to + ins.length } });
   view.focus();
 }
