@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ask, confirmDlg } from "../dialog";
 import { useReorder } from "../reorder";
 import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, noteMark, uid } from "../types";
+import { fmtAgo } from "../ai";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -226,11 +227,12 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
         <input
           className="now-line"
           value={project.now}
-          onChange={(e) => edit((p) => (p.now = e.target.value))}
+          onChange={(e) => edit((p) => { p.now = e.target.value; p.nowAt = Date.now(); })}
           placeholder="Ahora estoy en…"
           spellCheck={false}
-          title="¿En qué paso estoy? Una línea, para cuando vuelvas en una semana."
+          title={"¿En qué paso estoy? Una línea, para cuando vuelvas en una semana." + (project.nowAt ? `\nEscrito ${fmtAgo(project.nowAt)}.` : "")}
         />
+        {project.now && project.nowAt && <span className={"now-age" + (Date.now() - project.nowAt > 7 * 86_400_000 ? " stale" : "")} title="Cuándo escribiste esto">{fmtAgo(project.nowAt)}</span>}
       </div>
       <div className="filter-row">
         <input

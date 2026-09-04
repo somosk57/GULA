@@ -47,6 +47,16 @@ export function collectTasks(p: Project): TaskItem[] {
   return out;
 }
 
+/** "hoy", "ayer", "hace 5 días", "hace 3 semanas"… */
+export function fmtAgo(t: number) {
+  const d = Math.floor((Date.now() - t) / 86_400_000);
+  if (d <= 0) return "hoy";
+  if (d === 1) return "ayer";
+  if (d < 14) return `hace ${d} días`;
+  if (d < 60) return `hace ${Math.round(d / 7)} semanas`;
+  return `hace ${Math.round(d / 30)} meses`;
+}
+
 export function fmtDate(t: number) {
   return new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }

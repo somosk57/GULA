@@ -62,6 +62,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
     if (!b) { b = { id: uid(), title: "Decisiones tomadas", body: "", enabled: true }; p.blocks.push(b); }
     const stamp = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
     b.body = (b.body.trim() ? b.body.trim() + "\n" : "") + ls.map((t) => `- (${stamp}) ${t}`).join("\n");
+    b.updatedAt = now;
     appendToDay(p, ls, { heading: "Decisiones" });
     done.push(`${ls.length} decisiones`);
   }
@@ -95,6 +96,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
   }
   if (c.ahora?.trim()) {
     p.now = items(c.ahora)[0]?.slice(0, 140) ?? c.ahora.trim().slice(0, 140);
+    p.nowAt = now;
     done.push("“ahora estoy en” actualizado");
   }
   if (c.notas?.trim()) {

@@ -5,7 +5,7 @@ import { migrate } from "../types";
 import { lastDiaryLine } from "../diary";
 import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
 import { ProfileId } from "../profiles";
-import { collectTasks, fmtDate } from "../ai";
+import { collectTasks, fmtAgo, fmtDate } from "../ai";
 import { buildAiPackage, exportProject } from "../ai";
 import { buildReport } from "../report";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -197,7 +197,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v1.6.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v1.7.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -259,7 +259,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
                       <span className="proj-when">{touched ? fmtDate(touched) : ""}</span>
                     </span>
                     <span className="proj-sub">
-                      {p.now || (last ? last.text : "sin avances anotados")}
+                      {p.now ? <>{p.now}{p.nowAt && <span className="proj-age"> · {fmtAgo(p.nowAt)}</span>}</> : last ? last.text : "sin avances anotados"}
                       {pending > 0 && <span className="proj-pending">{pending} pendiente{pending === 1 ? "" : "s"}</span>}
                     </span>
                   </button>

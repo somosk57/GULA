@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AppState, ContextBlock, Project, uid } from "../types";
+import { fmtAgo } from "../ai";
 import { copyText } from "../backend";
 import { buildAiPackage, contextText, estimateTokens } from "../ai";
 import { ask, confirmDlg, notify } from "../dialog";
@@ -148,7 +149,7 @@ export function ContextPanel({ project, update }: Props) {
                 <button className="block-title" onClick={() => setOpen(isOpen ? null : b.id)}>
                   <span>{b.title}</span>
                   <span className="block-meta">
-                    {b.body.trim() ? `≈ ${t} tok` : "vacío"} · {isOpen ? "cerrar" : "editar"}
+                    {b.body.trim() ? `≈ ${t} tok` : "vacío"}{b.updatedAt ? ` · ${fmtAgo(b.updatedAt)}` : ""} · {isOpen ? "cerrar" : "editar"}
                   </span>
                 </button>
               </div>
@@ -156,7 +157,7 @@ export function ContextPanel({ project, update }: Props) {
                 <textarea
                   className="block-body"
                   value={b.body}
-                  onChange={(e) => edit(b.id, (x) => (x.body = e.target.value))}
+                  onChange={(e) => edit(b.id, (x) => { x.body = e.target.value; x.updatedAt = Date.now(); })}
                   placeholder="Escribí lo que la IA tiene que saber sobre esto…"
                   spellCheck={false}
                   autoFocus

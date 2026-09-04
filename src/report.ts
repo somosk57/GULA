@@ -27,7 +27,7 @@ export function buildReport(p: Project, o: ReportOptions): string {
 
   S.push(`# Informe del proyecto: ${p.name}`);
   S.push(`Generado el ${new Date().toLocaleDateString("es-AR")} desde GULA.${o.range === "week" ? " Cubre los últimos 7 días." : ""}`);
-  S.push(`\n## En qué está\n- Etapa: **${stage}**${p.now ? `\n- Ahora estoy en: ${p.now}` : ""}`);
+  S.push(`\n## En qué está\n- Etapa: **${stage}**${p.now ? `\n- Ahora estoy en: ${p.now}${p.nowAt ? ` (escrito el ${fmtDate(p.nowAt)})` : ""}` : ""}`);
 
   // Contexto (bloques encendidos y apagados: el informe es completo)
   const ctx = contextText(p, false);

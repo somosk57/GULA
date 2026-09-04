@@ -113,6 +113,8 @@ export interface ContextBlock {
   title: string;
   body: string;
   enabled: boolean;
+  /** Última edición del texto (para ver qué quedó viejo). */
+  updatedAt?: number;
 }
 
 /** Ficha de la biblia: personaje, lugar, objeto o escena. */
@@ -148,6 +150,8 @@ export interface Project {
   /** Etapa del proyecto y "ahora estoy en…": la respuesta a "¿en qué paso estoy?". */
   stage: Stage;
   now: string;
+  /** Cuándo se escribió "ahora estoy en…" por última vez. */
+  nowAt?: number;
   /** Colecciones: carpetas con nombre (Clips, Artworks, Docs…) que la Galería muestra. */
   collections: Collection[];
   /** Id de la colección a la que se copian los archivos que insertás en notas (opcional). */
@@ -262,6 +266,7 @@ export function migrate(raw: unknown): AppState {
     profile: p.profile ?? "blank",
     stage: p.stage ?? "active",
     now: p.now ?? "",
+    nowAt: p.nowAt,
     notes: (p.notes?.length ? p.notes : [newNote()]).map((n) => ({
       ...n,
       group: n.group || DEFAULT_GROUP,
