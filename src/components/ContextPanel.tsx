@@ -3,7 +3,7 @@ import { AppState, ContextBlock, Project, uid } from "../types";
 import { copyText } from "../backend";
 import { buildAiPackage, contextText, estimateTokens } from "../ai";
 import { ask, confirmDlg, notify } from "../dialog";
-import { closeSession, startSession, fmtMinutes } from "../session";
+import { closeSession, startSession, fmtMinutes, openInAi } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -109,8 +109,22 @@ export function ContextPanel({ project, update }: Props) {
         >
           {copied === "ai" ? "Copiado ✓" : "Copiar para la IA"}
         </button>
-        <button className="chip" onClick={() => notify("Esto es lo que se copia", pkg)} title="Ver el paquete completo antes de copiarlo">
-          Ver
+        <button
+          className="chip"
+          onClick={(e) =>
+            setMenu({
+              x: e.clientX,
+              y: e.clientY,
+              items: [
+                { label: "Claude (claude.ai)", onClick: () => openInAi(project, update, "claude") },
+                { label: "ChatGPT (chatgpt.com)", onClick: () => openInAi(project, update, "chatgpt") },
+                { label: "Ver el paquete", separator: true, onClick: () => notify("Esto es lo que se copia", pkg) },
+              ],
+            })
+          }
+          title="Abre un chat nuevo en el navegador con el paquete ya escrito"
+        >
+          Abrir en ▾
         </button>
         <span className="prompt-sub tokens" title={`Contexto ≈ ${ctxTokens} tokens · paquete completo ≈ ${tokens} tokens`}>
           ≈ {tokens.toLocaleString("es-AR")} tokens · {on}/{project.blocks.length} bloques
