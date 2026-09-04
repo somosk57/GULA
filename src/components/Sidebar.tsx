@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ask, confirmDlg } from "../dialog";
 import { useReorder } from "../reorder";
-import { AppState, DEFAULT_GROUP, Note, Project, STAGES, newNote, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -27,19 +27,22 @@ function when(t: number) {
 }
 
 /** Qué contiene la nota: primera imagen (para miniatura) y tipos de medios. */
-function mediaOf(n: Note) {
+function mediaOf(n: Note, marks: Record<string, Mark>) {
   let thumb: string | null = null;
   let video = false, audio = false, image = false;
+  let best: Mark | null = null;
   for (const p of n.panes) {
     for (const line of p.body.split("\n")) {
       const src = matchImage(line);
       if (!src) continue;
+      const m = marks[src];
+      if (m && (best === null || MARK_ORDER.indexOf(m) < MARK_ORDER.indexOf(best))) best = m;
       if (isVideoPath(src)) video = true;
       else if (isAudioPath(src)) audio = true;
-      else { image = true; thumb ??= src; }
+      else { image = true; if (!thumb || m === "master") thumb = src; }
     }
   }
-  return { thumb, video, audio, image };
+  return { thumb, video, audio, image, best };
 }
 
 function thumbSrc(src: string) {
@@ -253,7 +256,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
               </div>
               {!isCollapsed &&
                 items.map((n) => {
-                  const m = mediaOf(n);
+                  const m = mediaOf(n, project.marks);
                   return (
                     <button
                       key={n.id}
@@ -274,6 +277,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                       )}
                       <span className="label">{n.title}</span>
                       <span className="kinds">
+                        {m.best && <span className="note-mark" style={{ background: markColor(m.best)! }} title={m.best} />}
                         {m.video && <span title="video">▶</span>}
                         {m.audio && <span title="audio">♪</span>}
                         {m.image && !m.thumb && <span title="imagen">▣</span>}

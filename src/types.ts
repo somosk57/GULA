@@ -5,6 +5,16 @@ export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks"
 export type CardKind = "character" | "place" | "item" | "scene";
 export type SceneStatus = "idea" | "draft" | "done";
 export type Stage = "idea" | "active" | "paused" | "done";
+/** Marca de un archivo (imagen/video/audio): azul maestro, verde sirve, amarillo más o menos, rojo no. */
+export type Mark = "master" | "good" | "meh" | "bad";
+export const MARKS: { id: Mark; label: string; color: string; short: string }[] = [
+  { id: "master", label: "Maestro (referencia)", color: "#4f8cff", short: "Maestro" },
+  { id: "good", label: "Sirve", color: "#3ddc84", short: "Sirve" },
+  { id: "meh", label: "Más o menos", color: "#e2b04a", short: "Más o menos" },
+  { id: "bad", label: "No sirve", color: "#ff5f57", short: "No sirve" },
+];
+export const MARK_ORDER: Mark[] = ["master", "good", "meh", "bad"];
+export const markColor = (m?: Mark | null) => MARKS.find((x) => x.id === m)?.color ?? null;
 export const STAGES: { id: Stage; label: string }[] = [
   { id: "idea", label: "Idea" },
   { id: "active", label: "En marcha" },
@@ -118,6 +128,8 @@ export interface Project {
   now: string;
   /** Carpeta donde se copian las imágenes/videos/audios que se insertan (si está definida). */
   assetsDir?: string;
+  /** Marcas por archivo (clave: ruta o URL tal como está en la nota). */
+  marks: Record<string, Mark>;
   cards: Card[];
   notes: Note[];
   links: Link[];
@@ -184,6 +196,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     snippets: t.snippets.map((s) => ({ id: uid(), ...s })),
     log: [],
     cards: [],
+    marks: {},
     lastSessionAt: null,
     sessionStartedAt: null,
   };
@@ -248,6 +261,7 @@ export function migrate(raw: unknown): AppState {
     snippets: p.snippets ?? [],
     log: p.log ?? [],
     cards: p.cards ?? [],
+    marks: p.marks ?? {},
     lastSessionAt: p.lastSessionAt ?? null,
     sessionStartedAt: p.sessionStartedAt ?? null,
   }));

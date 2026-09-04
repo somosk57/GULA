@@ -2,7 +2,8 @@
 // las casillas son casillas clickeables, y los marcadores (#, **, - [ ]) siguen
 // visibles pero atenuados. Sin cambiar de modo para ver el resultado.
 import { useEffect, useRef } from "react";
-import { EditorState, RangeSetBuilder, Compartment, StateField } from "@codemirror/state";
+import { EditorState, RangeSetBuilder, Compartment, StateField, StateEffect } from "@codemirror/state";
+import { MARKS, Mark } from "../types";
 import {
   EditorView, keymap, Decoration, DecorationSet, ViewPlugin, ViewUpdate, WidgetType,
   placeholder as cmPlaceholder, drawSelection, highlightActiveLine,
@@ -22,7 +23,21 @@ interface Props {
   compact?: boolean;
   /** Recibe la vista para insertar cosas desde afuera (imágenes). */
   onReady?: (v: EditorView) => void;
+  /** Marcas por archivo y callback para cambiarlas (puntitos sobre la imagen). */
+  marks?: Record<string, Mark>;
+  onMark?: (src: string, mark: Mark | null) => void;
 }
+
+// Marcas: viven en un StateField para que las decoraciones se rehagan al cambiar.
+const setMarks = StateEffect.define<Record<string, Mark>>();
+const marksField = StateField.define<Record<string, Mark>>({
+  create: () => ({}),
+  update(v, tr) {
+    for (const e of tr.effects) if (e.is(setMarks)) return e.value;
+    return v;
+  },
+});
+let markHandler: ((src: string, mark: Mark | null) => void) | null = null;
 
 // ---- Estilo del markdown ----
 const mdHighlight = HighlightStyle.define([
@@ -113,11 +128,23 @@ function imageSrc(src: string) {
 }
 
 class ImageWidget extends WidgetType {
-  constructor(readonly src: string) { super(); }
-  eq(o: ImageWidget) { return o.src === this.src; }
+  constructor(readonly src: string, readonly mark: Mark | null) { super(); }
+  eq(o: ImageWidget) { return o.src === this.src && o.mark === this.mark; }
   toDOM() {
     const wrap = document.createElement("div");
-    wrap.className = "cm-image";
+    wrap.className = "cm-image" + (this.mark ? " marked mark-" + this.mark : "");
+    // Puntitos para marcar: azul maestro, verde sirve, amarillo más o menos, rojo no.
+    const dots = document.createElement("div");
+    dots.className = "cm-marks";
+    for (const m of MARKS) {
+      const d = document.createElement("button");
+      d.className = "cm-mark" + (this.mark === m.id ? " on" : "");
+      d.style.background = m.color;
+      d.title = m.label + (this.mark === m.id ? " (clic para quitar)" : "");
+      d.onmousedown = (ev) => { ev.preventDefault(); ev.stopPropagation(); markHandler?.(this.src, this.mark === m.id ? null : m.id); };
+      dots.appendChild(d);
+    }
+    wrap.appendChild(dots);
     const el = isVideoPath(this.src)
       ? document.createElement("video")
       : isAudioPath(this.src)
@@ -150,10 +177,11 @@ class ImageWidget extends WidgetType {
 
 function buildImageDecos(state: EditorState) {
   const b = new RangeSetBuilder<Decoration>();
+  const marks = state.field(marksField, false) ?? {};
   for (let i = 1; i <= state.doc.lines; i++) {
     const line = state.doc.line(i);
     const src = matchImage(line.text);
-    if (src) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(src), block: true, side: 1 }));
+    if (src) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(src, marks[src] ?? null), block: true, side: 1 }));
   }
   return b.finish();
 }
@@ -162,7 +190,7 @@ function buildImageDecos(state: EditorState) {
 const imageField = StateField.define<DecorationSet>({
   create: buildImageDecos,
   update(decos, tr) {
-    return tr.docChanged ? buildImageDecos(tr.state) : decos;
+    return tr.docChanged || tr.effects.some((e) => e.is(setMarks)) ? buildImageDecos(tr.state) : decos;
   },
   provide: (f) => EditorView.decorations.from(f),
 });
@@ -259,7 +287,8 @@ const compactTheme = EditorView.theme({ "&": { fontSize: "13px" } });
 
 export { isImagePath };
 
-export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compact, onReady }: Props) {
+export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compact, onReady, marks, onMark }: Props) {
+  if (onMark) markHandler = onMark;
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -278,6 +307,7 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
         markdown({ base: markdownLanguage }),
         syntaxHighlighting(mdHighlight),
         checkboxPlugin,
+        marksField,
         imageField,
         pasteImages,
         mdKeymap,
@@ -292,6 +322,7 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
     });
     const v = new EditorView({ state, parent: host.current });
     view.current = v;
+    if (marks) v.dispatch({ effects: setMarks.of(marks) });
     onReady?.(v);
     if (autoFocus) v.focus();
     return () => {
@@ -314,6 +345,10 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
   useEffect(() => {
     view.current?.dispatch({ effects: sizeComp.current.reconfigure(compact ? compactTheme : []) });
   }, [compact]);
+
+  useEffect(() => {
+    if (marks) view.current?.dispatch({ effects: setMarks.of(marks) });
+  }, [marks]);
 
   return <div className="mdeditor" ref={host} data-editor="1" />;
 }

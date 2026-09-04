@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AppState, Note, Project } from "../types";
+import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, markColor } from "../types";
 import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -44,6 +44,7 @@ const srcOf = (s: string) => (/^(https?:|data:)/i.test(s) ? s : assetUrl(s));
 export function GalleryPanel({ project, update, allProjects }: Props) {
   const [kind, setKind] = useState<"all" | Item["kind"]>("all");
   const [scope, setScope] = useState<"project" | "all">("project");
+  const [markFilter, setMarkFilter] = useState<Mark | "all">("all");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const items = useMemo(
@@ -64,7 +65,20 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     })();
     return () => { alive = false; };
   }, [items]);
-  const shown = items.filter((i) => kind === "all" || i.kind === kind);
+  const markOf = (it: Item) => (allProjects?.find((p) => p.id === it.projectId) ?? project).marks[it.src] ?? null;
+  const setMark = (it: Item, mark: Mark | null) =>
+    update((d) => {
+      const p = d.projects.find((p) => p.id === it.projectId)!;
+      if (mark) p.marks[it.src] = mark; else delete p.marks[it.src];
+    });
+  const shown = items
+    .filter((i) => kind === "all" || i.kind === kind)
+    .filter((i) => markFilter === "all" || markOf(i) === markFilter)
+    .sort((a, b) => {
+      const ra = MARK_ORDER.indexOf(markOf(a) ?? ("zz" as Mark)), rb = MARK_ORDER.indexOf(markOf(b) ?? ("zz" as Mark));
+      return (ra < 0 ? 9 : ra) - (rb < 0 ? 9 : rb);
+    });
+  const markCounts = Object.fromEntries(MARKS.map((m) => [m.id, items.filter((i) => markOf(i) === m.id).length])) as Record<Mark, number>;
   const counts = { image: 0, video: 0, audio: 0 };
   items.forEach((i) => counts[i.kind]++);
 
@@ -80,7 +94,11 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "Ir a la nota", onClick: () => goTo(it.note, it.projectId) },
+        ...MARKS.map((m) => ({
+          label: `${markOf(it) === m.id ? "● " : "○ "}${m.label}`,
+          onClick: () => setMark(it, markOf(it) === m.id ? null : m.id),
+        })),
+        { label: "Ir a la nota", separator: true, onClick: () => goTo(it.note, it.projectId) },
         { label: "Abrir archivo", onClick: () => openPath(it.src) },
         { label: "Mostrar en Explorador", onClick: () => revealInExplorer(it.src) },
         { label: "Copiar prompt", onClick: () => copyText(it.prompt), separator: true },
@@ -97,6 +115,19 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             {k === "all" ? `Todo ${items.length}` : k === "image" ? `Imágenes ${counts.image}` : k === "video" ? `Videos ${counts.video}` : `Audios ${counts.audio}`}
           </button>
         ))}
+        <span className="mark-filter">
+          {MARKS.map((m) => (
+            <button
+              key={m.id}
+              className={"mark-dot" + (markFilter === m.id ? " on" : "")}
+              style={{ background: m.color }}
+              title={`${m.label}: ${markCounts[m.id]}`}
+              onClick={() => setMarkFilter((f) => (f === m.id ? "all" : m.id))}
+            >
+              {markCounts[m.id] > 0 && <span>{markCounts[m.id]}</span>}
+            </button>
+          ))}
+        </span>
         {broken.size > 0 && <span className="chip broken-chip" title="Archivos que ya no están en su ruta: movidos, renombrados o borrados">⚠ {broken.size} sin archivo</span>}
         {allProjects && allProjects.length > 1 && (
           <button className={"chip add" + (scope === "all" ? " on" : "")} onClick={() => setScope((s) => (s === "all" ? "project" : "all"))}>
@@ -108,7 +139,8 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
         {shown.map((it, i) => (
           <div
             key={it.src + i}
-            className={"gitem " + it.kind + (broken.has(it.src) ? " broken" : "")}
+            className={"gitem " + it.kind + (broken.has(it.src) ? " broken" : "") + (markOf(it) ? " marked" : "")}
+            style={markOf(it) ? { borderColor: markColor(markOf(it))!, boxShadow: `inset 0 0 0 2px ${markColor(markOf(it))}` } : undefined}
             title={(broken.has(it.src) ? "⚠ No se encuentra el archivo\n" : "") + (it.prompt ? it.prompt.slice(0, 300) + "\n\n" : "") + `— ${it.note.title}${it.paneTitle ? " · " + it.paneTitle : ""}`}
             onClick={() => goTo(it.note, it.projectId)}
             onDoubleClick={() => openPath(it.src)}
@@ -117,6 +149,11 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             {it.kind === "image" && <img src={srcOf(it.src)} alt="" loading="lazy" draggable={false} />}
             {it.kind === "video" && <video src={srcOf(it.src)} preload="metadata" muted />}
             {it.kind === "audio" && <div className="gaudio">♪<span>{it.src.split(/[\\/]/).pop()}</span></div>}
+            <div className="gmarks" onClick={(e) => e.stopPropagation()}>
+              {MARKS.map((m) => (
+                <button key={m.id} className={"mark-dot tiny" + (markOf(it) === m.id ? " on" : "")} style={{ background: m.color }} title={m.label} onClick={() => setMark(it, markOf(it) === m.id ? null : m.id)} />
+              ))}
+            </div>
             <div className="gcap">
               <span className="gtitle">{scope === "all" ? `${allProjects?.find((p) => p.id === it.projectId)?.name ?? ""} · ` : ""}{it.note.title}</span>
               {it.prompt && <span className="gprompt">{it.prompt.slice(0, 80)}</span>}

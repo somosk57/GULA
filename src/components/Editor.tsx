@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { AppState, Note, Pane, Project, deriveTitle, syncNote, uid } from "../types";
+import { AppState, Mark, Note, Pane, Project, deriveTitle, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
 import { MarkdownEditor, insertImage, isImagePath } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
@@ -52,6 +52,12 @@ export function Editor({ project, note, update }: Props) {
       const n = d.projects.find((p) => p.id === project.id)!.notes.find((n) => n.id === note.id)!;
       fn(n);
       syncNote(n);
+    });
+
+  const setMark = (src: string, mark: Mark | null) =>
+    update((d) => {
+      const p = d.projects.find((p) => p.id === project.id)!;
+      if (mark) p.marks[src] = mark; else delete p.marks[src];
     });
 
   const setPane = (paneId: string, fn: (p: Pane) => void) =>
@@ -216,6 +222,8 @@ export function Editor({ project, note, update }: Props) {
             onChange={(v) => setPane(note.panes[0].id, (p) => (p.body = v))}
             placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)\n![](imagen.png) muestra una imagen"}
             onReady={(v) => (views.current[note.panes[0].id] = v)}
+            marks={project.marks}
+            onMark={setMark}
           />
         </div>
       ) : (
@@ -236,6 +244,8 @@ export function Editor({ project, note, update }: Props) {
                 placeholder="…"
                 compact
                 onReady={(v) => (views.current[p.id] = v)}
+                marks={project.marks}
+                onMark={setMark}
               />
             </div>
           ))}

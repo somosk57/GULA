@@ -79,6 +79,9 @@ export function buildAiPackage(p: Project): string {
     parts.push("## Escenas\n" + scenes.map((c) => `- ${c.name} (${st[c.status ?? "idea"]})${c.summary ? `: ${c.summary}` : ""}${c.tags?.length ? ` — ${c.tags.join(", ")}` : ""}`).join("\n"));
   }
 
+  const masters = Object.entries(p.marks).filter(([, m]) => m === "master").map(([src]) => src);
+  if (masters.length) parts.push("## Referencias maestras (archivos aprobados como guía)\n" + masters.map((s) => `- ${s}`).join("\n"));
+
   const pending = collectTasks(p).filter((t) => !t.done);
   if (pending.length) {
     parts.push("## Tareas pendientes\n" + pending.slice(0, 20).map((t) => `- [ ] ${t.text}`).join("\n"));

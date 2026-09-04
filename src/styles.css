@@ -631,3 +631,28 @@ body.reordering * { cursor: grabbing !important; }
 .home-note-proj { font-size: 11px; color: var(--text-faint); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-note .when { font-size: 10.5px; color: var(--text-faint); flex: none; }
 @media (max-width: 640px) { .home-cols { grid-template-columns: 1fr; } }
+
+/* ---------- Marcas (maestro / sirve / más o menos / no) ---------- */
+.cm-image { position: relative; }
+.cm-image.marked img, .cm-image.marked video { outline: 2px solid transparent; }
+.cm-image.mark-master img, .cm-image.mark-master video { outline-color: #4f8cff; }
+.cm-image.mark-good img, .cm-image.mark-good video { outline-color: #3ddc84; }
+.cm-image.mark-meh img, .cm-image.mark-meh video { outline-color: #e2b04a; }
+.cm-image.mark-bad img, .cm-image.mark-bad video { outline-color: #ff5f57; opacity: .6; }
+.cm-image.audio.mark-master { box-shadow: inset 0 0 0 2px #4f8cff; }
+.cm-image.audio.mark-good { box-shadow: inset 0 0 0 2px #3ddc84; }
+.cm-image.audio.mark-meh { box-shadow: inset 0 0 0 2px #e2b04a; }
+.cm-image.audio.mark-bad { box-shadow: inset 0 0 0 2px #ff5f57; opacity: .6; }
+.cm-marks { position: absolute; top: 10px; right: 6px; display: flex; gap: 5px; opacity: 0; transition: opacity .12s; z-index: 2; background: rgba(0,0,0,.45); padding: 4px 6px; border-radius: 12px; }
+.cm-image:hover .cm-marks, .cm-image.marked .cm-marks { opacity: 1; }
+.cm-image.marked:not(:hover) .cm-marks .cm-mark:not(.on) { display: none; }
+.cm-mark, .mark-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; opacity: .55; }
+.cm-mark:hover, .mark-dot:hover { opacity: 1; transform: scale(1.15); }
+.cm-mark.on, .mark-dot.on { opacity: 1; border-color: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+.mark-filter { display: inline-flex; gap: 6px; align-items: center; padding: 0 4px; }
+.mark-filter .mark-dot { width: 16px; height: 16px; display: grid; place-items: center; font-size: 9px; font-weight: 700; color: #fff; }
+.mark-filter .mark-dot span { text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.gmarks { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity .12s; z-index: 2; background: rgba(0,0,0,.45); padding: 3px 5px; border-radius: 10px; }
+.gitem:hover .gmarks { opacity: 1; }
+.mark-dot.tiny { width: 10px; height: 10px; }
+.note-mark { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
