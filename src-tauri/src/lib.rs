@@ -526,6 +526,41 @@ struct DirEntryInfo {
     size: u64,
 }
 
+fn thumb_key(path: &str) -> Result<(u64, u64), String> {
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in path.as_bytes().iter().chain(mtime.to_string().as_bytes()) {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    Ok((h, meta.len()))
+}
+
+/// Miniatura ya generada para un archivo (videos: la genera el frontend), o null.
+#[tauri::command]
+fn get_thumb(app: AppHandle, path: String) -> Result<Option<String>, String> {
+    let (h, _) = thumb_key(&path)?;
+    let out = base_dir(&app)?.join("thumbs").join(format!("{h:016x}.jpg"));
+    Ok(out.exists().then(|| out.to_string_lossy().to_string()))
+}
+
+/// Guarda una miniatura (jpg base64) generada por el frontend para ese archivo.
+#[tauri::command]
+fn put_thumb(app: AppHandle, path: String, base64: String) -> Result<String, String> {
+    let (h, _) = thumb_key(&path)?;
+    let dir = base_dir(&app)?.join("thumbs");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join(format!("{h:016x}.jpg"));
+    fs::write(&out, b64_decode(&base64).ok_or("base64 inválido")?).map_err(|e| e.to_string())?;
+    Ok(out.to_string_lossy().to_string())
+}
+
 /// Miniatura de una imagen (máx. 320px), cacheada en <datos>/thumbs/. Devuelve la ruta de la miniatura.
 /// Si la imagen ya es chica, devuelve la original.
 #[tauri::command]
@@ -654,6 +689,8 @@ pub fn run() {
             copy_to_dir,
             list_dir_media,
             thumbnail,
+            get_thumb,
+            put_thumb,
             read_backup,
             snapshot_now,
             load_state,

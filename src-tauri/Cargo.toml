@@ -1,6 +1,6 @@
 [package]
 name = "gula"
-version = "1.8.0"
+version = "1.9.0"
 description = "GULA — Controla tu gula. Notas, carpetas, prompts y contexto para trabajar con IA."
 authors = ["Creator100k"]
 edition = "2021"

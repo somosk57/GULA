@@ -167,6 +167,36 @@ export async function thumbnail(path: string): Promise<string> {
   return invoke<string>("thumbnail", { path });
 }
 
+export async function getThumb(path: string): Promise<string | null> {
+  if (!isTauri) return null;
+  return invoke<string | null>("get_thumb", { path });
+}
+export async function putThumb(path: string, base64: string): Promise<string> {
+  if (!isTauri) return path;
+  return invoke<string>("put_thumb", { path, base64 });
+}
+
+/** Primer cuadro de un video como jpg (base64 sin prefijo), generado en el WebView. */
+export function videoFrame(url: string, size = 320): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement("video");
+    v.muted = true; v.preload = "auto"; v.src = url;
+    const fail = () => reject(new Error("video"));
+    v.onerror = fail;
+    v.onloadedmetadata = () => { v.currentTime = Math.min(1, (v.duration || 2) / 3); };
+    v.onseeked = () => {
+      try {
+        const s = Math.min(1, size / Math.max(v.videoWidth, v.videoHeight, 1));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(v.videoWidth * s)); c.height = Math.max(1, Math.round(v.videoHeight * s));
+        c.getContext("2d")!.drawImage(v, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", 0.8).split(",")[1]);
+      } catch (e) { reject(e); } finally { v.src = ""; }
+    };
+    setTimeout(fail, 15000);
+  });
+}
+
 export async function pathExists(path: string): Promise<boolean> {
   if (!isTauri) return true;
   return invoke<boolean>("path_exists", { path });

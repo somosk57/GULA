@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, uid } from "../types";
-import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail } from "../backend";
+import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -48,9 +48,12 @@ const SIZES = [96, 140, 200, 280];
 const thumbCache = new Map<string, string>();
 
 /** Imagen de una casilla: pide la miniatura cacheada cuando entra en pantalla. */
-function Thumb({ src }: { src: string }) {
+let videoQueue: Promise<unknown> = Promise.resolve();
+
+function Thumb({ src, video }: { src: string; video?: boolean }) {
   const ref = useRef<HTMLImageElement>(null);
   const [url, setUrl] = useState<string | null>(thumbCache.get(src) ?? null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (url) return;
     if (/^(https?:|data:)/i.test(src)) { setUrl(src); return; }
@@ -60,11 +63,21 @@ function Thumb({ src }: { src: string }) {
     const io = new IntersectionObserver((es) => {
       if (!es.some((e) => e.isIntersecting)) return;
       io.disconnect();
-      thumbnail(src).then((t) => { if (!alive) return; const u = assetUrl(t); thumbCache.set(src, u); setUrl(u); }).catch(() => alive && setUrl(assetUrl(src)));
+      const done = (t: string) => { if (!alive) return; const u = assetUrl(t); thumbCache.set(src, u); setUrl(u); };
+      if (video) {
+        // Videos: primer cuadro, de a uno para no ahogar el WebView; queda cacheado en disco.
+        getThumb(src).then((t) => {
+          if (t) return done(t);
+          videoQueue = videoQueue.then(() => (alive ? videoFrame(assetUrl(src)).then((b64) => putThumb(src, b64)).then(done) : undefined)).catch(() => alive && setFailed(true));
+        });
+      } else {
+        thumbnail(src).then(done).catch(() => alive && setUrl(assetUrl(src)));
+      }
     }, { rootMargin: "300px" });
     io.observe(el);
     return () => { alive = false; io.disconnect(); };
-  }, [src, url]);
+  }, [src, url, video]);
+  if (video && failed) return <div className="gaudio">▶<span>{src.split(/[\\/]/).pop()}</span></div>;
   return <img ref={ref} src={url ?? undefined} alt="" draggable={false} decoding="async" />;
 }
 
@@ -361,7 +374,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             onContextMenu={(e) => itemMenu(e, it)}
           >
             {it.kind === "image" && <Thumb src={it.src} />}
-            {it.kind === "video" && (size >= 140 ? <video src={srcOf(it.src)} preload="metadata" muted /> : <div className="gaudio">▶<span>{it.src.split(/[\\/]/).pop()}</span></div>)}
+            {it.kind === "video" && <Thumb src={it.src} video />}
             {it.kind === "audio" && <div className="gaudio">♪<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             {(it.kind === "doc" || it.kind === "other") && <div className="gaudio gdoc">{(it.src.split(".").pop() ?? "").toUpperCase().slice(0, 5)}<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             {it.note && source !== "notes" && <span className="gnote" title={`En la nota: ${it.note.title}`}>#</span>}
