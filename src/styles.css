@@ -837,3 +837,9 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 /* Una colección se distingue de un recuadro */
 .coll-card.is-coll { border-style: dashed; }
 .coll-card.is-coll .coll-title { font-weight: 600; }
+
+/* El "+" cuando hay un solo recuadro: barra fina, para no partir el ancho del texto */
+.pane.add.bar {
+  grid-column: 1 / -1; min-height: 0; height: 34px; aspect-ratio: auto;
+  font-size: 12px; letter-spacing: .02em;
+}

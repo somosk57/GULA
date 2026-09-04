@@ -122,7 +122,7 @@ export function Editor({ project, note, update, keys }: Props) {
     setNote((n) =>
       listIn(n).push(
         levelIsCollections
-          ? { id, title: "", body: "", panes: [{ id: uid(), title: "", body: "" }] }
+          ? { id, title: "", body: "", panes: [{ id: uid(), title: "", body: "" }, { id: uid(), title: "", body: "" }] }
           : { id, title: "", body: "" },
       ),
     );
@@ -370,9 +370,6 @@ export function Editor({ project, note, update, keys }: Props) {
                 title="Ancho de los recuadros"
               />
             )}
-            <button className="mode-btn wide" onClick={add} title={showGrid ? "Sumar una colección" : "Sumar un recuadro"}>
-              {addLabel}
-            </button>
           </>
         )}
       </div>
@@ -457,8 +454,14 @@ export function Editor({ project, note, update, keys }: Props) {
               </div>
             );
           })}
-          {/* Con un solo recuadro ocupa todo el ancho y alcanza el "+ Recuadro" de arriba. */}
-          {!needle && visible.length > 1 && <button className="pane add" onClick={add} title={addLabel}>+</button>}
+          {/* Con dos o más, el "+" es un recuadro más; con uno solo, una barra fina abajo
+              para que el texto siga ocupando todo el ancho. */}
+          {!needle &&
+            (visible.length > 1 ? (
+              <button className="pane add" onClick={add} title={addLabel}>+</button>
+            ) : (
+              <button className="pane add bar" onClick={add} title={addLabel}>+ Recuadro</button>
+            ))}
           {needle && visible.length === 0 && <div className="empty wide">Ningún recuadro dice “{q.trim()}”.</div>}
         </div>
       )}

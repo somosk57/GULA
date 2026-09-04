@@ -88,10 +88,11 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       const template = from ?? (lastIdx >= 0 ? p.notes[lastIdx] : undefined);
       const k = kind ?? template?.kind ?? "boxes";
       const n = newNote("Nueva nota", "", group, k);
-      // Hereda los recuadros (nombres, sin texto) de la nota que sirve de molde.
-      if (k === "boxes" && template?.kind !== "collection" && template && template.panes.length > 1) {
+      // Hereda los recuadros (nombres, sin texto) de la nota que sirve de molde;
+      // si no hay molde, arranca con dos, que es lo mínimo para trabajar.
+      if (k === "boxes" && template?.kind !== "collection" && template && template.panes.length > 1)
         n.panes = template.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
-      }
+      else if (k === "boxes" && n.panes.length === 1) n.panes.push({ id: uid(), title: "", body: "" });
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });

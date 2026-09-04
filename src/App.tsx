@@ -130,6 +130,7 @@ export default function App() {
           const n = newNote("Nueva nota", "", group, tpl?.kind ?? "boxes");
           if (n.kind === "boxes" && tpl?.kind !== "collection" && tpl && tpl.panes.length > 1)
             n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
+          else if (n.kind === "boxes" && n.panes.length === 1) n.panes.push({ id: uid(), title: "", body: "" });
           p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
           d.activeNoteId[p.id] = n.id;
         });
