@@ -11,7 +11,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { assetUrl, isImagePath, isVideoPath, saveImage } from "../backend";
+import { assetUrl, isAudioPath, isImagePath, isVideoPath, saveImage } from "../backend";
 
 interface Props {
   value: string;
@@ -118,18 +118,29 @@ class ImageWidget extends WidgetType {
   toDOM() {
     const wrap = document.createElement("div");
     wrap.className = "cm-image";
-    const el = isVideoPath(this.src) ? document.createElement("video") : document.createElement("img");
+    const el = isVideoPath(this.src)
+      ? document.createElement("video")
+      : isAudioPath(this.src)
+        ? document.createElement("audio")
+        : document.createElement("img");
     el.src = imageSrc(this.src);
-    if (el instanceof HTMLVideoElement) {
+    if (el instanceof HTMLMediaElement) {
       el.controls = true;
       el.preload = "metadata";
+      if (el instanceof HTMLAudioElement) {
+        wrap.classList.add("audio");
+        const name = document.createElement("div");
+        name.className = "cm-audio-name";
+        name.textContent = "♪ " + this.src.split(/[\\/]/).pop();
+        wrap.appendChild(name);
+      }
     } else {
       el.alt = "";
     }
     el.draggable = false;
     el.onerror = () => {
       wrap.classList.add("broken");
-      wrap.textContent = (el instanceof HTMLVideoElement ? "No se puede reproducir (¿formato no soportado? probá .mp4 H.264): " : "No se encuentra el archivo: ") + this.src;
+      wrap.textContent = (el instanceof HTMLMediaElement ? "No se puede reproducir (¿formato no soportado? probá .mp4 H.264 o .mp3): " : "No se encuentra el archivo: ") + this.src;
     };
     wrap.appendChild(el);
     return wrap;

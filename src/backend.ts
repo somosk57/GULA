@@ -131,13 +131,14 @@ export async function saveImage(blob: Blob): Promise<string> {
   return invoke<string>("save_image", { base64, ext });
 }
 
-export const isImagePath = (p: string) => /\.(png|jpe?g|webp|gif|bmp|svg|mp4|webm|mov|m4v)$/i.test(p);
+export const isImagePath = (p: string) => /\.(png|jpe?g|webp|gif|bmp|svg|mp4|webm|mov|m4v|mp3|wav|ogg|m4a|flac|aac)$/i.test(p);
 export const isVideoPath = (p: string) => /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(p);
+export const isAudioPath = (p: string) => /\.(mp3|wav|ogg|m4a|flac|aac)(\?.*)?$/i.test(p);
 
 export async function pickImage(): Promise<string | null> {
   if (!isTauri) return ask("Ruta de la imagen:");
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const r = await open({ multiple: false, filters: [{ name: "Imágenes y videos", extensions: ["png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov", "m4v"] }] });
+  const r = await open({ multiple: false, filters: [{ name: "Imágenes, videos y audio", extensions: ["png", "jpg", "jpeg", "webp", "gif", "mp4", "webm", "mov", "m4v", "mp3", "wav", "ogg", "m4a", "flac", "aac"] }] });
   return typeof r === "string" ? r : null;
 }
 

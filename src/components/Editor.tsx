@@ -28,6 +28,8 @@ const PRESETS: { label: string; titles: string[] }[] = [
   { label: "Prompt · Imagen", titles: ["Prompt", "Imagen"] },
   { label: "Prompt · Imagen · Video", titles: ["Prompt", "Imagen", "Video"] },
   { label: "Idea · Prompt · Imagen · Video", titles: ["Idea", "Prompt", "Imagen", "Video"] },
+  { label: "Prompt · Audio", titles: ["Prompt", "Audio"] },
+  { label: "Escena · Música · Referencias", titles: ["Escena", "Música", "Referencias"] },
   { label: "Idea · Prompt · Resultado", titles: ["Idea", "Prompt", "Resultado"] },
   { label: "Escena · Notas · Dudas", titles: ["Escena", "Notas", "Dudas"] },
   { label: "Idea · Escena · Personaje · Prompt · Referencias · Video", titles: ["Idea", "Escena", "Personaje", "Prompt", "Referencias", "Video"] },
@@ -152,7 +154,7 @@ export function Editor({ project, note, update }: Props) {
     const i = note.panes.findIndex((x) => x.id === p.id);
     const items: MenuItem[] = [
       {
-        label: "Insertar imagen o video…",
+        label: "Insertar imagen, video o audio…",
         onClick: async () => {
           const path = await pickImage();
           const v = views.current[p.id];

@@ -143,7 +143,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
         { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
-        { label: "GULA v0.7.3 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v0.8.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
