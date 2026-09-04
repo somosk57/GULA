@@ -188,6 +188,8 @@ export interface AppState {
   shortcut: string;
   /** Ya pasó por el primer arranque. */
   onboarded: boolean;
+  /** Columna de proyectos a la izquierda (cuando hay más de uno). */
+  rail?: boolean;
 }
 
 export const uid = () =>
@@ -318,5 +320,6 @@ export function migrate(raw: unknown): AppState {
     noteSort: s.noteSort ?? "manual",
     shortcut: s.shortcut ?? "Ctrl+Shift+Space",
     onboarded: s.onboarded ?? true,
+    rail: s.rail ?? true,
   };
 }

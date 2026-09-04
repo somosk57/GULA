@@ -567,7 +567,7 @@ body.reordering * { cursor: grabbing !important; }
 .now-line { flex: 1; min-width: 0; font-size: 12px; color: var(--text); padding: 3px 4px; border-bottom: 1px solid transparent; }
 .now-line:focus { border-bottom-color: var(--border-strong); }
 .proj-age { color: var(--text-faint); }
-.now-age { font-size: 10px; color: var(--text-faint); white-space: nowrap; flex: none; }
+.now-age { font-size: 10px; color: var(--text-faint); margin: -6px 0 6px 6px; }
 .now-age.stale { color: var(--danger); }
 .now-line::placeholder { color: var(--text-faint); font-style: italic; }
 .filter-row { display: flex; gap: 4px; margin-bottom: 6px; }
@@ -683,3 +683,15 @@ body.reordering * { cursor: grabbing !important; }
 .lb-foot .prompt-sub { color: rgba(255,255,255,.55); flex: 1; text-align: right; }
 .lb-name { font-size: 12px; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gnote { position: absolute; top: 5px; left: 7px; z-index: 2; font-size: 11px; font-weight: 700; color: #fff; background: rgba(0,0,0,.5); border-radius: 6px; padding: 1px 5px; }
+
+/* ---------- Columna de proyectos ---------- */
+.rail { width: 44px; flex: none; background: var(--bg-menu); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; overflow-y: auto; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.rail-item { position: relative; width: 32px; height: 32px; border-radius: 10px; background: var(--bg-input); border: 1px solid var(--line); color: var(--text-dim); font-size: 11px; font-weight: 700; display: grid; place-items: center; overflow: hidden; flex: none; transition: border-radius .12s, border-color .12s; }
+.rail-item img { width: 100%; height: 100%; object-fit: cover; }
+.rail-item:hover { border-radius: 8px; border-color: var(--border-strong); color: var(--text); }
+.rail-item.active { border-radius: 8px; border-color: var(--accent); color: var(--text); box-shadow: 0 0 0 1px var(--accent); }
+.rail-item.add { color: var(--text-faint); font-size: 16px; font-weight: 400; background: transparent; border-style: dashed; }
+.rail-item.done { opacity: .5; }
+.rail-dot { position: absolute; right: 2px; bottom: 2px; width: 7px; height: 7px; border-radius: 50%; background: #3ddc84; border: 1px solid var(--bg-menu); }
+.rail-badge { position: absolute; top: -1px; right: -1px; font-size: 8.5px; line-height: 1; padding: 2px 3px; border-radius: 6px; background: var(--accent); color: #fff; }

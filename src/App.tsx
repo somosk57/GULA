@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppState, activeProject } from "./store";
-import { TitleBar } from "./components/TitleBar";
+import { TitleBar, createProject } from "./components/TitleBar";
+import { ProjectRail } from "./components/ProjectRail";
 import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
 import { LinksPanel } from "./components/LinksPanel";
@@ -135,9 +136,19 @@ export default function App() {
           const step = e.shiftKey ? -1 : 1;
           d.bottomTab = TABS[(i + step + TABS.length) % TABS.length].id;
         });
+      } else if (/^[1-9]$/.test(k) && e.shiftKey) {
+        e.preventDefault();
+        update((d) => { const p = d.projects[Number(k) - 1]; if (p) d.activeProjectId = p.id; });
       } else if (/^[1-7]$/.test(k)) {
         e.preventDefault();
         update((d) => (d.bottomTab = TABS[Number(k) - 1].id));
+      } else if ((k === "arrowup" || k === "arrowdown") && e.shiftKey) {
+        e.preventDefault();
+        update((d) => {
+          const i = d.projects.findIndex((p) => p.id === d.activeProjectId);
+          const j = (i + (k === "arrowdown" ? 1 : -1) + d.projects.length) % d.projects.length;
+          d.activeProjectId = d.projects[j].id;
+        });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -206,6 +217,9 @@ export default function App() {
         />
       )}
       <div className="layout">
+        {state.projects.length > 1 && !compact && state.rail !== false && (
+          <ProjectRail state={state} update={update} onAdd={() => createProject(update)} />
+        )}
         {((!compact && sidebarOpen) || (compact && drawer)) && (
           <div className={compact ? "drawer" : undefined} onClick={(e) => {
             if (!compact) return;

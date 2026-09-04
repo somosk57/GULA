@@ -232,8 +232,8 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
           spellCheck={false}
           title={"¿En qué paso estoy? Una línea, para cuando vuelvas en una semana." + (project.nowAt ? `\nEscrito ${fmtAgo(project.nowAt)}.` : "")}
         />
-        {project.now && project.nowAt && <span className={"now-age" + (Date.now() - project.nowAt > 7 * 86_400_000 ? " stale" : "")} title="Cuándo escribiste esto">{fmtAgo(project.nowAt)}</span>}
       </div>
+      {project.now && project.nowAt && <div className={"now-age" + (Date.now() - project.nowAt > 7 * 86_400_000 ? " stale" : "")} title="Cuándo escribiste 'ahora estoy en…'">escrito {fmtAgo(project.nowAt)}</div>}
       <div className="filter-row">
         <input
           className="search"

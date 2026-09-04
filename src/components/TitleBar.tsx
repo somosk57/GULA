@@ -50,23 +50,27 @@ function TrafficLights() {
   );
 }
 
+/** Pide nombre y tipo, y crea el proyecto. */
+export async function createProject(update: (fn: (d: AppState) => void) => void) {
+  const name = await ask("Nuevo proyecto", "", { placeholder: "Ej: Canal de cocina, App de turnos, Novela…" });
+  if (!name?.trim()) return;
+  const profile = await pick("¿Qué tipo de proyecto es?", PROFILES.map((p) => ({ id: p.id, label: p.name, hint: p.hint })));
+  if (!profile) return;
+  update((d) => {
+    const p = newProject(name.trim(), profile as ProfileId);
+    d.projects.push(p);
+    d.activeProjectId = p.id;
+    d.activeNoteId[p.id] = p.notes[0].id;
+  });
+}
+
 export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
   const addProject = async () => {
     setOpen(false);
-    const name = await ask("Nuevo proyecto", "", { placeholder: "Ej: Canal de cocina, App de turnos, Novela…" });
-    if (!name?.trim()) return;
-    const profile = await pick("¿Qué tipo de proyecto es?", PROFILES.map((p) => ({ id: p.id, label: p.name, hint: p.hint })));
-    if (!profile) return;
-    update((d) => {
-      const p = newProject(name.trim(), profile as ProfileId);
-      d.projects.push(p);
-      d.activeProjectId = p.id;
-      d.activeNoteId[p.id] = p.notes[0].id;
-    });
-    setOpen(false);
+    await createProject(update);
   };
 
   const projectMenu = (e: React.MouseEvent) => {
@@ -173,6 +177,10 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
           onClick: () => update((d) => (d.theme = d.theme === "dark" ? "light" : d.theme === "light" ? "system" : "dark")),
         },
         {
+          label: `Columna de proyectos: ${state.rail === false ? "oculta" : "visible"}  →  cambiar`,
+          onClick: () => update((d) => (d.rail = d.rail === false)),
+        },
+        {
           label: `Atajo global: ${state.shortcut}  →  cambiar`,
           onClick: async () => {
             const v = await ask("Atajo para mostrar/ocultar GULA", state.shortcut, { placeholder: "Ej: Ctrl+Shift+Space, Alt+G, Ctrl+Alt+N" });
@@ -197,7 +205,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v1.7.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v1.8.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
