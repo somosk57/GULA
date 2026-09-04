@@ -3,6 +3,14 @@ import { PROFILES, ProfileId, profileById } from "./profiles";
 
 export type LinkKind = "folder" | "file" | "url";
 export type Tab = "links" | "prompts" | "context" | "snippets" | "tasks" | "cards" | "gallery";
+export const TABS: { id: Tab; label: string }[] = [
+  { id: "links", label: "Accesos" },
+  { id: "gallery", label: "Galería" },
+  { id: "prompts", label: "Prompts" },
+  { id: "context", label: "Contexto" },
+  { id: "cards", label: "Fichas" },
+  { id: "tasks", label: "Tareas" },
+];
 export type CardKind = "character" | "place" | "item" | "scene";
 export type SceneStatus = "idea" | "draft" | "done";
 export type Stage = "idea" | "active" | "paused" | "done";
@@ -40,6 +48,8 @@ export interface Pane {
   id: string;
   title: string;
   body: string;
+  /** Color de etiqueta del recuadro (para filtrar en la vista colección). */
+  mark?: Mark;
 }
 
 export interface Note {
@@ -58,6 +68,10 @@ export interface Note {
   autoTitle: boolean;
   /** Marca de la entrada entera (opcional). Si no está, se deduce de la mejor marca de sus archivos. */
   mark?: Mark;
+  /** Cómo se ven los recuadros: en columnas o como colección (cuadrados con solo el título). */
+  view?: "cols" | "grid";
+  /** Colores ocultos en la vista colección. */
+  hidePaneMarks?: Mark[];
 }
 
 /** Título automático: primera línea con texto (sin marcas de markdown), máx. 60. */
@@ -192,6 +206,14 @@ export interface AppState {
   onboarded: boolean;
   /** Columna de proyectos a la izquierda (cuando hay más de uno). */
   rail?: boolean;
+  /** Pestañas del panel de abajo que el usuario apagó. */
+  hiddenTabs?: Tab[];
+  /** Panel de abajo visible. */
+  bottomOpen?: boolean;
+  /** Sección "Comandos" dentro de Accesos. */
+  showCommands?: boolean;
+  /** Atajos personalizados: id de acción → combo. */
+  keys?: Record<string, string>;
 }
 
 export const uid = () =>
@@ -246,7 +268,7 @@ export function defaultState(): AppState {
   p.notes[0].title = "Cómo usar GULA";
   p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Ctrl+/ muestra todos los atajos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- El botón de al lado (Ctrl+G) los muestra como **colección**: cuadrados con solo el título, todos los que quieras. Clic derecho en uno para ponerle color, y los puntos de arriba filtran.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una para ocultarla); el × cierra el panel entero.\n- Ctrl+/ muestra los atajos y te deja cambiarlos a tu gusto.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],
@@ -258,6 +280,10 @@ export function defaultState(): AppState {
     noteSort: "manual",
     shortcut: "Ctrl+Shift+Space",
     onboarded: false,
+    hiddenTabs: [],
+    bottomOpen: true,
+    showCommands: true,
+    keys: {},
   };
 }
 
@@ -325,5 +351,9 @@ export function migrate(raw: unknown): AppState {
     shortcut: s.shortcut ?? "Ctrl+Shift+Space",
     onboarded: s.onboarded ?? true,
     rail: s.rail ?? true,
+    hiddenTabs: s.hiddenTabs ?? [],
+    bottomOpen: s.bottomOpen ?? true,
+    showCommands: s.showCommands ?? true,
+    keys: s.keys ?? {},
   };
 }

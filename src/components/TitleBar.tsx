@@ -3,7 +3,7 @@ import { copyText, dataDir, exportFiles, listBackups, loadState, openPath, pickF
 import { ask, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
 import { lastDiaryLine } from "../diary";
-import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
+import { AppState, PROFILES, Project, STAGES, TABS, newProject } from "../types";
 import { ProfileId } from "../profiles";
 import { collectTasks, fmtAgo, fmtDate } from "../ai";
 import { buildAiPackage, exportProject } from "../ai";
@@ -163,6 +163,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
   const settingsMenu = (e: React.MouseEvent) => {
     const mod = IS_MAC ? "⌘" : "Ctrl+";
     const t = state.theme;
+    const hidden = state.hiddenTabs ?? [];
     setMenu({
       x: e.clientX,
       y: e.clientY,
@@ -174,16 +175,34 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
         { label: `Atajos de teclado  (${mod}/)`, onClick: onKeys },
         {
-          label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}  →  cambiar`,
+          label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}`,
           separator: true,
           onClick: () => update((d) => (d.theme = d.theme === "dark" ? "light" : d.theme === "light" ? "system" : "dark")),
         },
         {
-          label: `Columna de proyectos: ${state.rail === false ? "oculta" : "visible"}  →  cambiar`,
+          label: `${state.rail === false ? "○" : "✓"}  Columna de proyectos`,
           onClick: () => update((d) => (d.rail = d.rail === false)),
         },
         {
-          label: `Atajo global: ${state.shortcut}  →  cambiar`,
+          label: `${state.bottomOpen === false ? "○" : "✓"}  Panel de abajo`,
+          onClick: () => update((d) => (d.bottomOpen = d.bottomOpen === false)),
+        },
+        ...TABS.map((tab, i) => ({
+          label: `${hidden.includes(tab.id) ? "○" : "✓"}      ${tab.label}`,
+          separator: i === 0,
+          onClick: () =>
+            update((d) => {
+              const h = d.hiddenTabs ?? [];
+              d.hiddenTabs = h.includes(tab.id) ? h.filter((x) => x !== tab.id) : [...h, tab.id];
+            }),
+        })),
+        {
+          label: `${state.showCommands === false ? "○" : "✓"}      Comandos (dentro de Accesos)`,
+          onClick: () => update((d) => (d.showCommands = d.showCommands === false)),
+        },
+        {
+          label: `Atajo global: ${state.shortcut}`,
+          separator: true,
           onClick: async () => {
             const v = await ask("Atajo para mostrar/ocultar GULA", state.shortcut, { placeholder: "Ej: Ctrl+Shift+Space, Alt+G, Ctrl+Alt+N" });
             if (v?.trim()) update((d) => (d.shortcut = v.trim()));
@@ -207,7 +226,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v2.1.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v2.2.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };

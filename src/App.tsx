@@ -19,19 +19,10 @@ import { HomeOverlay } from "./components/HomeOverlay";
 import { firstRun } from "./onboarding";
 import { setShortcut, win } from "./backend";
 import { notify } from "./dialog";
-import { Tab, newNote, uid } from "./types";
+import { TABS, newNote, uid } from "./types";
+import { comboFor, comboFromEvent } from "./keys";
 import { collectTasks } from "./ai";
 import "./styles.css";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "links", label: "Accesos" },
-  { id: "gallery", label: "Galería" },
-  { id: "prompts", label: "Prompts" },
-  { id: "context", label: "Contexto" },
-  { id: "cards", label: "Fichas" },
-  { id: "tasks", label: "Tareas" },
-];
-
 
 const SPLIT_KEY = "gula-split";
 const IS_MAC_APP = /Mac/i.test(navigator.platform);
@@ -62,6 +53,16 @@ export default function App() {
     if ((state?.bottomTab as string) === "snippets") update((d) => (d.bottomTab = "links"));
   }, [state?.bottomTab, update]);
 
+  // Si la pestaña activa quedó oculta, pasar a la primera visible.
+  useEffect(() => {
+    if (!state) return;
+    const hid = state.hiddenTabs ?? [];
+    if (hid.includes(state.bottomTab)) {
+      const first = TABS.find((t) => !hid.includes(t.id));
+      if (first) update((d) => (d.bottomTab = first.id));
+    }
+  }, [state?.hiddenTabs, state?.bottomTab, update]);
+
   // Tema: data-theme en <html>; "system" no estampa nada y decide el sistema.
   useEffect(() => {
     const t = state?.theme ?? "dark";
@@ -87,41 +88,38 @@ export default function App() {
     if (state) win.setAlwaysOnTop(state.alwaysOnTop);
   }, [state?.alwaysOnTop]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Atajos globales
+  // Atajos (configurables desde Ctrl+/)
   useEffect(() => {
+    const K = state?.keys;
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const k = e.key.toLowerCase();
-      if (k === "b") {
-        e.preventDefault();
+      const c = comboFromEvent(e);
+      if (!c) return;
+      const is = (id: string) => c === comboFor(K, id);
+      const inField = () => {
+        const t = e.target as HTMLElement;
+        return t.tagName === "TEXTAREA" || t.tagName === "INPUT" || t.isContentEditable;
+      };
+      const toggleSidebar = () => {
         if (compact) setDrawer((v) => !v);
         else setSidebarOpen((v) => { localStorage.setItem("gula-sidebar", v ? "0" : "1"); return !v; });
-      } else if (k === "k") {
-        e.preventDefault();
-        setSearchOpen((v) => !v);
-      } else if (k === "h") {
-        e.preventDefault();
-        setHomeOpen((v) => !v);
-      } else if (k === "/" || k === "?") {
-        e.preventDefault();
-        setKeysOpen((v) => !v);
-      } else if (k === "v" && e.shiftKey) {
+      };
+
+      if (is("sidebar")) { e.preventDefault(); toggleSidebar(); }
+      else if (is("search")) { e.preventDefault(); setSearchOpen((v) => !v); }
+      else if (is("home")) { e.preventDefault(); setHomeOpen((v) => !v); }
+      else if (is("keys")) { e.preventDefault(); setKeysOpen((v) => !v); }
+      else if (is("bottom")) { e.preventDefault(); update((d) => (d.bottomOpen = d.bottomOpen === false)); }
+      else if (is("pasteAs")) {
         e.preventDefault();
         update((d) => {
           const p = activeProject(d);
           // pasteAs es async y usa update por su cuenta; acá solo lo disparamos con el estado actual.
           setTimeout(() => pasteAs(p, d.activeNoteId[p.id], update), 0);
         });
-      } else if (k === "z") {
-        // No pisar el deshacer nativo mientras se tipea en un campo.
-        const t = e.target as HTMLElement;
-        if (t.tagName === "TEXTAREA" || t.tagName === "INPUT") return;
-        e.preventDefault();
-        if (e.shiftKey) redo(); else undo();
-      } else if (k === "y" && !IS_MAC_APP) {
-        e.preventDefault();
-        redo();
-      } else if (k === "n") {
+      }
+      else if (is("undo")) { if (inField()) return; e.preventDefault(); undo(); }
+      else if (is("redo") || (!IS_MAC_APP && c === "Ctrl+Y")) { if (inField()) return; e.preventDefault(); redo(); }
+      else if (is("newNote")) {
         e.preventDefault();
         update((d) => {
           const p = activeProject(d);
@@ -131,34 +129,49 @@ export default function App() {
           const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
           const tpl = lastIdx >= 0 ? p.notes[lastIdx] : undefined;
           if (tpl && tpl.panes.length > 1) n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
+          if (tpl?.view) n.view = tpl.view;
           p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
           d.activeNoteId[p.id] = n.id;
         });
-      } else if (k === "p" || k === "tab") {
+      }
+      else if (is("nextTab") || c === "Ctrl+Shift+Tab") {
         e.preventDefault();
         update((d) => {
-          const i = TABS.findIndex((t) => t.id === d.bottomTab);
-          const step = e.shiftKey ? -1 : 1;
-          d.bottomTab = TABS[(i + step + TABS.length) % TABS.length].id;
+          const vis = TABS.filter((t) => !(d.hiddenTabs ?? []).includes(t.id));
+          if (!vis.length) return;
+          const i = vis.findIndex((t) => t.id === d.bottomTab);
+          const step = c === "Ctrl+Shift+Tab" ? -1 : 1;
+          d.bottomTab = vis[(i + step + vis.length) % vis.length].id;
+          d.bottomOpen = true;
         });
-      } else if (/^[1-9]$/.test(k) && e.shiftKey) {
+      }
+      else if (is("nextProject") || is("prevProject")) {
         e.preventDefault();
-        update((d) => { const p = d.projects[Number(k) - 1]; if (p) d.activeProjectId = p.id; });
-      } else if (/^[1-7]$/.test(k)) {
-        e.preventDefault();
-        update((d) => (d.bottomTab = TABS[Number(k) - 1].id));
-      } else if ((k === "arrowup" || k === "arrowdown") && e.shiftKey) {
-        e.preventDefault();
+        const step = is("nextProject") ? 1 : -1;
         update((d) => {
           const i = d.projects.findIndex((p) => p.id === d.activeProjectId);
-          const j = (i + (k === "arrowdown" ? 1 : -1) + d.projects.length) % d.projects.length;
+          const j = (i + step + d.projects.length) % d.projects.length;
           d.activeProjectId = d.projects[j].id;
+        });
+      }
+      else if (/^Ctrl\+Shift\+[1-9]$/.test(c)) {
+        e.preventDefault();
+        const n = Number(c.slice(-1));
+        update((d) => { const p = d.projects[n - 1]; if (p) d.activeProjectId = p.id; });
+      }
+      else if (/^Ctrl\+[1-9]$/.test(c)) {
+        e.preventDefault();
+        const n = Number(c.slice(-1));
+        update((d) => {
+          const vis = TABS.filter((t) => !(d.hiddenTabs ?? []).includes(t.id));
+          const t = vis[n - 1];
+          if (t) { d.bottomTab = t.id; d.bottomOpen = true; }
         });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [update, compact, undo, redo]);
+  }, [update, compact, undo, redo, state?.keys]);
 
   // Divisor arrastrable entre editor y panel de abajo
   useEffect(() => {
@@ -190,6 +203,8 @@ export default function App() {
       if (h.tab) d.bottomTab = h.tab;
     });
 
+  const visibleTabs = TABS.filter((t) => !(state.hiddenTabs ?? []).includes(t.id));
+  const bottomOpen = state.bottomOpen !== false && visibleTabs.length > 0;
   const project = activeProject(state);
   const note = project.notes.find((n) => n.id === state.activeNoteId[project.id]) ?? project.notes[0];
 
@@ -215,7 +230,7 @@ export default function App() {
       <UpdateBanner />
       <Dialogs />
       {searchOpen && <SearchPalette state={state} onClose={() => setSearchOpen(false)} onGo={goTo} />}
-      {keysOpen && <ShortcutsOverlay onClose={() => setKeysOpen(false)} />}
+      {keysOpen && <ShortcutsOverlay state={state} update={update} onClose={() => setKeysOpen(false)} />}
       {homeOpen && (
         <HomeOverlay
           state={state}
@@ -237,9 +252,15 @@ export default function App() {
           </div>
         )}
         <div className="main" ref={mainRef}>
-          <div className="top" style={{ flexBasis: `${split}%` }}>
-            <Editor project={project} note={note} update={update} />
+          <div className="top" style={{ flexBasis: bottomOpen ? `${split}%` : "100%" }}>
+            <Editor project={project} note={note} update={update} keys={state.keys} />
           </div>
+          {!bottomOpen && visibleTabs.length > 0 && (
+            <button className="bottom-show" onClick={() => update((d) => (d.bottomOpen = true))} title="Mostrar el panel de abajo">
+              ▲ {visibleTabs.map((t) => t.label).join(" · ") || "Panel"}
+            </button>
+          )}
+          {bottomOpen && <>
           <div
             className="divider"
             onMouseDown={() => {
@@ -258,7 +279,7 @@ export default function App() {
               >
                 {split <= 20 ? "⤡" : "⤢"}
               </button>
-              {TABS.map((t, i) => {
+              {visibleTabs.map((t, i) => {
                 const count =
                   t.id === "links" ? project.links.length + project.snippets.length
                   : t.id === "gallery" ? collectMedia(project).length
@@ -272,21 +293,24 @@ export default function App() {
                     key={t.id}
                     className={"tab" + (state.bottomTab === t.id ? " active" : "")}
                     onClick={() => update((d) => (d.bottomTab = t.id))}
-                    title={`Ctrl+${i + 1}`}
+                    onContextMenu={(e) => { e.preventDefault(); update((d) => (d.hiddenTabs = [...(d.hiddenTabs ?? []), t.id])); }}
+                    title={`Ctrl+${i + 1} · clic derecho: ocultar esta pestaña`}
                   >
                     {t.label}
                     {count > 0 && <span className="count">{count}</span>}
                   </button>
                 );
               })}
+              <button className="tab-x" title="Cerrar el panel de abajo" onClick={() => update((d) => (d.bottomOpen = false))}>×</button>
             </div>
-            {state.bottomTab === "links" && <LinksPanel project={project} update={update} />}
+            {state.bottomTab === "links" && <LinksPanel project={project} update={update} showCommands={state.showCommands !== false} />}
             {state.bottomTab === "prompts" && <PromptsPanel project={project} update={update} />}
             {state.bottomTab === "context" && <ContextPanel project={project} update={update} />}
             {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} allProjects={state.projects} />}
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
           </div>
+          </>}
         </div>
       </div>
     </div>

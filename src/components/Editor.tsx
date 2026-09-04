@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { AppState, Mark, Note, Pane, Project, deriveTitle, syncNote, uid } from "../types";
+import { AppState, MARKS, Mark, Note, Pane, Project, deriveTitle, markColor, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
 import { MarkdownEditor, insertImage, isImagePath } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
@@ -8,6 +8,7 @@ import { assetUrl, copyToDir, pickImage, win } from "../backend";
 import { useRef } from "react";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { ask, confirmDlg } from "../dialog";
+import { comboFor, comboFromEvent } from "../keys";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -15,10 +16,13 @@ interface Props {
   project: Project;
   note: Note;
   update: (fn: (d: AppState) => void) => void;
+  /** Atajos configurados por el usuario. */
+  keys?: Record<string, string>;
 }
 
-export function Editor({ project, note, update }: Props) {
+export function Editor({ project, note, update, keys }: Props) {
   const [preview, setPreview] = useState(false);
+  const [focusPane, setFocusPane] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
@@ -67,20 +71,27 @@ export function Editor({ project, note, update }: Props) {
       if (n.autoTitle) n.title = deriveTitle(n);
     });
 
-  // Ctrl+E alterna edición / vista
+  // Atajos de la nota: editar/vista y colección.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") {
+      const c = comboFromEvent(e);
+      if (!c) return;
+      if (c === comboFor(keys, "preview")) {
         e.preventDefault();
         setPreview((v) => !v);
+      } else if (c === comboFor(keys, "collection")) {
+        e.preventDefault();
+        setFocusPane(null);
+        setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid"));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [keys, note.id, project.id]);
 
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
+    setFocusPane(null);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const html = useMemo(
@@ -134,6 +145,27 @@ export function Editor({ project, note, update }: Props) {
       if (titles.some(Boolean)) titles.forEach((t, i) => (n.panes[i].title = t));
     });
 
+  const grid = note.view === "grid";
+  const hidden = note.hidePaneMarks ?? [];
+
+  const setPaneMark = (paneId: string, mark: Mark | null) =>
+    setNote((n) => {
+      const p = n.panes.find((x) => x.id === paneId)!;
+      if (mark) p.mark = mark; else delete p.mark;
+    });
+
+  const toggleHidden = (m: Mark) =>
+    setNote((n) => {
+      const h = n.hidePaneMarks ?? [];
+      n.hidePaneMarks = h.includes(m) ? h.filter((x) => x !== m) : [...h, m];
+    });
+
+  const addPane = () => {
+    const id = uid();
+    setNote((n) => n.panes.push({ id, title: "", body: "" }));
+    if (grid) setFocusPane(id);
+  };
+
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const i = note.panes.findIndex((x) => x.id === p.id);
@@ -156,8 +188,14 @@ export function Editor({ project, note, update }: Props) {
           if (t !== null) setPane(p.id, (x) => (x.title = t.trim()));
         },
       },
-      { label: "Mover a la izquierda", onClick: () => setNote((n) => { if (i > 0) [n.panes[i - 1], n.panes[i]] = [n.panes[i], n.panes[i - 1]]; }) },
-      { label: "Mover a la derecha", onClick: () => setNote((n) => { if (i < n.panes.length - 1) [n.panes[i + 1], n.panes[i]] = [n.panes[i], n.panes[i + 1]]; }) },
+      ...MARKS.map((m) => ({
+        label: p.mark === m.id ? `${m.short} ✓` : m.short,
+        color: m.color,
+        separator: m.id === "master",
+        onClick: () => setPaneMark(p.id, p.mark === m.id ? null : m.id),
+      })),
+      { label: grid ? "Mover antes" : "Mover a la izquierda", separator: true, onClick: () => setNote((n) => { if (i > 0) [n.panes[i - 1], n.panes[i]] = [n.panes[i], n.panes[i - 1]]; }) },
+      { label: grid ? "Mover después" : "Mover a la derecha", onClick: () => setNote((n) => { if (i < n.panes.length - 1) [n.panes[i + 1], n.panes[i]] = [n.panes[i], n.panes[i + 1]]; }) },
     ];
     if (note.panes.length > 1)
       items.push({
@@ -178,6 +216,8 @@ export function Editor({ project, note, update }: Props) {
 
   const count = note.panes.length;
   const cols = count <= 3 ? count : count === 4 ? 2 : 3;
+  const visible = note.panes.filter((p) => !(p.mark && hidden.includes(p.mark)));
+  const focused = grid && focusPane ? note.panes.find((p) => p.id === focusPane) ?? null : null;
 
   return (
     <section className="editor">
@@ -195,16 +235,25 @@ export function Editor({ project, note, update }: Props) {
           placeholder="Título (o escribí abajo y se completa solo)"
           spellCheck={false}
         />
+        {!grid && (
+          <button
+            className="mode-btn"
+            onClick={() => {
+              const cycle = [1, 2, 3, 4, 6];
+              const next = cycle[(cycle.indexOf(count) + 1) % cycle.length] ?? 1;
+              applyPreset(Array(next).fill(""));
+            }}
+            title="Recuadros: 1 → 2 → 3 → 4 → 6"
+          >
+            <LayoutIcon n={count} />
+          </button>
+        )}
         <button
-          className="mode-btn"
-          onClick={() => {
-            const cycle = [1, 2, 3, 4, 6];
-            const next = cycle[(cycle.indexOf(count) + 1) % cycle.length] ?? 1;
-            applyPreset(Array(next).fill(""));
-          }}
-          title="Recuadros: 1 → 2 → 3 → 4 → 6"
+          className={"mode-btn" + (grid ? " active" : "")}
+          onClick={() => { setFocusPane(null); setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid")); }}
+          title="Colección: cada recuadro es un cuadrado con su título (Ctrl+G)"
         >
-          <LayoutIcon n={count} />
+          <GridIcon />
         </button>
         <button
           className={"mode-btn" + (preview ? " active" : "")}
@@ -216,6 +265,71 @@ export function Editor({ project, note, update }: Props) {
       </div>
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
+      ) : grid ? (
+        focused ? (
+          <div className="pane focused" data-pane={focused.id} onContextMenu={(e) => paneMenu(e, focused!)}>
+            <div className="focus-head">
+              <button className="chip" onClick={() => setFocusPane(null)}>← Colección</button>
+              <input
+                className="pane-title"
+                value={focused.title}
+                onChange={(e) => setPane(focused!.id, (x) => (x.title = e.target.value))}
+                placeholder="Título…"
+                spellCheck={false}
+              />
+              {MARKS.map((m) => (
+                <button
+                  key={m.id}
+                  className={"mark-dot" + (focused!.mark === m.id ? " on" : "")}
+                  style={{ background: m.color }}
+                  title={m.label}
+                  onClick={() => setPaneMark(focused!.id, focused!.mark === m.id ? null : m.id)}
+                />
+              ))}
+            </div>
+            <MarkdownEditor
+              key={note.id + focused.id}
+              value={focused.body}
+              onChange={(v) => setPane(focused!.id, (x) => (x.body = v))}
+              placeholder="Escribí acá…"
+              onReady={(v) => (views.current[focused!.id] = v)}
+              marks={project.marks}
+              onMark={setMark}
+            />
+          </div>
+        ) : (
+          <div className="collection">
+            <div className="coll-filter">
+              {MARKS.map((m) => (
+                <button
+                  key={m.id}
+                  className={"mark-dot" + (hidden.includes(m.id) ? " off" : " on")}
+                  style={{ background: m.color }}
+                  title={hidden.includes(m.id) ? `Mostrar: ${m.label}` : `Ocultar: ${m.label}`}
+                  onClick={() => toggleHidden(m.id)}
+                />
+              ))}
+              <span className="coll-count">{visible.length} de {count}</span>
+              <button className="chip" onClick={addPane}>+ Cuadro</button>
+            </div>
+            <div className="coll-grid">
+              {visible.map((p) => (
+                <button
+                  key={p.id}
+                  className="coll-card"
+                  style={markColor(p.mark) ? { borderColor: markColor(p.mark)!, boxShadow: `inset 3px 0 0 ${markColor(p.mark)}` } : undefined}
+                  onClick={() => setFocusPane(p.id)}
+                  onContextMenu={(e) => paneMenu(e, p)}
+                  title={p.body.trim().slice(0, 300) || "Vacío"}
+                >
+                  <span className="coll-title">{paneLabel(p, note.panes.indexOf(p))}</span>
+                  {!p.body.trim() && <span className="coll-empty">vacío</span>}
+                </button>
+              ))}
+              <button className="coll-card add" onClick={addPane}>+</button>
+            </div>
+          </div>
+        )
       ) : count === 1 ? (
         <div className="single" data-pane={note.panes[0].id} onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, note.panes[0]); }}>
           <MarkdownEditor
@@ -256,6 +370,26 @@ export function Editor({ project, note, update }: Props) {
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </section>
   );
+}
+
+function GridIcon() {
+  return (
+    <svg width="14" height="12" viewBox="0 0 12 10">
+      {[[0, 0], [4.25, 0], [8.5, 0], [0, 5.5], [4.25, 5.5], [8.5, 5.5]].map(([x, y], i) => (
+        <rect key={i} x={x} y={y} width="3.5" height="4.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
+      ))}
+    </svg>
+  );
+}
+
+/** Título que se ve en el cuadrado: el del recuadro, o la primera línea con texto. */
+function paneLabel(p: Pane, i: number): string {
+  if (p.title.trim()) return p.title.trim();
+  for (const raw of p.body.split("\n")) {
+    const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
+    if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 80);
+  }
+  return `Cuadro ${i + 1}`;
 }
 
 function LayoutIcon({ n }: { n: number }) {

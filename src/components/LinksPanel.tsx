@@ -20,6 +20,8 @@ import { SnippetsPanel } from "./SnippetsPanel";
 interface Props {
   project: Project;
   update: (fn: (d: AppState) => void) => void;
+  /** Sección "Comandos" al pie (se apaga desde el menú ⋯). */
+  showCommands?: boolean;
 }
 
 function baseName(p: string) {
@@ -78,7 +80,7 @@ function Icon({ kind, path }: { kind: LinkKind; path: string }) {
   );
 }
 
-export function LinksPanel({ project, update }: Props) {
+export function LinksPanel({ project, update, showCommands = true }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -238,8 +240,10 @@ export function LinksPanel({ project, update }: Props) {
           <div className="empty wide">Arrastrá carpetas o archivos acá, o usá “+ Agregar”.</div>
         )}
       </div>
-      <div className="accesos-divider"><span>Comandos</span></div>
-      <SnippetsPanel project={project} update={update} embedded />
+      {showCommands && <>
+        <div className="accesos-divider"><span>Comandos</span></div>
+        <SnippetsPanel project={project} update={update} embedded />
+      </>}
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </div>
   );
