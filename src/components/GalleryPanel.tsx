@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, allBoxes, findPane, joinPanes, lastBox, markColor, newNote, syncNote, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame, moveToSubdir } from "../backend";
-import { ask, confirmDlg } from "../dialog";
+import { ask, confirmDlg, notify } from "../dialog";
+import { dumpFiles, projectFiles } from "../dump";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
@@ -200,6 +201,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   const [source, setSource] = useState<string>("all");
   const [files, setFiles] = useState<(DirEntryInfo & { collection: string })[]>([]);
   const [loose, setLoose] = useState(false);
+  const [dumping, setDumping] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [markFilter, setMarkFilter] = useState<Mark | "all">("all");
@@ -398,6 +400,27 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
         >
           + Colección
         </button>
+        <button
+          className="chip"
+          title="Copiar a una carpeta todos los archivos que ya están puestos en las notas de este proyecto"
+          onClick={async () => {
+            const total = projectFiles(project).length;
+            if (!total) return notify("No hay archivos", "Todavía no pusiste imágenes, videos ni audios en las notas de este proyecto.");
+            const dir = await pickFolder();
+            if (!dir) return;
+            if (!(await confirmDlg(`¿Bajar ${total} archivo${total === 1 ? "" : "s"}?`, `Se copian a:\n${dir}\n\nLos originales quedan donde están y nada se pisa.`, { okLabel: "Bajar" }))) return;
+            setDumping(`0 de ${total}`);
+            const { copied, failed } = await dumpFiles(project, dir, (done: number) => setDumping(`${done} de ${total}`));
+            setDumping(null);
+            notify(
+              `${copied} archivo${copied === 1 ? "" : "s"} en la carpeta`,
+              failed.length ? `${failed.length} no se pudieron copiar (¿los moviste o los borraste?):\n` + failed.slice(0, 10).join("\n") : dir,
+            );
+          }}
+        >
+          ⤓ Bajar archivos…
+        </button>
+        {dumping && <span className="prompt-sub">Copiando {dumping}…</span>}
       </div>
       <div className="panel-actions">
         {(["all", "image", "video", "audio", "doc"] as const).map((k) => (

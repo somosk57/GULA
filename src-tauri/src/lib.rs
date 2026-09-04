@@ -397,13 +397,31 @@ fn export_files(dir: String, files: Vec<ExportFile>) -> Result<usize, String> {
     let base = PathBuf::from(&dir);
     fs::create_dir_all(&base).map_err(|e| e.to_string())?;
     for f in &files {
-        // Sin subcarpetas ni nombres raros.
-        let safe: String = f
-            .name
-            .chars()
-            .map(|c| if "<>:\"/\\|?*".contains(c) { '_' } else { c })
-            .collect();
-        fs::write(base.join(safe), &f.content).map_err(|e| e.to_string())?;
+        // El nombre puede traer subcarpetas ("Nota/Colección/01 - Idea.txt"): se crean.
+        // Cada tramo se limpia de caracteres prohibidos, y "." / ".." quedan afuera
+        // para que nada pueda escribir fuera de `dir`.
+        let mut path = base.clone();
+        for seg in f.name.replace('\\', "/").split('/') {
+            if seg.is_empty() || seg == "." || seg == ".." {
+                continue;
+            }
+            let safe: String = seg
+                .chars()
+                .map(|c| if "<>:\"/\\|?*".contains(c) { '_' } else { c })
+                .collect();
+            let safe = safe.trim().trim_end_matches('.').to_string();
+            if safe.is_empty() {
+                continue;
+            }
+            path.push(safe);
+        }
+        if path == base {
+            continue;
+        }
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        fs::write(&path, &f.content).map_err(|e| e.to_string())?;
     }
     Ok(files.len())
 }

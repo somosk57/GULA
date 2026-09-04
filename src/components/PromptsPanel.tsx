@@ -15,7 +15,9 @@ async function fillVariables(body: string): Promise<string | null> {
   return body.replace(VAR_RE, (_, n) => values[n.trim()] ?? "");
 }
 import { AppState, Project, Prompt, uid } from "../types";
-import { copyText, readClipboard } from "../backend";
+import { copyText, pickFolder, readClipboard } from "../backend";
+import { pick } from "../dialog";
+import { dumpTexts, textFiles } from "../dump";
 
 interface Props {
   project: Project;
@@ -84,6 +86,29 @@ export function PromptsPanel({ project, update }: Props) {
       <div className="panel-actions">
         <button className="chip" onClick={fromClipboard} title="Crea un prompt con lo que tengas copiado">
           Pegar del portapapeles
+        </button>
+        <button
+          className="chip"
+          title="Guardar en una carpeta el texto de cada recuadro de este proyecto, como .txt"
+          onClick={async () => {
+            const total = textFiles(project).length;
+            if (!total) return notify("No hay textos", "Todavía no escribiste nada en los recuadros de este proyecto.");
+            const how = await pick(`Bajar los textos (${total} recuadros con texto)`, [
+              { id: "box", label: "Un .txt por recuadro", hint: "Nota / Colección / 01 - Idea.txt — para usar cada prompt suelto" },
+              { id: "coll", label: "Un .txt por colección", hint: "todos los recuadros de una colección en un solo archivo" },
+            ]);
+            if (!how) return;
+            const dir = await pickFolder();
+            if (!dir) return;
+            try {
+              const n = await dumpTexts(project, dir, how === "coll");
+              notify(`${n} archivo${n === 1 ? "" : "s"} en la carpeta`, dir);
+            } catch (e) {
+              notify("No se pudieron guardar", String(e));
+            }
+          }}
+        >
+          ⤓ Bajar textos…
         </button>
         <button className="chip add" onClick={() => add()}>+ Nuevo</button>
       </div>
