@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppState, ContextBlock, Project, uid } from "../types";
 import { fmtAgo } from "../ai";
 import { copyText } from "../backend";
-import { buildAiPackage, contextText, estimateTokens } from "../ai";
+import { buildAiPackage, collectTasks, contextText, estimateTokens } from "../ai";
 import { ask, confirmDlg, notify } from "../dialog";
 import { closeSession, startSession, fmtMinutes, openInAi, copyClosingPrompt } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -83,6 +83,7 @@ export function ContextPanel({ project, update }: Props) {
   const pkg = buildAiPackage(project);
   const tokens = estimateTokens(pkg);
   const ctxTokens = estimateTokens(contextText(project));
+  const setPkg = (fn: (o: Project["pkg"]) => Project["pkg"]) => update((d) => { const p = d.projects.find((p) => p.id === project.id)!; p.pkg = fn(p.pkg); });
   const on = project.blocks.filter((b) => b.enabled).length;
   const inSession = project.sessionStartedAt != null;
   const elapsed = inSession ? Math.max(1, Math.round((Date.now() - project.sessionStartedAt!) / 60000)) : 0;
@@ -132,6 +133,20 @@ export function ContextPanel({ project, update }: Props) {
           ≈ {tokens.toLocaleString("es-AR")} tokens · {on}/{project.blocks.length} bloques
         </span>
         <button className="chip add" onClick={addBlock}>+ Bloque</button>
+      </div>
+      <div className="pkg-row" title="Qué entra en Copiar para la IA, además de los bloques encendidos">
+        <span className="pkg-label">Entra:</span>
+        {([
+          ["cards", `fichas ${project.cards.filter((c) => c.inContext).length}`],
+          ["tasks", `tareas ${collectTasks(project).filter((t) => !t.done).length}`],
+          ["masters", `maestros ${Object.values(project.marks).filter((m) => m === "master").length}`],
+          ["lastPrompt", "último prompt"],
+        ] as const).map(([k, label]) => (
+          <button key={k} className={"pkg-chip" + (project.pkg[k] ? " on" : "")} onClick={() => setPkg((o) => ({ ...o, [k]: !o[k] }))}>{label}</button>
+        ))}
+        <button className={"pkg-chip" + (project.pkg.sessions ? " on" : "")} onClick={() => setPkg((o) => ({ ...o, sessions: o.sessions === 0 ? 1 : o.sessions === 1 ? 3 : 0 }))} title="Cuántas entradas de Sesiones van (0, 1 o 3)">
+          sesiones {project.pkg.sessions}
+        </button>
       </div>
       <div className="block-list">
         {project.blocks.map((b) => {

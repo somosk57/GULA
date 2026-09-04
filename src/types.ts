@@ -158,6 +158,8 @@ export interface Project {
   copyTo?: string;
   /** Marcas por archivo (clave: ruta o URL tal como está en la nota). */
   marks: Record<string, Mark>;
+  /** Qué entra en "Copiar para la IA" además de los bloques encendidos. */
+  pkg: { cards: boolean; tasks: boolean; sessions: 0 | 1 | 3; masters: boolean; lastPrompt: boolean };
   /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
   hideMarks: Mark[];
   cards: Card[];
@@ -230,6 +232,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     cards: [],
     marks: {},
     hideMarks: [],
+    pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true },
     collections: [],
     lastSessionAt: null,
     sessionStartedAt: null,
@@ -298,6 +301,7 @@ export function migrate(raw: unknown): AppState {
     cards: p.cards ?? [],
     marks: p.marks ?? {},
     hideMarks: p.hideMarks ?? [],
+    pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true, ...(p.pkg ?? {}) },
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
     collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),
     copyTo: p.copyTo ?? ((p as { assetsDir?: string }).assetsDir ? "assets-" + (p.id ?? uid()) : undefined),

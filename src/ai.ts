@@ -79,31 +79,32 @@ export function buildAiPackage(p: Project): string {
   const parts: string[] = [];
   parts.push(contextText(p));
 
-  const groups: [string, string][] = [["character", "Personajes"], ["place", "Lugares"], ["item", "Objetos"]];
+  const o = p.pkg;
+  const groups: [string, string][] = o.cards ? [["character", "Personajes"], ["place", "Lugares"], ["item", "Objetos"]] : [];
   for (const [kind, title] of groups) {
     const cs = p.cards.filter((c) => c.kind === kind && c.inContext);
     if (cs.length) parts.push(`## ${title}\n` + cs.map((c) => `- **${c.name}**${c.summary ? `: ${c.summary}` : ""}`).join("\n"));
   }
-  const scenes = p.cards.filter((c) => c.kind === "scene" && c.inContext);
+  const scenes = o.cards ? p.cards.filter((c) => c.kind === "scene" && c.inContext) : [];
   if (scenes.length) {
     const st = { idea: "idea", draft: "borrador", done: "lista" } as const;
     parts.push("## Escenas\n" + scenes.map((c) => `- ${c.name} (${st[c.status ?? "idea"]})${c.summary ? `: ${c.summary}` : ""}${c.tags?.length ? ` — ${c.tags.join(", ")}` : ""}`).join("\n"));
   }
 
-  const masters = Object.entries(p.marks).filter(([, m]) => m === "master").map(([src]) => src);
+  const masters = o.masters ? Object.entries(p.marks).filter(([, m]) => m === "master").map(([src]) => src) : [];
   if (masters.length) parts.push("## Referencias maestras (archivos aprobados como guía)\n" + masters.map((s) => `- ${s}`).join("\n"));
 
-  const pending = collectTasks(p).filter((t) => !t.done);
+  const pending = o.tasks ? collectTasks(p).filter((t) => !t.done) : [];
   if (pending.length) {
     parts.push("## Tareas pendientes\n" + pending.slice(0, 20).map((t) => `- [ ] ${t.text}`).join("\n"));
   }
 
-  const days = p.notes.filter((n) => n.group === SESSIONS_GROUP).sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
+  const days = p.notes.filter((n) => n.group === SESSIONS_GROUP).sort((a, b) => b.createdAt - a.createdAt).slice(0, o.sessions);
   if (days.length) {
     parts.push("## Últimas sesiones\n" + days.map((n) => `### ${n.title}\n${n.body.trim()}`).join("\n\n"));
   }
 
-  const last = [...p.prompts].filter((x) => x.lastUsedAt).sort((a, b) => b.lastUsedAt! - a.lastUsedAt!)[0];
+  const last = o.lastPrompt ? [...p.prompts].filter((x) => x.lastUsedAt).sort((a, b) => b.lastUsedAt! - a.lastUsedAt!)[0] : undefined;
   if (last) {
     parts.push(`## Último prompt que estaba usando\n${last.body.trim()}`);
   }

@@ -24,6 +24,8 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Colecciones** (en Galería, *+ Colección*): carpetas de tu PC con el nombre que quieras (Clips, Highlights, Artworks, Docs, Assets…). La Galería muestra lo que hay adentro, leído del disco: imágenes, videos, audios y documentos, con las mismas marcas de color. Clic derecho en una colección: abrir la carpeta, renombrar, cambiar carpeta, o marcarla como el lugar donde se copian los archivos que insertes en notas (así la nota no se rompe si movés el original). La Galería también marca con ⚠ los archivos de las notas que ya no están, y puede mostrar los resultados de todos los proyectos.
 
+**Qué entra en el paquete:** debajo de los botones de Contexto hay una fila "Entra:" con fichas, tareas, maestros, último prompt y sesiones (0, 1 o 3). Un clic apaga o prende cada parte, el contador de tokens se actualiza al instante, y la elección queda guardada por proyecto. Para escribir la escena 12 no hace falta mandarle a la IA la novela entera.
+
 **Columna de proyectos:** cuando hay más de un proyecto aparece una columna angosta a la izquierda (como los servidores de Discord) con un cuadrado por proyecto: la imagen maestra o las iniciales, un punto verde si hay sesión abierta y el número de tareas pendientes. Un clic y cambiás de proyecto; `Ctrl+Shift+1…9` va al proyecto N y `Ctrl+Shift+↑/↓` pasa al anterior/siguiente. Se puede ocultar desde el menú ⋯.
 
 **Lo viejo se nota:** al lado de "Ahora estoy en…" aparece cuándo lo escribiste (en rojo si pasó más de una semana), también en el selector de proyectos y en el Informe. Cada bloque de Contexto muestra cuándo se editó por última vez, para que se vea qué parte del contexto quedó rancia antes de mandársela a la IA.
