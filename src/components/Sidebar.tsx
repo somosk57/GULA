@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ask, confirmDlg, pick } from "../dialog";
 import { useReorder } from "../reorder";
-import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, noteMark, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, allBoxes, markColor, newNote, noteMark, uid } from "../types";
 import { fmtAgo } from "../ai";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
@@ -27,12 +27,14 @@ function when(t: number) {
   return d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }).replace(".", "");
 }
 
+const boxCount = (n: Note) => allBoxes(n).length;
+
 /** Qué contiene la nota: primera imagen (para miniatura) y tipos de medios. */
 function mediaOf(n: Note, marks: Record<string, Mark>) {
   let thumb: string | null = null;
   let video = false, audio = false, image = false;
   let best: Mark | null = null;
-  for (const p of n.panes) {
+  for (const p of allBoxes(n)) {
     for (const line of p.body.split("\n")) {
       const src = matchImage(line);
       if (!src) continue;
@@ -80,15 +82,16 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
   const selectNote = (id: string) => edit((_, d) => (d.activeNoteId[project.id] = id));
 
   /** Nota nueva en una sección: hereda los recuadros (cantidad y títulos) de la última nota de esa sección. */
-  const addNote = (group = DEFAULT_GROUP, from?: Note, view?: "cols" | "grid") =>
+  const addNote = (group = DEFAULT_GROUP, from?: Note, kind?: "boxes" | "collection") =>
     edit((p, d) => {
-      const n = newNote("Nueva nota", "", group);
       const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
       const template = from ?? (lastIdx >= 0 ? p.notes[lastIdx] : undefined);
-      if (template && template.panes.length > 1) {
+      const k = kind ?? template?.kind ?? "boxes";
+      const n = newNote("Nueva nota", "", group, k);
+      // Hereda los recuadros (nombres, sin texto) de la nota que sirve de molde.
+      if (k === "boxes" && template?.kind !== "collection" && template && template.panes.length > 1) {
         n.panes = template.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
       }
-      n.view = view ?? template?.view ?? "grid";
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });
@@ -96,11 +99,11 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
   /** Nota nueva preguntando primero qué tipo de nota es. */
   const newNoteAsking = async (group = DEFAULT_GROUP) => {
     const kind = await pick("¿Qué tipo de nota?", [
-      { id: "grid", label: "Colección", hint: "cuadrados con solo el título: prompts, escenas, ideas, tomas… todos los que quieras" },
-      { id: "cols", label: "Recuadros", hint: "mesa de trabajo: 2, 3, 4 o 6 recuadros a la vista" },
+      { id: "boxes", label: "Recuadros", hint: "un proceso: Idea · Prompt · Imagen · Escena · Video… los que quieras" },
+      { id: "collection", label: "Colección", hint: "colecciones, y adentro de cada una sus recuadros" },
     ]);
     if (!kind) return;
-    addNote(group, undefined, kind as "cols" | "grid");
+    addNote(group, undefined, kind as "boxes" | "collection");
   };
 
   const notesRef = useReorder<HTMLDivElement>({
@@ -322,7 +325,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                         {m.video && <span title="video">▶</span>}
                         {m.audio && <span title="audio">♪</span>}
                         {m.image && !m.thumb && <span title="imagen">▣</span>}
-                        {n.panes.length > 1 && <span className="cols" title={`${n.panes.length} recuadros`}>{n.panes.length}</span>}
+                        {boxCount(n) > 1 && <span className="cols" title={n.kind === "collection" ? `${n.panes.length} colecciones · ${boxCount(n)} recuadros` : `${boxCount(n)} recuadros`}>{n.kind === "collection" ? n.panes.length : boxCount(n)}</span>}
                       </span>
                       <span className="when">{when(byDate ? n.createdAt : n.updatedAt)}</span>
                     </button>

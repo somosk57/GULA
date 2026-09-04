@@ -1,7 +1,7 @@
 // Informe del proyecto: un texto ordenado que cualquier IA (o persona) lee de
 // arriba a abajo y entiende qué es, en qué etapa está, qué se decidió, qué se
 // hizo, qué está en curso, qué falta, qué piezas hay y qué prompts se usan.
-import { MARKS, Project, STAGES, noteMark } from "./types";
+import { MARKS, Project, STAGES, allBoxes, noteMark } from "./types";
 import { collectTasks, contextText, fmtDate } from "./ai";
 import { collectMedia } from "./components/GalleryPanel";
 import { matchImage } from "./components/MarkdownEditor";
@@ -75,15 +75,16 @@ export function buildReport(p: Project, o: ReportOptions): string {
       const nm = noteMark(n, p.marks);
       if (nm === "bad") continue;
       S.push(`\n### ${n.title} — ${fmtDate(n.createdAt)}${n.group && n.group !== "General" ? ` · ${n.group}` : ""}${nm ? ` [${MARKS.find((x) => x.id === nm)?.short}]` : ""}`);
-      if (n.panes.length > 1) {
-        for (const pane of n.panes) {
+      const boxes = allBoxes(n);
+      if (boxes.length > 1) {
+        for (const pane of boxes) {
           const body = pane.body.trim();
           if (!body) continue;
           S.push(`**${pane.title || "Recuadro"}:** ${o.fullNotes ? "\n" + body : noteSummary(body) || "(archivo)"}`);
           if (!o.fullNotes) for (const l of body.split("\n")) { const src = matchImage(l); if (src) S.push(`  - archivo: ${src}`); }
         }
       } else {
-        const body = n.panes[0].body.trim();
+        const body = boxes[0]?.body.trim() ?? "";
         if (body) S.push(o.fullNotes ? body : noteSummary(body));
       }
     }

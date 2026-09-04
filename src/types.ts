@@ -24,10 +24,10 @@ export const MARKS: { id: Mark; label: string; color: string; short: string }[] 
 ];
 export const MARK_ORDER: Mark[] = ["master", "good", "meh", "bad"];
 /** Marca efectiva de una nota: la propia, o la mejor de sus archivos. */
-export function noteMark(n: { mark?: Mark; panes: { body: string }[] }, marks: Record<string, Mark>): Mark | null {
+export function noteMark(n: { mark?: Mark; panes: Pane[] }, marks: Record<string, Mark>): Mark | null {
   if (n.mark) return n.mark;
   let best: Mark | null = null;
-  for (const p of n.panes)
+  for (const p of allBoxes(n))
     for (const line of p.body.split("\n")) {
       const m = /!\[[^\]]*\]\(<?([^)>]+?)>?\)/.exec(line.trim());
       const mk = m && marks[m[1]];
@@ -43,13 +43,37 @@ export const STAGES: { id: Stage; label: string }[] = [
   { id: "done", label: "Terminado" },
 ];
 
-/** Una columna dentro de una nota. */
+/** Un recuadro de una nota. En una nota de colección, los de primer nivel son
+ *  las colecciones y llevan sus propios recuadros adentro (`panes`). */
 export interface Pane {
   id: string;
   title: string;
   body: string;
-  /** Color de etiqueta del recuadro (para filtrar en la vista colección). */
+  /** Color de etiqueta (para filtrar). */
   mark?: Mark;
+  /** Solo en el primer nivel de una nota de colección: los recuadros de adentro. */
+  panes?: Pane[];
+}
+
+/** Todos los recuadros con texto de una nota, entren o no en una colección. */
+export function allBoxes(n: { panes: Pane[] }): Pane[] {
+  return n.panes.flatMap((p) => (p.panes?.length ? p.panes : [p]));
+}
+
+/** Busca un recuadro por id en los dos niveles. */
+export function findPane(n: { panes: Pane[] }, id: string): Pane | undefined {
+  for (const p of n.panes) {
+    if (p.id === id) return p;
+    const inner = p.panes?.find((x) => x.id === id);
+    if (inner) return inner;
+  }
+  return undefined;
+}
+
+/** El último recuadro donde escribir (el de más adentro). */
+export function lastBox(n: { panes: Pane[] }): Pane {
+  const all = allBoxes(n);
+  return all[all.length - 1];
 }
 
 export interface Note {
@@ -68,7 +92,10 @@ export interface Note {
   autoTitle: boolean;
   /** Marca de la entrada entera (opcional). Si no está, se deduce de la mejor marca de sus archivos. */
   mark?: Mark;
-  /** Cómo se ven los recuadros: en columnas o como colección (cuadrados con solo el título). */
+  /** Qué es la nota: "boxes" = recuadros sueltos; "collection" = colecciones,
+   *  y adentro de cada una, sus recuadros. Se elige al crearla y no cambia. */
+  kind?: "boxes" | "collection";
+  /** (viejo) Cómo se veían los recuadros antes de 2.6. Se conserva para migrar. */
   view?: "cols" | "grid";
   /** Colores ocultos en la vista colección. */
   hidePaneMarks?: Mark[];
@@ -76,8 +103,9 @@ export interface Note {
 
 /** Título automático: primera línea con texto (sin marcas de markdown), máx. 60. */
 export function deriveTitle(n: Note): string {
-  const pane = n.panes.find((p) => /idea|t[ií]tulo|tema/i.test(p.title)) ?? n.panes[0];
-  for (const src of [pane, ...n.panes]) {
+  const all = allBoxes(n);
+  const pane = all.find((p) => /idea|t[ií]tulo|tema/i.test(p.title)) ?? all[0];
+  for (const src of [pane, ...all].filter(Boolean)) {
     for (const raw of src.body.split("\n")) {
       const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
       if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 60);
@@ -219,15 +247,22 @@ export interface AppState {
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-/** Nota nueva. Por defecto es una colección; `view: "cols"` la crea como mesa de trabajo. */
-export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP, view: "cols" | "grid" = "grid"): Note {
-  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota", view };
+/** Nota nueva. Por defecto son recuadros sueltos; "collection" la crea como colección de colecciones. */
+export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP, kind: "boxes" | "collection" = "boxes"): Note {
+  const first: Pane = kind === "collection" ? { id: uid(), title: "", body: "", panes: [{ id: uid(), title: "", body: "" }] } : { id: uid(), title: "", body };
+  return { id: uid(), title, body, panes: [first], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota", kind };
 }
 
-/** Texto completo de una nota a partir de sus columnas. */
-export function joinPanes(panes: Pane[]): string {
-  if (panes.length <= 1) return panes[0]?.body ?? "";
-  return panes.map((p) => `## ${p.title || "Columna"}\n${p.body}`).join("\n\n");
+/** Texto completo de una nota a partir de sus recuadros (dos niveles si es colección). */
+export function joinPanes(panes: Pane[], depth = 2): string {
+  if (panes.length <= 1 && !panes[0]?.panes?.length) return panes[0]?.body ?? "";
+  const h = "#".repeat(depth);
+  return panes
+    .map((p) => {
+      const head = `${h} ${p.title || (p.panes?.length ? "Colección" : "Recuadro")}`;
+      return p.panes?.length ? `${head}\n${joinPanes(p.panes, depth + 1)}` : `${head}\n${p.body}`;
+    })
+    .join("\n\n");
 }
 
 /** Recalcula `body` después de editar columnas. Llamar siempre tras tocar `panes`. */
@@ -246,7 +281,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     profile,
     stage: "idea",
     now: "",
-    notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group, "cols")),
+    notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group, "boxes")),
     links: [],
     prompts: t.prompts.map((p) => ({ id: uid(), title: p.title, body: p.body, updatedAt: Date.now(), lastUsedAt: null })),
     blocks: t.blocks.map((b) => ({ id: uid(), title: b.title, body: fill(b.body), enabled: b.enabled })),
@@ -269,7 +304,7 @@ export function defaultState(): AppState {
   p.notes[0].title = "Cómo usar GULA";
   p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís **Colección** (cuadrados con solo el título, todos los que quieras) o **Recuadros** (mesa de trabajo). El botón de arriba a la derecha (Ctrl+G) la pasa de una a otra.\n- En la colección: clic en un cuadro para escribir, **Esc** vuelve. Arriba filtrás por texto y por color, cambiás el tamaño de los cuadros y sumás con **+ Cuadro**. Arrastrá un cuadro para reordenar; pasá el mouse por encima para **Copiar** su texto de un clic.\n- En **Recuadros**, el botón de arriba divide la nota en 2, 3, 4 o 6; cada uno con su título. Clic derecho en cualquiera: color, renombrar, mover, quitar.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una para ocultarla); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver el texto con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos a tu gusto.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Las dos se ven igual: cuadrados con el título. **+** suma, el **−** de la esquina saca, clic entra, **Esc** vuelve. Arrastrá para reordenar.\n- Clic derecho en un cuadrado: copiar, duplicar, renombrar, color (azul maestro, verde sirve, amarillo, rojo). Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un cuadrado.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],
@@ -303,8 +338,8 @@ export function migrate(raw: unknown): AppState {
       ...n,
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
-      // Las notas que ya existían se quedan como estaban (recuadros); las nuevas nacen colección.
-      view: n.view ?? "cols",
+      // Todo lo que ya existía es una nota de recuadros sueltos (un solo nivel).
+      kind: n.kind ?? "boxes",
       createdAt: n.createdAt ?? n.updatedAt ?? Date.now(),
       autoTitle: n.autoTitle ?? n.title === "Nueva nota",
     })).map((n) => {

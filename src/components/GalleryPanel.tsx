@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, syncNote, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, allBoxes, findPane, joinPanes, lastBox, markColor, newNote, syncNote, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame, moveToSubdir } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
@@ -27,8 +27,9 @@ interface Item {
 export function collectMedia(p: Project): Item[] {
   const out: Item[] = [];
   for (const n of p.notes) {
-    const promptPane = n.panes.find((x) => /prompt/i.test(x.title));
-    for (const pane of n.panes) {
+    const boxes = allBoxes(n);
+    const promptPane = boxes.find((x) => /prompt/i.test(x.title));
+    for (const pane of boxes) {
       for (const line of pane.body.split("\n")) {
         const src = matchImage(line);
         if (!src) continue;
@@ -178,10 +179,10 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     update((d) => {
       const p = d.projects.find((p) => p.id === project.id)!;
       const n = target.paneId
-        ? p.notes.find((n) => n.panes.some((x) => x.id === target.paneId))
+        ? p.notes.find((n) => !!findPane(n, target.paneId!))
         : p.notes.find((n) => n.id === target.noteId);
       if (!n) return;
-      const pane = target.paneId ? n.panes.find((x) => x.id === target.paneId)! : n.panes[n.panes.length - 1];
+      const pane = (target.paneId ? findPane(n, target.paneId) : lastBox(n))!;
       pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + `![](<${it.src}>)\n`;
       syncNote(n);
       d.activeNoteId[p.id] = n.id;
@@ -288,7 +289,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     update((d) => {
       const p = d.projects.find((p) => p.id === it.projectId)!;
       const name = it.src.split(/[\\/]/).pop()?.replace(/\.[a-z0-9]+$/i, "") ?? "Resultado";
-      const n = newNote(name.slice(0, 60), "", DEFAULT_GROUP, "cols");
+      const n = newNote(name.slice(0, 60), "", DEFAULT_GROUP, "boxes");
       n.autoTitle = false;
       n.panes = [{ id: uid(), title: "Prompt", body: "" }, { id: uid(), title: "Resultado", body: `![](<${it.src}>)\n` }];
       n.body = joinPanes(n.panes);
@@ -322,10 +323,9 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
               const p = d.projects.find((p) => p.id === it.projectId)!;
               const n = p.notes.find((n) => n.id === d.activeNoteId[p.id]) ?? p.notes[0];
               if (!n) return;
-              const last = n.panes[n.panes.length - 1];
+              const last = lastBox(n);
               last.body = (last.body.trimEnd() ? last.body.trimEnd() + "\n" : "") + `![](<${it.src}>)\n`;
-              n.body = n.panes.length <= 1 ? last.body : n.body;
-              n.updatedAt = Date.now();
+              syncNote(n);
             }),
         },
         { label: "Abrir archivo", onClick: () => openPath(it.src) },

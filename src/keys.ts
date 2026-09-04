@@ -16,7 +16,6 @@ export interface KeyAction {
 export const ACTIONS: KeyAction[] = [
   { id: "newNote", label: "Nota nueva", group: "Notas", def: "Ctrl+N" },
   { id: "preview", label: "Editar / vista", group: "Notas", def: "Ctrl+E" },
-  { id: "collection", label: "Ver los recuadros como colección", group: "Notas", def: "Ctrl+G" },
   { id: "sidebar", label: "Mostrar u ocultar la barra de notas", group: "Notas", def: "Ctrl+B" },
 
   { id: "search", label: "Buscar en todo", group: "Proyectos", def: "Ctrl+K" },

@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
-import { AppState, MARKS, Mark, Note, Pane, Project, deriveTitle, markColor, syncNote, uid } from "../types";
-import { openUrl } from "../backend";
+import { AppState, MARKS, Mark, Note, Pane, Project, deriveTitle, findPane, markColor, syncNote, uid } from "../types";
 import { MarkdownEditor, insertImage, isImagePath, matchImage } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
-import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, pickImage, win } from "../backend";
-import { useRef } from "react";
+import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickImage, win } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { ask, confirmDlg, notify } from "../dialog";
 import { useReorder } from "../reorder";
@@ -21,16 +19,28 @@ interface Props {
   keys?: Record<string, string>;
 }
 
+/**
+ * Una nota es una de dos cosas, y se elige al crearla:
+ *  - "boxes": recuadros sueltos (Idea, Prompt, Imagen, Escena…). Un solo nivel.
+ *  - "collection": colecciones; adentro de cada una, sus recuadros. Dos niveles.
+ * Las dos se ven igual: una grilla de cuadrados con el título, "+" para sumar
+ * y "−" para sacar. No hay repartidor de 1 a 6 ni cambio de tipo.
+ */
 export function Editor({ project, note, update, keys }: Props) {
   const [preview, setPreview] = useState(false);
-  const [focusPane, setFocusPane] = useState<string | null>(null);
+  /** Colección abierta (solo en notas de colección). */
+  const [into, setInto] = useState<string | null>(null);
+  /** Recuadro abierto para escribir. */
+  const [openBox, setOpenBox] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.card")) || 150; } catch { return 150; } });
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
+  const isCollection = note.kind === "collection";
+
   // Un solo listener de "archivo soltado" para toda la vida del editor.
-  // (Antes se re-registraba en cada cambio de estado y el archivo entraba dos o más veces.)
+  // (Si se re-registra en cada cambio de estado, el archivo entra dos o más veces.)
   const onDropRef = useRef<(paths: string[], at: { x: number; y: number } | null) => void>(() => {});
   useEffect(() => {
     let off: (() => void) | undefined;
@@ -61,11 +71,126 @@ export function Editor({ project, note, update, keys }: Props) {
 
   const setPane = (paneId: string, fn: (p: Pane) => void) =>
     setNote((n) => {
-      fn(n.panes.find((p) => p.id === paneId)!);
+      const p = findPane(n, paneId);
+      if (p) fn(p);
       if (n.autoTitle) n.title = deriveTitle(n);
     });
 
-  // Atajos de la nota: editar/vista y colección.
+  // ---- dónde estamos ----
+  const parent = isCollection && into ? note.panes.find((p) => p.id === into) ?? null : null;
+  /** Los cuadrados que se ven ahora mismo. */
+  const level: Pane[] = parent ? parent.panes ?? [] : note.panes;
+  /** En este nivel, ¿los cuadrados son colecciones? */
+  const levelIsCollections = isCollection && !parent;
+  const box = openBox ? findPane(note, openBox) ?? null : null;
+  /** Una nota de un solo recuadro se abre derecho: no hay grilla que mostrar. */
+  const soloBox = !isCollection && note.panes.length === 1 ? note.panes[0] : null;
+  const editing = box ?? soloBox;
+
+  const hidden = note.hidePaneMarks ?? [];
+  const needle = q.trim().toLowerCase();
+  const visible = level.filter(
+    (p) =>
+      !(p.mark && hidden.includes(p.mark)) &&
+      (!needle ||
+        (p.title + "\n" + p.body + "\n" + (p.panes ?? []).map((x) => x.title + "\n" + x.body).join("\n"))
+          .toLowerCase()
+          .includes(needle)),
+  );
+
+  // ---- acciones ----
+  const toggleHidden = (m: Mark) =>
+    setNote((n) => {
+      const h = n.hidePaneMarks ?? [];
+      n.hidePaneMarks = h.includes(m) ? h.filter((x) => x !== m) : [...h, m];
+    });
+
+  const setPaneMark = (paneId: string, mark: Mark | null) =>
+    setPane(paneId, (p) => {
+      if (mark) p.mark = mark; else delete p.mark;
+    });
+
+  /** La lista del nivel donde estás, dentro del borrador de la nota. */
+  const listIn = (n: Note): Pane[] => {
+    if (!parent) return n.panes;
+    const par = n.panes.find((x) => x.id === parent.id)!;
+    par.panes ??= [];
+    return par.panes;
+  };
+
+  /** Suma un cuadrado en el nivel donde estás. */
+  const add = () => {
+    const id = uid();
+    setNote((n) =>
+      listIn(n).push(
+        levelIsCollections
+          ? { id, title: "", body: "", panes: [{ id: uid(), title: "", body: "" }] }
+          : { id, title: "", body: "" },
+      ),
+    );
+    if (levelIsCollections) setInto(id);
+    else setOpenBox(id);
+  };
+
+  const removePane = async (p: Pane) => {
+    const inner = p.panes?.length ?? 0;
+    const hasText = p.body.trim() || (p.panes ?? []).some((x) => x.body.trim() || x.title.trim());
+    if (level.length === 1 && !parent && !isCollection)
+      return notify("Es el único recuadro", "Una nota tiene que tener al menos uno.");
+    if (
+      hasText &&
+      !(await confirmDlg(
+        p.panes ? `¿Sacar la colección “${p.title.trim() || "sin título"}”?` : "¿Sacar este recuadro?",
+        p.panes ? `Se van también sus ${inner} recuadro${inner === 1 ? "" : "s"}. Ctrl+Z lo devuelve.` : "Ctrl+Z lo devuelve.",
+        { danger: true, okLabel: "Sacar" },
+      ))
+    )
+      return;
+    setNote((n) => {
+      const list = listIn(n);
+      const i = list.findIndex((x) => x.id === p.id);
+      if (i >= 0) list.splice(i, 1);
+      if (n.panes.length === 0) n.panes.push({ id: uid(), title: "", body: "" });
+    });
+    if (openBox === p.id) setOpenBox(null);
+    if (into === p.id) setInto(null);
+  };
+
+  const dupPane = (p: Pane) =>
+    setNote((n) => {
+      const list = listIn(n);
+      const i = list.findIndex((x) => x.id === p.id);
+      const copy: Pane = { id: uid(), title: p.title, body: p.body, mark: p.mark };
+      if (p.panes) copy.panes = p.panes.map((x) => ({ id: uid(), title: x.title, body: x.body, mark: x.mark }));
+      list.splice(i + 1, 0, copy);
+    });
+
+  const copyPane = async (p: Pane) => {
+    const text = p.panes?.length
+      ? p.panes.map((x) => (x.title.trim() ? `## ${x.title.trim()}\n${x.body}` : x.body)).join("\n\n").trim()
+      : p.body.trim();
+    await copyText(text);
+    notify("Copiado", p.title.trim() || "Ya está en el portapapeles.");
+  };
+
+  /** Arrastrar cuadrados para reordenar el nivel actual. */
+  const gridRef = useReorder<HTMLDivElement>({
+    item: ".coll-card:not(.add)",
+    attr: "data-pane",
+    axis: "xy",
+    onDrop: (dragId, overId, before) =>
+      setNote((n) => {
+        const list = listIn(n);
+        const from = list.findIndex((x) => x.id === dragId);
+        if (from < 0) return;
+        const [moved] = list.splice(from, 1);
+        const to = list.findIndex((x) => x.id === overId);
+        if (to < 0) { list.push(moved); return; }
+        list.splice(before ? to : to + 1, 0, moved);
+      }),
+  });
+
+  // ---- atajos ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const c = comboFromEvent(e);
@@ -73,30 +198,92 @@ export function Editor({ project, note, update, keys }: Props) {
       if (c === comboFor(keys, "preview")) {
         e.preventDefault();
         setPreview((v) => !v);
-      } else if (c === comboFor(keys, "collection")) {
-        e.preventDefault();
-        setFocusPane(null);
-        setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid"));
       } else if (e.key === "Escape") {
-        // Adentro de un cuadro: Escape vuelve a la colección.
-        setFocusPane((f) => {
-          if (f) e.preventDefault();
-          return null;
-        });
+        // Un paso atrás: del recuadro a la lista, y de adentro de una colección al primer nivel.
+        if (openBox && !soloBox) { e.preventDefault(); setOpenBox(null); }
+        else if (into) { e.preventDefault(); setInto(null); }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [keys, note.id, project.id]);
+  }, [keys, openBox, into, soloBox]);
 
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
-    // Colección recién creada (un cuadro vacío): abrirla directo para escribir.
     setQ("");
-    const only = note.panes.length === 1 && !note.panes[0].body.trim() && !note.panes[0].title.trim();
-    setFocusPane(note.view === "grid" && only ? note.panes[0].id : null);
+    setInto(null);
+    setOpenBox(null);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- archivos soltados desde el Explorador ----
+  onDropRef.current = (paths, at) => {
+    const media = paths.filter(isImagePath);
+    if (!media.length) return;
+    const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
+    const write = async (paneId: string) => {
+      const lines: string[] = [];
+      for (const m of media) lines.push(`![](<${copyDir ? await copyToDir(m, copyDir).catch(() => m) : m}>)`);
+      setNote((n) => {
+        const p = findPane(n, paneId);
+        const target = p?.panes?.length ? p.panes[p.panes.length - 1] : p;
+        if (target) target.body = (target.body.trimEnd() ? target.body.trimEnd() + "\n" : "") + lines.join("\n") + "\n";
+      });
+    };
+    if (at) {
+      const under = document.elementFromPoint(at.x, at.y);
+      if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso
+      const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
+      if (card?.dataset.pane) { write(card.dataset.pane); return; }
+    }
+    // Si no cayó sobre un cuadrado: al recuadro que está abierto.
+    const view = Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
+    if (view) {
+      (async () => {
+        for (const m of media) insertImage(view, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
+      })();
+    } else if (editing) write(editing.id);
+  };
+
+  const paneMenu = (e: React.MouseEvent, p: Pane) => {
+    e.preventDefault();
+    const items: MenuItem[] = [
+      { label: "Copiar el texto", onClick: () => copyPane(p) },
+      { label: "Duplicar", onClick: () => dupPane(p) },
+      {
+        label: p.panes ? "Renombrar la colección" : "Renombrar el recuadro",
+        onClick: async () => {
+          const t = await ask(p.panes ? "Nombre de la colección" : "Nombre del recuadro", p.title);
+          if (t !== null) setPane(p.id, (x) => (x.title = t.trim()));
+        },
+      },
+      ...(p.panes
+        ? []
+        : [
+            {
+              label: "Insertar imagen, video o audio…",
+              onClick: async () => {
+                const picked = await pickImage();
+                if (!picked) return;
+                const dir = project.collections.find((c) => c.id === project.copyTo)?.path;
+                const path = dir ? await copyToDir(picked, dir).catch(() => picked) : picked;
+                const v = views.current[p.id];
+                if (v) insertImage(v, path);
+                else setPane(p.id, (x) => (x.body = (x.body.trimEnd() ? x.body.trimEnd() + "\n" : "") + `![](<${path}>)\n`));
+              },
+            },
+          ]),
+      ...MARKS.map((m) => ({
+        label: p.mark === m.id ? `${m.short} ✓` : m.short,
+        color: m.color,
+        separator: m.id === "master",
+        onClick: () => setPaneMark(p.id, p.mark === m.id ? null : m.id),
+      })),
+      { label: "Sacar", danger: true, separator: true, onClick: () => removePane(p) },
+    ];
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
+
+  // ---- vista con formato ----
   const html = useMemo(
     () =>
       preview
@@ -107,7 +294,6 @@ export function Editor({ project, note, update, keys }: Props) {
     [preview, note.body],
   );
 
-  // Clic en checkbox del preview → flipear en el markdown original
   const onPreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
     if (t instanceof HTMLAnchorElement && t.href) {
@@ -122,196 +308,10 @@ export function Editor({ project, note, update, keys }: Props) {
     let seen = -1;
     const TASK = /^(\s*[-*+]\s+\[)([ xX])(\])/;
     const lineNo = note.body.split("\n").findIndex((line) => TASK.test(line) && ++seen === idx);
-    if (lineNo >= 0) {
-      import("../ai").then(({ toggleTaskInNote }) => setNote((n) => toggleTaskInNote(n, lineNo)));
-    }
+    if (lineNo >= 0) import("../ai").then(({ toggleTaskInNote }) => setNote((n) => toggleTaskInNote(n, lineNo)));
   };
 
-  /** Texto de un recuadro que se funde con otro: conserva su título como encabezado. */
-  const merged = (p: Pane) => (p.title.trim() ? `## ${p.title.trim()}\n${p.body}` : p.body);
-
-  const applyPreset = (titles: string[]) =>
-    setNote((n) => {
-      const want = Math.max(1, titles.length);
-      if (want === 1) {
-        if (n.panes.length > 1) {
-          const joined = n.panes.map((p) => merged(p).trim()).filter(Boolean).join("\n\n");
-          n.panes = [{ id: n.panes[0].id, title: "", body: joined, mark: n.panes[0].mark }];
-        }
-        return;
-      }
-      while (n.panes.length < want) n.panes.push({ id: uid(), title: "", body: "" });
-      while (n.panes.length > want) {
-        const last = n.panes.pop()!;
-        if (merged(last).trim()) n.panes[n.panes.length - 1].body += "\n\n" + merged(last);
-      }
-      // Un preset con nombres (Por hacer · Haciendo · Hecho) reemplaza los títulos;
-      // uno sin nombres (3 columnas, 6 casillas) respeta los que ya escribiste.
-      if (titles.some(Boolean)) titles.forEach((t, i) => (n.panes[i].title = t));
-    });
-
-  /** El botón de recuadros: 1 → 2 → 3 → 4 → 6. Nunca funde recuadros con texto sin avisar. */
-  const cyclePreset = async () => {
-    const cycle = [1, 2, 3, 4, 6];
-    const i = cycle.indexOf(count);
-    const next = i < 0 ? 6 : cycle[(i + 1) % cycle.length];
-    const losing = note.panes.slice(next).filter((p) => p.body.trim() || p.title.trim()).length;
-    if (
-      losing > 0 &&
-      !(await confirmDlg(
-        `¿Pasar a ${next} recuadro${next === 1 ? "" : "s"}?`,
-        `${losing} recuadro${losing === 1 ? " con texto se funde" : "s con texto se funden"} con el anterior (no se pierde nada: el título queda como encabezado, y Ctrl+Z lo deshace).`,
-        { okLabel: `Pasar a ${next}` },
-      ))
-    )
-      return;
-    applyPreset(Array(next).fill(""));
-  };
-
-  const grid = note.view === "grid";
-  const hidden = note.hidePaneMarks ?? [];
-
-  const setPaneMark = (paneId: string, mark: Mark | null) =>
-    setNote((n) => {
-      const p = n.panes.find((x) => x.id === paneId)!;
-      if (mark) p.mark = mark; else delete p.mark;
-    });
-
-  const toggleHidden = (m: Mark) =>
-    setNote((n) => {
-      const h = n.hidePaneMarks ?? [];
-      n.hidePaneMarks = h.includes(m) ? h.filter((x) => x !== m) : [...h, m];
-    });
-
-  const dupPane = (p: Pane) =>
-    setNote((n) => {
-      const i = n.panes.findIndex((x) => x.id === p.id);
-      n.panes.splice(i + 1, 0, { id: uid(), title: p.title, body: p.body, mark: p.mark });
-    });
-
-  const copyPane = async (p: Pane) => {
-    await copyText(p.body.trim());
-    notify("Copiado", p.title.trim() || "El texto del cuadro ya está en el portapapeles.");
-  };
-
-  /** Arrastrar cuadros para reordenarlos. */
-  const gridRef = useReorder<HTMLDivElement>({
-    item: ".coll-card:not(.add)",
-    attr: "data-pane",
-    axis: "xy",
-    onDrop: (dragId, overId, before) =>
-      setNote((n) => {
-        const from = n.panes.findIndex((x) => x.id === dragId);
-        if (from < 0) return;
-        const [moved] = n.panes.splice(from, 1);
-        const to = n.panes.findIndex((x) => x.id === overId);
-        if (to < 0) { n.panes.push(moved); return; }
-        n.panes.splice(before ? to : to + 1, 0, moved);
-      }),
-  });
-
-  const addPane = () => {
-    const id = uid();
-    setNote((n) => n.panes.push({ id, title: "", body: "" }));
-    if (grid) setFocusPane(id);
-  };
-
-  // Imagen arrastrada desde el Explorador sobre un recuadro o un cuadro de la colección.
-  onDropRef.current = (paths, at) => {
-    const media = paths.filter(isImagePath);
-    if (!media.length) return;
-    // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
-    let target: EditorView | undefined;
-    const copyDirNow = project.collections.find((c) => c.id === project.copyTo)?.path;
-    if (at) {
-      const under = document.elementFromPoint(at.x, at.y);
-      if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso, no una imagen de la nota
-      // Un cuadrado de la colección no tiene editor abierto: se escribe directo en su texto.
-      const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
-      const paneId = card?.dataset.pane;
-      if (paneId) {
-        (async () => {
-          const lines: string[] = [];
-          for (const m of media) lines.push(`![](<${copyDirNow ? await copyToDir(m, copyDirNow).catch(() => m) : m}>)`);
-          setNote((n) => {
-            const pane = n.panes.find((x) => x.id === paneId);
-            if (pane) pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + lines.join("\n") + "\n";
-          });
-        })();
-        return;
-      }
-      const el = under?.closest(".pane, .single");
-      const host = el?.querySelector(".cm-editor");
-      target = Object.values(views.current).find((v) => v.dom === host);
-    }
-    target ??= Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
-    if (!target) return;
-    const t = target;
-    const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
-    (async () => {
-      for (const m of media) insertImage(t, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
-    })();
-  };
-
-  const paneMenu = (e: React.MouseEvent, p: Pane) => {
-    e.preventDefault();
-    const i = note.panes.findIndex((x) => x.id === p.id);
-    const items: MenuItem[] = [
-      {
-        label: "Insertar imagen, video o audio…",
-        onClick: async () => {
-          const picked = await pickImage();
-          const v = views.current[p.id];
-          if (!picked || !v) return;
-          const copyDir = project.collections.find((c) => c.id === project.copyTo)?.path;
-          const path = copyDir ? await copyToDir(picked, copyDir).catch(() => picked) : picked;
-          insertImage(v, path);
-        },
-      },
-      { label: "Copiar el texto", onClick: () => copyPane(p) },
-      { label: "Duplicar", onClick: () => dupPane(p) },
-      {
-        label: "Renombrar recuadro",
-        onClick: async () => {
-          const t = await ask("Nombre del recuadro", p.title);
-          if (t !== null) setPane(p.id, (x) => (x.title = t.trim()));
-        },
-      },
-      ...MARKS.map((m) => ({
-        label: p.mark === m.id ? `${m.short} ✓` : m.short,
-        color: m.color,
-        separator: m.id === "master",
-        onClick: () => setPaneMark(p.id, p.mark === m.id ? null : m.id),
-      })),
-      { label: grid ? "Mover antes" : "Mover a la izquierda", separator: true, onClick: () => setNote((n) => { if (i > 0) [n.panes[i - 1], n.panes[i]] = [n.panes[i], n.panes[i - 1]]; }) },
-      { label: grid ? "Mover después" : "Mover a la derecha", onClick: () => setNote((n) => { if (i < n.panes.length - 1) [n.panes[i + 1], n.panes[i]] = [n.panes[i], n.panes[i + 1]]; }) },
-    ];
-    if (note.panes.length > 1)
-      items.push({
-        label: "Quitar recuadro",
-        danger: true,
-        separator: true,
-        onClick: async () => {
-          if (p.body.trim() && !(await confirmDlg("¿Quitar este recuadro?", "Su texto pasa al final del recuadro anterior.", { okLabel: "Quitar" }))) return;
-          setNote((n) => {
-            const j = n.panes.findIndex((x) => x.id === p.id);
-            const [gone] = n.panes.splice(j, 1);
-            if (gone.body.trim()) n.panes[Math.max(0, j - 1)].body += "\n\n" + gone.body;
-          });
-        },
-      });
-    setMenu({ x: e.clientX, y: e.clientY, items });
-  };
-
-  const count = note.panes.length;
-  const cols = count <= 3 ? count : count === 4 ? 2 : 3;
-  const needle = q.trim().toLowerCase();
-  const visible = note.panes.filter(
-    (p) =>
-      !(p.mark && hidden.includes(p.mark)) &&
-      (!needle || (p.title + "\n" + p.body).toLowerCase().includes(needle)),
-  );
-  const focused = grid && focusPane ? note.panes.find((p) => p.id === focusPane) ?? null : null;
+  const addLabel = levelIsCollections ? "+ Colección" : "+ Recuadro";
 
   return (
     <section className="editor">
@@ -320,16 +320,11 @@ export function Editor({ project, note, update, keys }: Props) {
           className="note-title"
           value={note.title}
           onChange={(e) => setNote((n) => { n.title = e.target.value; n.autoTitle = false; })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              Object.values(views.current)[0]?.focus();
-            }
-          }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); Object.values(views.current)[0]?.focus(); } }}
           placeholder="Título (o escribí abajo y se completa solo)"
           spellCheck={false}
         />
-        {grid && !focused && !preview && (
+        {!preview && !editing && (
           <>
             <span className="head-marks">
               {MARKS.map((m) => (
@@ -337,7 +332,7 @@ export function Editor({ project, note, update, keys }: Props) {
                   key={m.id}
                   className={"mark-dot" + (hidden.includes(m.id) ? " off" : " on")}
                   style={{ background: m.color }}
-                  title={`${hidden.includes(m.id) ? "Mostrar" : "Ocultar"}: ${m.label} · se ven ${visible.length} de ${count}`}
+                  title={`${hidden.includes(m.id) ? "Mostrar" : "Ocultar"}: ${m.label} · se ven ${visible.length} de ${level.length}`}
                   onClick={() => toggleHidden(m.id)}
                 />
               ))}
@@ -346,7 +341,7 @@ export function Editor({ project, note, update, keys }: Props) {
               className="coll-q"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={`Filtrar ${count} cuadro${count === 1 ? "" : "s"}…`}
+              placeholder={`Filtrar ${level.length}…`}
               spellCheck={false}
             />
             <input
@@ -357,134 +352,130 @@ export function Editor({ project, note, update, keys }: Props) {
               step={10}
               value={size}
               onChange={(e) => { const v = Number(e.target.value); setSize(v); try { localStorage.setItem("gula.card", String(v)); } catch { /* sin localStorage */ } }}
-              title="Tamaño de los cuadros"
+              title="Tamaño de los cuadrados"
             />
-            <button className="mode-btn wide" onClick={addPane} title="Sumar un cuadro a la colección">+ Cuadro</button>
           </>
         )}
-        {/* El repartidor 1→2→3→4→6 es de la mesa de trabajo. Una colección tiene los cuadros
-            que vos quieras, así que con más de 6 no aparece y nada se puede fundir. */}
-        {!grid && count <= 6 && (
-          <button className="mode-btn" onClick={cyclePreset} title="Recuadros: 1 → 2 → 3 → 4 → 6">
-            <LayoutIcon n={count} />
-          </button>
-        )}
-        <button
-          className={"mode-btn" + (grid ? " active" : "")}
-          onClick={() => { setFocusPane(null); setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid")); }}
-          title={grid ? "Pasar a recuadros (mesa de trabajo) · Ctrl+G" : "Pasar a colección (cuadrados con el título) · Ctrl+G"}
-        >
-          <GridIcon />
-        </button>
+        {!preview &&
+          (soloBox ? (
+            <button
+              className="mode-btn wide"
+              onClick={() => { const id = uid(); setNote((n) => n.panes.push({ id, title: "", body: "" })); setOpenBox(id); }}
+              title="Sumar otro recuadro a la nota"
+            >
+              + Recuadro
+            </button>
+          ) : !editing ? (
+            <button className="mode-btn wide" onClick={add} title={levelIsCollections ? "Sumar una colección" : "Sumar un recuadro"}>
+              {addLabel}
+            </button>
+          ) : null)}
       </div>
+
+      {!preview && (into || (box && !soloBox)) && (
+        <div className="crumbs">
+          <button className="crumb" onClick={() => { setOpenBox(null); setInto(null); }}>
+            {isCollection ? "Colecciones" : "Recuadros"}
+          </button>
+          {parent && (
+            <>
+              <span className="crumb-sep">›</span>
+              <button className="crumb" onClick={() => setOpenBox(null)}>
+                {parent.title.trim() || "Sin título"}
+              </button>
+            </>
+          )}
+          {box && (
+            <>
+              <span className="crumb-sep">›</span>
+              <span className="crumb here">{paneLabel(box, 0)}</span>
+            </>
+          )}
+          <span className="crumb-hint">Esc vuelve</span>
+        </div>
+      )}
+
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
-      ) : grid ? (
-        focused ? (
-          <div className="pane focused" data-pane={focused.id} onContextMenu={(e) => paneMenu(e, focused!)}>
-            <div className="focus-head">
-              <button className="chip" onClick={() => setFocusPane(null)}>← Colección</button>
-              <input
-                className="pane-title"
-                value={focused.title}
-                onChange={(e) => setPane(focused!.id, (x) => (x.title = e.target.value))}
-                placeholder="Título…"
-                spellCheck={false}
-              />
-              {MARKS.map((m) => (
-                <button
-                  key={m.id}
-                  className={"mark-dot" + (focused!.mark === m.id ? " on" : "")}
-                  style={{ background: m.color }}
-                  title={m.label}
-                  onClick={() => setPaneMark(focused!.id, focused!.mark === m.id ? null : m.id)}
-                />
-              ))}
-            </div>
-            <MarkdownEditor
-              key={note.id + focused.id}
-              value={focused.body}
-              onChange={(v) => setPane(focused!.id, (x) => (x.body = v))}
-              placeholder="Escribí acá…"
-              onReady={(v) => (views.current[focused!.id] = v)}
-              marks={project.marks}
-              onMark={setMark}
+      ) : editing ? (
+        <div
+          className="pane focused"
+          data-pane={editing.id}
+          onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, editing); }}
+        >
+          <div className="focus-head">
+            <input
+              className="pane-title"
+              value={editing.title}
+              onChange={(e) => setPane(editing.id, (x) => (x.title = e.target.value))}
+              placeholder={soloBox ? "Título del recuadro (opcional)…" : "Título…"}
+              spellCheck={false}
             />
+            {MARKS.map((m) => (
+              <button
+                key={m.id}
+                className={"mark-dot" + (editing.mark === m.id ? " on" : " off")}
+                style={{ background: m.color }}
+                title={m.label}
+                onClick={() => setPaneMark(editing.id, editing.mark === m.id ? null : m.id)}
+              />
+            ))}
           </div>
-        ) : (
-          <div className="collection">
-            <div className="coll-grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
-              {visible.map((p) => {
-                const media = firstMedia(p.body);
-                const color = markColor(p.mark);
-                return (
-                  <div
-                    key={p.id}
-                    className="coll-card"
-                    data-pane={p.id}
-                    style={color ? { borderColor: color, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-                    onClick={() => setFocusPane(p.id)}
-                    onContextMenu={(e) => paneMenu(e, p)}
-                    title={p.body.trim().slice(0, 300) || "Vacío"}
-                  >
-                    {media?.image && <img className="coll-thumb" src={assetUrl(media.src)} alt="" loading="lazy" />}
-                    <span className="coll-title">{paneLabel(p, note.panes.indexOf(p))}</span>
-                    <span className="coll-foot">
-                      {media && !media.image && <span className="coll-kind">{media.video ? "▶ video" : "♪ audio"}</span>}
-                      {!p.body.trim() && <span className="coll-empty">vacío</span>}
-                      {p.body.trim() && (
-                        <button
-                          className="coll-copy"
-                          title="Copiar el texto de este cuadro"
-                          onClick={(e) => { e.stopPropagation(); copyPane(p); }}
-                        >
-                          Copiar
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-              {!needle && <button className="coll-card add" onClick={addPane}>+</button>}
-              {needle && visible.length === 0 && <div className="empty wide">Ningún cuadro dice “{q.trim()}”.</div>}
-            </div>
-          </div>
-        )
-      ) : count === 1 ? (
-        <div className="single" data-pane={note.panes[0].id} onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, note.panes[0]); }}>
           <MarkdownEditor
-            key={note.id + note.panes[0].id}
-            value={note.panes[0].body}
-            onChange={(v) => setPane(note.panes[0].id, (p) => (p.body = v))}
+            key={note.id + editing.id}
+            value={editing.body}
+            onChange={(v) => setPane(editing.id, (x) => (x.body = v))}
             placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)\n![](imagen.png) muestra una imagen"}
-            onReady={(v) => (views.current[note.panes[0].id] = v)}
+            onReady={(v) => (views.current[editing.id] = v)}
             marks={project.marks}
             onMark={setMark}
           />
         </div>
       ) : (
-        <div className="panes" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-          {note.panes.map((p, i) => (
-            <div key={p.id} className="pane" data-pane={p.id} onContextMenu={(e) => paneMenu(e, p)}>
-              <input
-                className="pane-title"
-                value={p.title}
-                onChange={(e) => setPane(p.id, (x) => (x.title = e.target.value))}
-                placeholder={`Título ${i + 1}…`}
-                spellCheck={false}
-              />
-              <MarkdownEditor
-                key={note.id + p.id}
-                value={p.body}
-                onChange={(v) => setPane(p.id, (x) => (x.body = v))}
-                placeholder="…"
-                compact
-                onReady={(v) => (views.current[p.id] = v)}
-                marks={project.marks}
-                onMark={setMark}
-              />
-            </div>
-          ))}
+        <div className="coll-grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
+          {visible.map((p) => {
+            const media = firstMedia(p);
+            const color = markColor(p.mark);
+            const inner = p.panes?.length ?? 0;
+            return (
+              <div
+                key={p.id}
+                className={"coll-card" + (p.panes ? " is-coll" : "")}
+                data-pane={p.id}
+                style={color ? { borderColor: color, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                onClick={() => (p.panes ? setInto(p.id) : setOpenBox(p.id))}
+                onContextMenu={(e) => paneMenu(e, p)}
+                title={(p.panes ? `${inner} recuadro${inner === 1 ? "" : "s"}` : p.body.trim().slice(0, 300)) || "Vacío"}
+              >
+                {media?.image && <img className="coll-thumb" src={assetUrl(media.src)} alt="" loading="lazy" />}
+                <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>
+                  −
+                </button>
+                <span className="coll-title">{paneLabel(p, level.indexOf(p))}</span>
+                <span className="coll-foot">
+                  {p.panes ? (
+                    <span className="coll-kind">{inner} recuadro{inner === 1 ? "" : "s"}</span>
+                  ) : (
+                    <>
+                      {media && !media.image && <span className="coll-kind">{media.video ? "▶ video" : "♪ audio"}</span>}
+                      {!p.body.trim() && <span className="coll-empty">vacío</span>}
+                    </>
+                  )}
+                  {(p.body.trim() || inner > 0) && (
+                    <button className="coll-copy" title="Copiar el texto" onClick={(e) => { e.stopPropagation(); copyPane(p); }}>
+                      Copiar
+                    </button>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+          {!needle && (
+            <button className="coll-card add" onClick={add} title={addLabel}>
+              +
+            </button>
+          )}
+          {needle && visible.length === 0 && <div className="empty wide">Nada dice “{q.trim()}”.</div>}
         </div>
       )}
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
@@ -492,41 +483,25 @@ export function Editor({ project, note, update, keys }: Props) {
   );
 }
 
-function GridIcon() {
-  return (
-    <svg width="14" height="12" viewBox="0 0 12 10">
-      {[[0, 0], [4.25, 0], [8.5, 0], [0, 5.5], [4.25, 5.5], [8.5, 5.5]].map(([x, y], i) => (
-        <rect key={i} x={x} y={y} width="3.5" height="4.5" rx="1" fill="none" stroke="currentColor" strokeWidth="1" />
-      ))}
-    </svg>
-  );
-}
-
-/** Primer archivo que aparece en el texto del cuadro (para la miniatura). */
-function firstMedia(body: string): { src: string; image: boolean; video: boolean } | null {
-  for (const raw of body.split("\n")) {
-    const src = matchImage(raw.trim());
-    if (src) return { src, image: !isVideoPath(src) && !isAudioPath(src), video: isVideoPath(src) };
-  }
+/** Primer archivo que aparece en el cuadrado (para la miniatura). */
+function firstMedia(p: Pane): { src: string; image: boolean; video: boolean } | null {
+  const bodies = p.panes?.length ? p.panes.map((x) => x.body) : [p.body];
+  for (const body of bodies)
+    for (const raw of body.split("\n")) {
+      const src = matchImage(raw.trim());
+      if (src) return { src, image: !isVideoPath(src) && !isAudioPath(src), video: isVideoPath(src) };
+    }
   return null;
 }
 
-/** Título que se ve en el cuadrado: el del recuadro, o la primera línea con texto. */
+/** Lo que se lee en el cuadrado: su título, o la primera línea con texto. */
 function paneLabel(p: Pane, i: number): string {
   if (p.title.trim()) return p.title.trim();
-  for (const raw of p.body.split("\n")) {
-    const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
-    if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 80);
-  }
-  return `Cuadro ${i + 1}`;
-}
-
-function LayoutIcon({ n }: { n: number }) {
-  const cells = n <= 1 ? [[0, 0, 12, 10]] : n === 2 ? [[0, 0, 5.5, 10], [6.5, 0, 5.5, 10]] : n === 3 ? [[0, 0, 3.5, 10], [4.25, 0, 3.5, 10], [8.5, 0, 3.5, 10]]
-    : [[0, 0, 3.5, 4.5], [4.25, 0, 3.5, 4.5], [8.5, 0, 3.5, 4.5], [0, 5.5, 3.5, 4.5], [4.25, 5.5, 3.5, 4.5], [8.5, 5.5, 3.5, 4.5]].slice(0, n);
-  return (
-    <svg width="14" height="12" viewBox="0 0 12 10">
-      {cells.map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} rx="1" fill="currentColor" />)}
-    </svg>
-  );
+  const bodies = p.panes?.length ? p.panes.map((x) => x.title || x.body) : [p.body];
+  for (const body of bodies)
+    for (const raw of body.split("\n")) {
+      const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
+      if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 80);
+    }
+  return p.panes ? `Colección ${i + 1}` : `Recuadro ${i + 1}`;
 }

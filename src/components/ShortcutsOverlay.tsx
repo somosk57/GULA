@@ -12,9 +12,10 @@ const NOTES: [string, string][] = [
   [`${mod}Enter`, "marcar / desmarcar la tarea de la línea"],
   [`${mod}B / ${mod}I`, "negrita / cursiva (dentro del texto)"],
   ["Clic derecho en una nota", "marcar de color, fijar, mover, duplicar"],
-  ["Esc", "salir del cuadro y volver a la colección"],
-  ["Clic derecho en un cuadro", "copiar, duplicar, color, renombrar, mover, quitar"],
-  ["Arrastrar un cuadro", "reordenar la colección"],
+  ["Esc", "un paso atrás: del recuadro a la lista, y de una colección al primer nivel"],
+  ["Clic derecho en un cuadrado", "copiar, duplicar, renombrar, color, sacar"],
+  ["Arrastrar un cuadrado", "reordenar"],
+  ["− en la esquina", "sacar ese cuadrado"],
   ["Clic derecho en una pestaña", "ocultarla (vuelve desde el menú ⋯)"],
   ["Galería: ← → · 1 2 3 4 · 0 · N · Enter", "pasar · marcar · quitar marca · nueva entrada · abrir"],
 ];

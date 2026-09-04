@@ -125,11 +125,11 @@ export default function App() {
           const p = activeProject(d);
           const cur = p.notes.find((n) => n.id === d.activeNoteId[p.id]);
           const group = cur?.group ?? "General";
-          const n = newNote("Nueva nota", "", group);
           const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
           const tpl = lastIdx >= 0 ? p.notes[lastIdx] : undefined;
-          if (tpl && tpl.panes.length > 1) n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
-          if (tpl?.view) n.view = tpl.view;
+          const n = newNote("Nueva nota", "", group, tpl?.kind ?? "boxes");
+          if (n.kind === "boxes" && tpl?.kind !== "collection" && tpl && tpl.panes.length > 1)
+            n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
           p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
           d.activeNoteId[p.id] = n.id;
         });

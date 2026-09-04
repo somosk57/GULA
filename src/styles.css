@@ -800,3 +800,23 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 .coll-q:focus { border-color: var(--border-strong); outline: none; }
 .coll-size { width: 74px; flex: none; accent-color: var(--text-faint); cursor: pointer; }
 .coll-grid .empty.wide { grid-column: 1 / -1; }
+
+/* Migas: Colecciones › Nombre › Recuadro */
+.crumbs { display: flex; align-items: center; gap: 6px; flex: none; margin: -4px 0 8px; font-size: 11.5px; }
+.crumb { color: var(--text-faint); background: none; border: none; padding: 2px 4px; border-radius: 4px; cursor: pointer; }
+.crumb:hover { color: var(--text); background: var(--bg-hover); }
+.crumb.here { color: var(--text); cursor: default; }
+.crumb-sep { color: var(--text-faint); }
+.crumb-hint { margin-left: auto; color: var(--text-faint); font-size: 10.5px; }
+
+/* El "−" de cada cuadrado */
+.coll-x {
+  position: absolute; top: 4px; right: 4px; z-index: 2; width: 18px; height: 18px; line-height: 1;
+  border-radius: 4px; border: none; cursor: pointer; font-size: 14px;
+  color: var(--text-faint); background: var(--bg-code); opacity: 0; transition: opacity 0.12s;
+}
+.coll-card:hover .coll-x { opacity: 1; }
+.coll-x:hover { color: #ff5f57; background: var(--bg-hover); }
+/* Una colección se distingue de un recuadro */
+.coll-card.is-coll { border-style: dashed; }
+.coll-card.is-coll .coll-title { font-weight: 600; }
