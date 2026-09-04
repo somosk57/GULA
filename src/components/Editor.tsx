@@ -406,8 +406,7 @@ export function Editor({ project, note, update, keys }: Props) {
                 onContextMenu={(e) => paneMenu(e, p)}
                 title={`${inner} recuadro${inner === 1 ? "" : "s"}`}
               >
-                {media && (media.image || media.video) && <Thumb className="coll-thumb" src={media.src} video={media.video} />}
-                {media?.audio && <span className="coll-audio">♪</span>}
+                {media && <CardMedia media={media} />}
                 <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>−</button>
                 <span className="coll-title">{paneLabel(p, level.indexOf(p))}</span>
                 <span className="coll-foot">
@@ -476,10 +475,38 @@ export function Editor({ project, note, update, keys }: Props) {
   );
 }
 
+/** Lo que se ve de fondo en un cuadrado: la imagen, el primer cuadro del video, o la ficha del audio.
+ *  El video va como <video> de verdad (igual que adentro del recuadro, donde sí funciona): pinta
+ *  su primer cuadro con preload="metadata" y no depende de generar la miniatura en un canvas. */
+function CardMedia({ media }: { media: Media }) {
+  const [broken, setBroken] = useState(false);
+  const name = media.src.split(/[\\/]/).pop() ?? "";
+  if (media.image) return <Thumb className="coll-thumb" src={media.src} />;
+  if (media.video && !broken)
+    return (
+      <video
+        className="coll-thumb"
+        src={assetUrl(media.src)}
+        muted
+        playsInline
+        preload="metadata"
+        onError={() => setBroken(true)}
+      />
+    );
+  return (
+    <span className={"coll-file" + (media.video ? " video" : "")}>
+      <b>{media.video ? "▶" : "♪"}</b>
+      <em>{name}</em>
+    </span>
+  );
+}
+
+interface Media { src: string; image: boolean; video: boolean; audio: boolean }
+
 /** Primer archivo que aparece en el cuadrado (para la miniatura). */
-function firstMedia(p: Pane): { src: string; image: boolean; video: boolean; audio: boolean } | null {
+function firstMedia(p: Pane): Media | null {
   const bodies = p.panes?.length ? p.panes.map((x) => x.body) : [p.body];
-  let fallback: { src: string; image: boolean; video: boolean; audio: boolean } | null = null;
+  let fallback: Media | null = null;
   for (const body of bodies)
     for (const raw of body.split("\n")) {
       const src = matchImage(raw.trim());
