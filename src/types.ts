@@ -14,6 +14,18 @@ export const MARKS: { id: Mark; label: string; color: string; short: string }[] 
   { id: "bad", label: "No sirve", color: "#ff5f57", short: "No sirve" },
 ];
 export const MARK_ORDER: Mark[] = ["master", "good", "meh", "bad"];
+/** Marca efectiva de una nota: la propia, o la mejor de sus archivos. */
+export function noteMark(n: { mark?: Mark; panes: { body: string }[] }, marks: Record<string, Mark>): Mark | null {
+  if (n.mark) return n.mark;
+  let best: Mark | null = null;
+  for (const p of n.panes)
+    for (const line of p.body.split("\n")) {
+      const m = /!\[[^\]]*\]\(<?([^)>]+?)>?\)/.exec(line.trim());
+      const mk = m && marks[m[1]];
+      if (mk && (best === null || MARK_ORDER.indexOf(mk) < MARK_ORDER.indexOf(best))) best = mk;
+    }
+  return best;
+}
 export const markColor = (m?: Mark | null) => MARKS.find((x) => x.id === m)?.color ?? null;
 export const STAGES: { id: Stage; label: string }[] = [
   { id: "idea", label: "Idea" },
@@ -43,6 +55,8 @@ export interface Note {
   group: string;
   /** Mientras sea true, el título se deduce de la primera línea escrita. Se apaga al editar el título a mano. */
   autoTitle: boolean;
+  /** Marca de la entrada entera (opcional). Si no está, se deduce de la mejor marca de sus archivos. */
+  mark?: Mark;
 }
 
 /** Título automático: primera línea con texto (sin marcas de markdown), máx. 60. */
@@ -139,6 +153,8 @@ export interface Project {
   copyTo?: string;
   /** Marcas por archivo (clave: ruta o URL tal como está en la nota). */
   marks: Record<string, Mark>;
+  /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
+  hideMarks: Mark[];
   cards: Card[];
   notes: Note[];
   links: Link[];
@@ -206,6 +222,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     log: [],
     cards: [],
     marks: {},
+    hideMarks: [],
     collections: [],
     lastSessionAt: null,
     sessionStartedAt: null,
@@ -272,6 +289,7 @@ export function migrate(raw: unknown): AppState {
     log: p.log ?? [],
     cards: p.cards ?? [],
     marks: p.marks ?? {},
+    hideMarks: p.hideMarks ?? [],
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
     collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),
     copyTo: p.copyTo ?? ((p as { assetsDir?: string }).assetsDir ? "assets-" + (p.id ?? uid()) : undefined),

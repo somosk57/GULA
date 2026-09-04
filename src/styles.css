@@ -656,7 +656,16 @@ body.reordering * { cursor: grabbing !important; }
 .gitem:hover .gmarks { opacity: 1; }
 .mark-dot.tiny { width: 10px; height: 10px; }
 .note-mark { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.note-mark.own { width: 9px; height: 9px; box-shadow: 0 0 0 1.5px var(--bg), 0 0 0 2.5px currentColor; color: var(--text-faint); }
+.hide-row { display: flex; align-items: center; gap: 6px; margin: -2px 0 6px 4px; }
+.hide-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); border: 1px solid transparent; padding: 0; cursor: pointer; opacity: 0.9; }
+.hide-dot:hover { opacity: 1; transform: scale(1.15); }
+.hide-dot.off { background: transparent; border-color: var(--c); opacity: 0.55; position: relative; }
+.hide-dot.off::after { content: ""; position: absolute; left: -2px; right: -2px; top: 50%; height: 1.5px; background: var(--c); transform: rotate(-45deg); }
+.hide-count { font-size: 10px; color: var(--text-faint); margin-left: 2px; }
 
 .panel-actions.sources { padding-bottom: 0; flex-wrap: wrap; row-gap: 4px; }
 .chip.copy-target { border-style: dashed; }
 .gdoc { font-weight: 700; font-size: 14px; letter-spacing: .06em; color: var(--text-dim); }
+
+.ctx-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: middle; }

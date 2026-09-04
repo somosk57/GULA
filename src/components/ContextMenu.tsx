@@ -5,6 +5,8 @@ export interface MenuItem {
   onClick: () => void;
   danger?: boolean;
   separator?: boolean;
+  /** Punto de color a la izquierda (marcas). */
+  color?: string;
 }
 
 interface Props {
@@ -50,6 +52,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
               onClose();
             }}
           >
+            {it.color && <span className="ctx-dot" style={{ background: it.color }} />}
             {it.label}
           </button>
         </div>

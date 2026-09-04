@@ -1,7 +1,7 @@
 // Informe del proyecto: un texto ordenado que cualquier IA (o persona) lee de
 // arriba a abajo y entiende qué es, en qué etapa está, qué se decidió, qué se
 // hizo, qué está en curso, qué falta, qué piezas hay y qué prompts se usan.
-import { MARKS, Project, STAGES } from "./types";
+import { MARKS, Project, STAGES, noteMark } from "./types";
 import { collectTasks, contextText, fmtDate } from "./ai";
 import { collectMedia } from "./components/GalleryPanel";
 import { matchImage } from "./components/MarkdownEditor";
@@ -68,7 +68,8 @@ export function buildReport(p: Project, o: ReportOptions): string {
   if (notes.length) {
     S.push(`\n## Registro (${notes.length} entrada${notes.length === 1 ? "" : "s"}, en orden cronológico)`);
     for (const n of notes) {
-      S.push(`\n### ${n.title} — ${fmtDate(n.createdAt)}${n.group && n.group !== "General" ? ` · ${n.group}` : ""}`);
+      const nm = noteMark(n, p.marks);
+      S.push(`\n### ${n.title} — ${fmtDate(n.createdAt)}${n.group && n.group !== "General" ? ` · ${n.group}` : ""}${nm ? ` [${MARKS.find((x) => x.id === nm)?.short}]` : ""}`);
       if (n.panes.length > 1) {
         for (const pane of n.panes) {
           const body = pane.body.trim();

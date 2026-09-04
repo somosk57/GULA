@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ask, confirmDlg } from "../dialog";
 import { useReorder } from "../reorder";
-import { AppState, DEFAULT_GROUP, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, noteMark, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -55,9 +55,14 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
 
   const activeNoteId = state.activeNoteId[project.id];
   const q = search.trim().toLowerCase();
-  const visible = project.notes.filter(
-    (n) => !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q),
-  );
+  const hide = project.hideMarks ?? [];
+  const effMark = (n: Note) => noteMark(n, project.marks);
+  const hiddenCount = project.notes.filter((n) => { const m = effMark(n); return m && hide.includes(m); }).length;
+  const visible = project.notes.filter((n) => {
+    const m = effMark(n);
+    if (m && hide.includes(m) && n.id !== activeNoteId) return false;
+    return !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+  });
 
   // Secciones en orden de aparición; fijadas primero dentro de cada una.
   const groups: string[] = [];
@@ -112,7 +117,14 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       x: e.clientX,
       y: e.clientY,
       items: [
+        ...MARKS.map((mk) => ({
+          label: mk.short + (note.mark === mk.id ? " ✓" : ""),
+          color: mk.color,
+          onClick: () => edit((p) => { const n = p.notes.find((n) => n.id === noteId)!; n.mark = n.mark === mk.id ? undefined : mk.id; }),
+        })),
+        ...(note.mark ? [{ label: "Sin marca", onClick: () => edit((p) => { const n = p.notes.find((n) => n.id === noteId)!; delete n.mark; }) }] : []),
         {
+          separator: true,
           label: note.pinned ? "Desfijar" : "Fijar arriba",
           onClick: () => edit((p) => { const n = p.notes.find((n) => n.id === noteId)!; n.pinned = !n.pinned; }),
         },
@@ -236,6 +248,21 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
           {byDate ? "⇅" : "☰"}
         </button>
       </div>
+      <div className="hide-row">
+        {MARKS.map((mk) => {
+          const off = hide.includes(mk.id);
+          return (
+            <button
+              key={mk.id}
+              className={"hide-dot" + (off ? " off" : "")}
+              style={{ ["--c" as string]: mk.color }}
+              title={(off ? "Mostrar " : "Ocultar ") + mk.short.toLowerCase()}
+              onClick={() => edit((p) => { p.hideMarks = off ? (p.hideMarks ?? []).filter((x) => x !== mk.id) : [...(p.hideMarks ?? []), mk.id]; })}
+            />
+          );
+        })}
+        {hiddenCount > 0 && <span className="hide-count">{hiddenCount} oculta{hiddenCount === 1 ? "" : "s"}</span>}
+      </div>
 
       <div className="notes" ref={notesRef}>
         {groups.map((g) => {
@@ -257,6 +284,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
               {!isCollapsed &&
                 items.map((n) => {
                   const m = mediaOf(n, project.marks);
+                  const nm = n.mark ?? m.best;
                   return (
                     <button
                       key={n.id}
@@ -277,7 +305,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                       )}
                       <span className="label">{n.title}</span>
                       <span className="kinds">
-                        {m.best && <span className="note-mark" style={{ background: markColor(m.best)! }} title={m.best} />}
+                        {nm && <span className={"note-mark" + (n.mark ? " own" : "")} style={{ background: markColor(nm)! }} title={MARKS.find((x) => x.id === nm)?.short} />}
                         {m.video && <span title="video">▶</span>}
                         {m.audio && <span title="audio">♪</span>}
                         {m.image && !m.thumb && <span title="imagen">▣</span>}

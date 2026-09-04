@@ -27,7 +27,11 @@ Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola 
 
 **Informe del proyecto** (clic derecho en el nombre del proyecto): un texto ordenado que explica qué es, en qué etapa está, qué se decidió, qué se fue haciendo, qué falta, qué fichas y prompts hay, y el registro cronológico de notas con sus resultados. Todo el proyecto o los últimos 7 días, resumido o completo; se copia, se guarda como `.md` o se lee ahí.
 
-**Captura distribuida:** en Bitácora, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: bitácora, nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
+**Captura distribuida:** en Bitácora, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Marcas por nota
+
+Clic derecho sobre una nota en la barra izquierda → Maestro / Sirve / Más o menos / No sirve. El punto de color aparece al lado del título y en el Informe. Los cuatro puntos debajo del filtro ocultan las notas de ese color ("Hide rojo": un clic y desaparecen; otro clic y vuelven). Si no marcás la nota, hereda la mejor marca de sus archivos.
+
+## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: bitácora, nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
 
 **Pegar como… (`Ctrl+Shift+V` o el ícono del portapapeles):** lo que tengas copiado (una respuesta de la IA, un prompt que funcionó, un comando) entra a GULA como nota nueva, al final de la nota abierta, bloque de contexto, prompt, comando o entrada de bitácora.
 
