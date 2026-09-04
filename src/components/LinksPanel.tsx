@@ -15,6 +15,7 @@ import {
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { siteBadge } from "../sites";
 import { useReorder } from "../reorder";
+import { SnippetsPanel } from "./SnippetsPanel";
 
 interface Props {
   project: Project;
@@ -188,7 +189,7 @@ export function LinksPanel({ project, update }: Props) {
   const firstFolder = project.links.find((l) => l.kind === "folder");
 
   return (
-    <div className={"links" + (dragging ? " dragging" : "")}>
+    <div className={"links accesos" + (dragging ? " dragging" : "")}>
       <div className="panel-actions">
         {firstFolder && (
           <button className="chip" onClick={() => openTerminal(firstFolder.path)} title={`PowerShell en ${firstFolder.name}`}>
@@ -220,6 +221,8 @@ export function LinksPanel({ project, update }: Props) {
           <div className="empty wide">Arrastrá carpetas o archivos acá, o usá “+ Agregar”.</div>
         )}
       </div>
+      <div className="accesos-divider"><span>Comandos</span></div>
+      <SnippetsPanel project={project} update={update} embedded />
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </div>
   );

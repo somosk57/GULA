@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppState, Project, uid } from "../types";
 import { fmtDate } from "../ai";
 import { openUrl } from "../backend";
-import { closeSession, startSession, fmtMinutes } from "../session";
+import { closeSession, startSession, fmtMinutes, copyClosingPrompt } from "../session";
 
 interface Props {
   project: Project;
@@ -41,6 +41,7 @@ export function LogPanel({ project, update }: Props) {
         ) : (
           <button className="chip primary" onClick={() => startSession(project, update)} title="Copia el paquete para la IA y empieza a contar el tiempo">▶ Empezar sesión</button>
         )}
+        <button className="chip" onClick={() => copyClosingPrompt(project)} title="Le pide a la IA un resumen con formato que GULA reparte solo">Prompt de cierre</button>
         <span className="prompt-sub">{project.log.length} entrada{project.log.length === 1 ? "" : "s"}</span>
       </div>
       <div className="log-input">

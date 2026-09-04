@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { ask, confirmDlg } from "../dialog";
 import { useReorder } from "../reorder";
-import { AppState, DEFAULT_GROUP, Project, newNote } from "../types";
+import { AppState, DEFAULT_GROUP, Note, Project, STAGES, newNote, uid } from "../types";
+import { assetUrl, isAudioPath, isVideoPath } from "../backend";
+import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -24,6 +26,26 @@ function when(t: number) {
   return d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }).replace(".", "");
 }
 
+/** Qué contiene la nota: primera imagen (para miniatura) y tipos de medios. */
+function mediaOf(n: Note) {
+  let thumb: string | null = null;
+  let video = false, audio = false, image = false;
+  for (const p of n.panes) {
+    for (const line of p.body.split("\n")) {
+      const src = matchImage(line);
+      if (!src) continue;
+      if (isVideoPath(src)) video = true;
+      else if (isAudioPath(src)) audio = true;
+      else { image = true; thumb ??= src; }
+    }
+  }
+  return { thumb, video, audio, image };
+}
+
+function thumbSrc(src: string) {
+  return /^(https?:|data:)/i.test(src) ? src : assetUrl(src);
+}
+
 export function Sidebar({ state, project, update, search, onSearch }: Props) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -37,19 +59,26 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
   // Secciones en orden de aparición; fijadas primero dentro de cada una.
   const groups: string[] = [];
   for (const n of project.notes) if (!groups.includes(n.group)) groups.push(n.group);
+  const byDate = state.noteSort === "date";
   const byGroup = (g: string) =>
-    visible.filter((n) => n.group === g).sort((a, b) => Number(b.pinned) - Number(a.pinned));
+    visible
+      .filter((n) => n.group === g)
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (byDate ? b.createdAt - a.createdAt : 0));
 
   const edit = (fn: (p: Project, d: AppState) => void) =>
     update((d) => fn(d.projects.find((p) => p.id === project.id)!, d));
 
   const selectNote = (id: string) => edit((_, d) => (d.activeNoteId[project.id] = id));
 
-  const addNote = (group = DEFAULT_GROUP) =>
+  /** Nota nueva en una sección: hereda los recuadros (cantidad y títulos) de la última nota de esa sección. */
+  const addNote = (group = DEFAULT_GROUP, from?: Note) =>
     edit((p, d) => {
       const n = newNote("Nueva nota", "", group);
-      // Insertar al final de su sección para que quede agrupada.
       const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
+      const template = from ?? (lastIdx >= 0 ? p.notes[lastIdx] : undefined);
+      if (template && template.panes.length > 1) {
+        n.panes = template.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
+      }
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });
@@ -104,6 +133,10 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                 p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
               });
           },
+        },
+        {
+          label: "Nueva a partir de esta (mismos recuadros, vacíos)",
+          onClick: () => addNote(note.group, note),
         },
         {
           label: "Duplicar",
@@ -162,13 +195,44 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
 
   return (
     <aside className="sidebar">
-      <input
-        className="search"
-        placeholder="Filtrar notas de este proyecto…"
-        value={search}
-        onChange={(e) => onSearch(e.target.value)}
-        id="search-box"
-      />
+      <div className="stage-box">
+        <button
+          className={"stage " + project.stage}
+          title="Etapa del proyecto (clic para cambiar)"
+          onClick={() =>
+            edit((p) => {
+              const i = STAGES.findIndex((s) => s.id === p.stage);
+              p.stage = STAGES[(i + 1) % STAGES.length].id;
+            })
+          }
+        >
+          {STAGES.find((s) => s.id === project.stage)?.label}
+        </button>
+        <input
+          className="now-line"
+          value={project.now}
+          onChange={(e) => edit((p) => (p.now = e.target.value))}
+          placeholder="Ahora estoy en…"
+          spellCheck={false}
+          title="¿En qué paso estoy? Una línea, para cuando vuelvas en una semana."
+        />
+      </div>
+      <div className="filter-row">
+        <input
+          className="search"
+          placeholder="Filtrar notas…"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          id="search-box"
+        />
+        <button
+          className={"sort-btn" + (byDate ? " on" : "")}
+          title={byDate ? "Orden: por fecha (más nuevas arriba). Clic: manual" : "Orden: manual (arrastrar). Clic: por fecha"}
+          onClick={() => update((d) => (d.noteSort = d.noteSort === "date" ? "manual" : "date"))}
+        >
+          {byDate ? "⇅" : "☰"}
+        </button>
+      </div>
 
       <div className="notes" ref={notesRef}>
         {groups.map((g) => {
@@ -188,20 +252,33 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                 <button className="group-add" onClick={() => addNote(g)} title="Nueva nota en esta sección">+</button>
               </div>
               {!isCollapsed &&
-                items.map((n) => (
-                  <button
-                    key={n.id}
-                    data-id={n.id}
-                    className={"note-item" + (n.id === activeNoteId ? " active" : "")}
-                    onClick={() => selectNote(n.id)}
-                    onContextMenu={(e) => noteMenu(e, n.id)}
-                    title={n.title}
-                  >
-                    <span className="hash">{n.pinned ? "★" : "#"}</span>
-                    <span className="label">{n.title}</span>
-                    <span className="when">{when(n.updatedAt)}</span>
-                  </button>
-                ))}
+                items.map((n) => {
+                  const m = mediaOf(n);
+                  return (
+                    <button
+                      key={n.id}
+                      data-id={n.id}
+                      className={"note-item" + (n.id === activeNoteId ? " active" : "") + (m.thumb ? " has-thumb" : "")}
+                      onClick={() => selectNote(n.id)}
+                      onContextMenu={(e) => noteMenu(e, n.id)}
+                      title={n.title}
+                    >
+                      {m.thumb ? (
+                        <img className="thumb" src={thumbSrc(m.thumb)} alt="" draggable={false} />
+                      ) : (
+                        <span className="hash">{n.pinned ? "★" : "#"}</span>
+                      )}
+                      <span className="label">{n.title}</span>
+                      <span className="kinds">
+                        {m.video && <span title="video">▶</span>}
+                        {m.audio && <span title="audio">♪</span>}
+                        {m.image && !m.thumb && <span title="imagen">▣</span>}
+                        {n.panes.length > 1 && <span className="cols" title={`${n.panes.length} recuadros`}>{n.panes.length}</span>}
+                      </span>
+                      <span className="when">{when(byDate ? n.createdAt : n.updatedAt)}</span>
+                    </button>
+                  );
+                })}
             </div>
           );
         })}

@@ -2,20 +2,26 @@
 
 **Controla tu gula.**
 
+GULA es el diario de tu trabajo con IA: qué hiciste, qué salió, con qué prompt, en qué paso estás. Cada nota es una entrada del registro (con recuadros para idea, prompt, resultado…), la lista de la izquierda es la línea de tiempo del proyecto, y abajo va lo fijo: accesos, contexto, fichas, prompts.
+
 Tu proyecto, anclado: notas, carpetas, prompts, contexto y comandos en una sola ventana, para trabajar con IA sin perder el hilo. Una ventana chica, minimalista, que podés mover y redimensionar como cualquier otra, y dejar siempre arriba.
 
-- **Izquierda:** proyectos y sus notas (estilo canales de Discord).
+- **Izquierda:** las notas del proyecto en secciones, con miniatura si tienen imagen, íconos de video/audio y cantidad de recuadros; orden manual o por fecha (botón ☰/⇅). Arriba, la **etapa** del proyecto (Idea / En marcha / Pausado / Terminado, clic para cambiar) y la línea **"Ahora estoy en…"**. Una nota nueva en una sección nace con los mismos recuadros que la última de esa sección (clic derecho → *Nueva a partir de esta*).
 - **Derecha arriba:** la nota, en markdown **en vivo**: los títulos se ven grandes, la negrita en negrita (`Ctrl+B`), cursiva (`Ctrl+I`), las casillas `- [ ]` son casillas reales (clic o `Ctrl+Enter`), Enter continúa listas. `Ctrl+E` muestra la vista renderizada. El botón de recuadros pasa de 1 → 2 → 3 → 4 → 6 **columnas** con un clic; cada recuadro tiene su propio título, que escribís vos, como sticky notes integradas. Cualquier recuadro muestra **imágenes, videos y audio** (mp3, wav, ogg, m4a, flac): arrastrá un archivo desde el Explorador, pegá una imagen con `Ctrl+V`, o clic derecho → *Insertar imagen o video…*; queda como `![](ruta)` y se ve ahí mismo. para trabajar varias cosas a la vez sin escribir todo en un solo lugar.
-- **Derecha abajo:** seis pestañas por proyecto (`Ctrl+1..6`, `Ctrl+Tab` para rotar):
-  - **Carpetas:** el tablero de accesos del proyecto: carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
+- **Derecha abajo:** siete pestañas por proyecto (`Ctrl+1..7`, `Ctrl+Tab` para rotar):
+  - **Accesos:** el tablero del proyecto (y debajo los **comandos** que usás seguido, con *Copiar* o **▶ Correr** en PowerShell): carpetas, archivos y links (YouTube Studio, Vercel, Supabase, GitHub, Claude… los sitios conocidos salen con su insignia). Clic = abrir. Clic derecho = *Abrir PowerShell acá*, *Abrir en VS Code*, *Mostrar en Explorador*, *Copiar ruta*. Se pueden arrastrar desde el Explorador. *Abrir todo* levanta el proyecto entero.
+  - **Galería:** todas las imágenes, videos y audios de las notas del proyecto en una grilla; al pasar el mouse ves el prompt que lo generó. Clic: ir a la nota · doble clic: abrir · clic derecho: copiar prompt o ruta.
   - **Prompts:** prompts guardados. *Copiar* los manda al portapapeles y marca ese como **último usado** (queda arriba). Si el prompt tiene `{{variables}}`, te pide cada valor al copiar. *Pegar del portapapeles* crea uno con lo que tengas copiado.
   - **Contexto:** bloques con nombre (Qué es, Estilo, Stack, Decisiones, Estado…), cada uno con interruptor: los apagados no se copian. Muestra los tokens aproximados del paquete. **Copiar para la IA** arma en un solo texto: bloques encendidos + tareas pendientes + últimos avances de la bitácora + último prompt usado. Lo pegás como primer mensaje de un chat nuevo y la IA arranca sabiendo todo.
   - **Fichas:** la biblia del proyecto: personajes, lugares, objetos y escenas, cada una con una línea de resumen (lo que ve la IA), detalle largo, imagen de referencia y un interruptor "Para la IA". Las escenas tienen estado (idea / borrador / lista) y qué personajes y lugares aparecen. Se ordenan arrastrando. Pensado para novelas, pero sirve para cualquier proyecto con "cosas" que la IA tiene que conocer.
-  - **Comandos:** comandos y textos que usás seguido. *Copiar* o **▶ Correr** (abre PowerShell parado en la primera carpeta pinneada y lo ejecuta).
   - **Tareas:** todas las `- [ ]` de todas las notas del proyecto en un solo lugar; se tildan desde ahí.
   - **Bitácora:** una línea por avance con fecha automática. Para retomar después de días y para la IA.
 
 **Ciclo de sesión:** *▶ Empezar sesión* (en Contexto o Bitácora) copia el paquete para la IA y empieza a contar el tiempo (aparece un punto verde al lado del proyecto). *● Cerrar sesión* te pregunta qué lograste y el link del chat, y lo guarda en la bitácora con la duración. Así los chats viejos quedan indexados por lo que resolvieron.
+
+**Informe del proyecto** (clic derecho en el nombre del proyecto): un texto ordenado que explica qué es, en qué etapa está, qué se decidió, qué se fue haciendo, qué falta, qué fichas y prompts hay, y el registro cronológico de notas con sus resultados. Todo el proyecto o los últimos 7 días, resumido o completo; se copia, se guarda como `.md` o se lee ahí.
+
+**Captura distribuida:** en Bitácora, *Prompt de cierre* copia un pedido para que la IA resuma la sesión con encabezados fijos (`## Hecho`, `## Pendiente`, `## Decisiones`, `## Prompts`, `## Fichas`, `## Ahora`). Copiás su respuesta, `Ctrl+Shift+V` → **Repartir automáticamente**, y cada cosa va a su lugar: bitácora, nota de tareas, bloque Decisiones, prompts, fichas y "ahora estoy en".
 
 **Pegar como… (`Ctrl+Shift+V` o el ícono del portapapeles):** lo que tengas copiado (una respuesta de la IA, un prompt que funcionó, un comando) entra a GULA como nota nueva, al final de la nota abierta, bloque de contexto, prompt, comando o entrada de bitácora.
 

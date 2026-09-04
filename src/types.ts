@@ -1,9 +1,16 @@
 import { PROFILES, ProfileId, profileById } from "./profiles";
 
 export type LinkKind = "folder" | "file" | "url";
-export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks" | "cards";
+export type Tab = "links" | "prompts" | "context" | "snippets" | "log" | "tasks" | "cards" | "gallery";
 export type CardKind = "character" | "place" | "item" | "scene";
 export type SceneStatus = "idea" | "draft" | "done";
+export type Stage = "idea" | "active" | "paused" | "done";
+export const STAGES: { id: Stage; label: string }[] = [
+  { id: "idea", label: "Idea" },
+  { id: "active", label: "En marcha" },
+  { id: "paused", label: "Pausado" },
+  { id: "done", label: "Terminado" },
+];
 
 /** Una columna dentro de una nota. */
 export interface Pane {
@@ -21,6 +28,7 @@ export interface Note {
   panes: Pane[];
   pinned: boolean;
   updatedAt: number;
+  createdAt: number;
   /** Sección en la barra lateral (ej: "General", "Ideas futuras"). */
   group: string;
 }
@@ -91,6 +99,9 @@ export interface Project {
   id: string;
   name: string;
   profile: ProfileId;
+  /** Etapa del proyecto y "ahora estoy en…": la respuesta a "¿en qué paso estoy?". */
+  stage: Stage;
+  now: string;
   cards: Card[];
   notes: Note[];
   links: Link[];
@@ -113,13 +124,15 @@ export interface AppState {
   bottomTab: Tab;
   alwaysOnTop: boolean;
   theme: "dark" | "light" | "system";
+  /** Orden de las notas en la barra: manual (arrastrar) o por fecha (más nuevas arriba). */
+  noteSort: "manual" | "date";
 }
 
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP): Note {
-  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), group };
+  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group };
 }
 
 /** Texto completo de una nota a partir de sus columnas. */
@@ -142,6 +155,8 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     id: uid(),
     name,
     profile,
+    stage: "idea",
+    now: "",
     notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group)),
     links: [],
     prompts: t.prompts.map((p) => ({ id: uid(), title: p.title, body: p.body, updatedAt: Date.now(), lastUsedAt: null })),
@@ -158,7 +173,7 @@ export { PROFILES };
 
 export function defaultState(): AppState {
   const p = newProject("Mi proyecto", "blank");
-  p.notes[0].body =
+  p.notes[0].panes[0].body = p.notes[0].body =
     "Escribí acá lo que quieras. Soporta **markdown** simple (Ctrl+E para ver).\n\n- [ ] Primera tarea\n- [x] Tarea hecha\n\nAbajo: carpetas, prompts, contexto para la IA, comandos y bitácora.\n\nCreá un proyecto nuevo desde el nombre de arriba para elegir un perfil (App, Novela, Contenido, Estudio).";
   return {
     version: 3,
@@ -168,6 +183,7 @@ export function defaultState(): AppState {
     bottomTab: "links",
     alwaysOnTop: false,
     theme: "dark",
+    noteSort: "manual",
   };
 }
 
@@ -179,10 +195,13 @@ export function migrate(raw: unknown): AppState {
     id: p.id ?? uid(),
     name: p.name ?? "Proyecto",
     profile: p.profile ?? "blank",
+    stage: p.stage ?? "active",
+    now: p.now ?? "",
     notes: (p.notes?.length ? p.notes : [newNote()]).map((n) => ({
       ...n,
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
+      createdAt: n.createdAt ?? n.updatedAt ?? Date.now(),
     })).map((n) => {
       // Limpieza: notas de una columna que arrastraron títulos internos "## Columna" de un bug viejo.
       if (n.panes.length === 1 && /^## (Columna|Por hacer|Haciendo|Hecho|Escena|Notas|Dudas|Idea|Prompt|Resultado)\s*$/m.test(n.panes[0].body)) {
@@ -219,5 +238,6 @@ export function migrate(raw: unknown): AppState {
     bottomTab: s.bottomTab ?? "links",
     alwaysOnTop: s.alwaysOnTop ?? false,
     theme: s.theme ?? "dark",
+    noteSort: s.noteSort ?? "manual",
   };
 }

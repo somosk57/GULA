@@ -3,7 +3,7 @@ import { AppState, ContextBlock, Project, uid } from "../types";
 import { copyText } from "../backend";
 import { buildAiPackage, contextText, estimateTokens } from "../ai";
 import { ask, confirmDlg, notify } from "../dialog";
-import { closeSession, startSession, fmtMinutes, openInAi } from "../session";
+import { closeSession, startSession, fmtMinutes, openInAi, copyClosingPrompt } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -119,6 +119,7 @@ export function ContextPanel({ project, update }: Props) {
                 { label: "Claude (claude.ai)", onClick: () => openInAi(project, update, "claude") },
                 { label: "ChatGPT (chatgpt.com)", onClick: () => openInAi(project, update, "chatgpt") },
                 { label: "Ver el paquete", separator: true, onClick: () => notify("Esto es lo que se copia", pkg) },
+                { label: "Copiar prompt de cierre", onClick: () => copyClosingPrompt(project) },
               ],
             })
           }

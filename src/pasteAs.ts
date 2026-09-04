@@ -3,6 +3,7 @@
 import { AppState, Project, Tab, newNote, syncNote, uid } from "./types";
 import { readClipboard } from "./backend";
 import { ask, notify, pick } from "./dialog";
+import { applyCapture, parseCapture } from "./capture";
 
 type Update = (fn: (d: AppState) => void) => void;
 
@@ -17,7 +18,9 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
   const preview = text.trim().slice(0, 90).replace(/\s+/g, " ") + (text.length > 90 ? "…" : "");
   const looksLikeCommand = !text.includes("\n") && text.length < 120 && /^(npm|npx|git|cargo|python|pip|node|yarn|pnpm|docker|vercel|supabase|gh|cd |code )/i.test(text.trim());
 
+  const parsed = parseCapture(text);
   const choice = await pick(`Pegar como…  (${preview})`, [
+    ...(parsed ? [{ id: "auto", label: "Repartir automáticamente", hint: "detecté Hecho / Pendiente / Decisiones…" }] : []),
     { id: "note", label: "Nota nueva", hint: "en este proyecto" },
     { id: "append", label: "Al final de la nota abierta", hint: activeNoteId ? "" : "no hay nota abierta" },
     { id: "block", label: "Bloque de contexto", hint: "entra en Copiar para la IA" },
@@ -26,6 +29,16 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
     { id: "log", label: "Entrada de bitácora", hint: "con fecha de hoy" },
   ]);
   if (!choice) return;
+
+  if (choice === "auto" && parsed) {
+    let summary: string[] = [];
+    update((d) => {
+      summary = applyCapture(d, project.id, parsed);
+      d.bottomTab = "log";
+    });
+    setTimeout(() => notify("Repartido", summary.join(" · ") || "No había nada que repartir."), 50);
+    return;
+  }
 
   let tab: Tab | null = null;
   const title = choice === "note" || choice === "block" || choice === "prompt" || choice === "snippet"

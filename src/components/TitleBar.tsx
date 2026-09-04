@@ -2,10 +2,11 @@ import { useState } from "react";
 import { copyText, dataDir, exportFiles, listBackups, openPath, pickFolder, readBackup, snapshotNow, win } from "../backend";
 import { ask, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
-import { AppState, PROFILES, Project, newProject } from "../types";
+import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
 import { ProfileId } from "../profiles";
 import { collectTasks, fmtDate } from "../ai";
 import { buildAiPackage, exportProject } from "../ai";
+import { buildReport } from "../report";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 
 interface Props {
@@ -81,6 +82,32 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         },
         { label: "Copiar todo para la IA", onClick: () => copyText(buildAiPackage(project)) },
         {
+          label: "Informe del proyecto…",
+          onClick: async () => {
+            const range = await pick("¿Qué período?", [
+              { id: "all", label: "Todo el proyecto", hint: "desde el inicio" },
+              { id: "week", label: "Últimos 7 días", hint: "solo lo reciente" },
+            ]);
+            if (!range) return;
+            const depth = await pick("¿Cuánto detalle?", [
+              { id: "summary", label: "Resumido", hint: "título, fecha y primeras líneas de cada nota" },
+              { id: "full", label: "Completo", hint: "el texto entero de cada nota y ficha" },
+            ]);
+            if (!depth) return;
+            const text = buildReport(project, { range: range as "all" | "week", fullNotes: depth === "full" });
+            const what = await pick(`Informe listo (≈ ${Math.round(text.length / 4).toLocaleString("es-AR")} tokens)`, [
+              { id: "copy", label: "Copiar al portapapeles", hint: "para pegar en un chat" },
+              { id: "file", label: "Guardar como archivo .md…", hint: "elegís la carpeta" },
+              { id: "view", label: "Ver", hint: "leerlo acá" },
+            ]);
+            if (what === "copy") { await copyText(text); notify("Informe copiado"); }
+            else if (what === "file") {
+              const dir = await pickFolder();
+              if (dir) { await exportFiles(dir, [{ name: `informe-${project.name}.md`, content: text }]); notify("Informe guardado", dir); }
+            } else if (what === "view") notify("Informe del proyecto", text);
+          },
+        },
+        {
           label: "Exportar a carpeta (.md)…",
           onClick: async () => {
             const dir = await pickFolder();
@@ -143,7 +170,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
         { label: "Abrir carpeta de datos", onClick: async () => openPath(await dataDir()) },
-        { label: "GULA v0.8.1 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v0.9.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -195,11 +222,14 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
                     }}
                   >
                     <span className="proj-row">
-                      <span className="proj-title">{p.name}</span>
+                      <span className="proj-title">
+                        {p.name}
+                        <span className={"stage mini " + p.stage}>{STAGES.find((s) => s.id === p.stage)?.label}</span>
+                      </span>
                       <span className="proj-when">{touched ? fmtDate(touched) : ""}</span>
                     </span>
                     <span className="proj-sub">
-                      {last ? last.text : "sin avances anotados"}
+                      {p.now || (last ? last.text : "sin avances anotados")}
                       {pending > 0 && <span className="proj-pending">{pending} pendiente{pending === 1 ? "" : "s"}</span>}
                     </span>
                   </button>

@@ -6,25 +6,25 @@ import { Editor } from "./components/Editor";
 import { LinksPanel } from "./components/LinksPanel";
 import { PromptsPanel } from "./components/PromptsPanel";
 import { ContextPanel } from "./components/ContextPanel";
-import { SnippetsPanel } from "./components/SnippetsPanel";
 import { LogPanel } from "./components/LogPanel";
 import { TasksPanel } from "./components/TasksPanel";
 import { CardsPanel } from "./components/CardsPanel";
+import { GalleryPanel, collectMedia } from "./components/GalleryPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { SearchPalette, Hit } from "./components/SearchPalette";
 import { pasteAs } from "./pasteAs";
 import { win } from "./backend";
-import { Tab, newNote } from "./types";
+import { Tab, newNote, uid } from "./types";
 import { collectTasks } from "./ai";
 import "./styles.css";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "links", label: "Carpetas" },
+  { id: "links", label: "Accesos" },
+  { id: "gallery", label: "Galería" },
   { id: "prompts", label: "Prompts" },
   { id: "context", label: "Contexto" },
   { id: "cards", label: "Fichas" },
-  { id: "snippets", label: "Comandos" },
   { id: "tasks", label: "Tareas" },
   { id: "log", label: "Bitácora" },
 ];
@@ -51,6 +51,11 @@ export default function App() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  // Pestaña "Comandos" de versiones viejas → ahora vive en Accesos.
+  useEffect(() => {
+    if ((state?.bottomTab as string) === "snippets") update((d) => (d.bottomTab = "links"));
+  }, [state?.bottomTab, update]);
 
   // Tema: data-theme en <html>; "system" no estampa nada y decide el sistema.
   useEffect(() => {
@@ -96,8 +101,13 @@ export default function App() {
         e.preventDefault();
         update((d) => {
           const p = activeProject(d);
-          const n = newNote();
-          p.notes.push(n);
+          const cur = p.notes.find((n) => n.id === d.activeNoteId[p.id]);
+          const group = cur?.group ?? "General";
+          const n = newNote("Nueva nota", "", group);
+          const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
+          const tpl = lastIdx >= 0 ? p.notes[lastIdx] : undefined;
+          if (tpl && tpl.panes.length > 1) n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
+          p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
           d.activeNoteId[p.id] = n.id;
         });
       } else if (k === "p" || k === "tab") {
@@ -203,7 +213,8 @@ export default function App() {
               </button>
               {TABS.map((t, i) => {
                 const count =
-                  t.id === "links" ? project.links.length
+                  t.id === "links" ? project.links.length + project.snippets.length
+                  : t.id === "gallery" ? collectMedia(project).length
                   : t.id === "prompts" ? project.prompts.length
                   : t.id === "snippets" ? project.snippets.length
                   : t.id === "cards" ? project.cards.length
@@ -225,7 +236,7 @@ export default function App() {
             {state.bottomTab === "links" && <LinksPanel project={project} update={update} />}
             {state.bottomTab === "prompts" && <PromptsPanel project={project} update={update} />}
             {state.bottomTab === "context" && <ContextPanel project={project} update={update} />}
-            {state.bottomTab === "snippets" && <SnippetsPanel project={project} update={update} />}
+            {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} />}
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
             {state.bottomTab === "log" && <LogPanel project={project} update={update} />}

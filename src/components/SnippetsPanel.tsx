@@ -6,6 +6,8 @@ import { ContextMenu, MenuItem } from "./ContextMenu";
 interface Props {
   project: Project;
   update: (fn: (d: AppState) => void) => void;
+  /** Dentro de Accesos: sin scroll propio, más compacto. */
+  embedded?: boolean;
 }
 
 const SUGGESTED: Omit<Snippet, "id">[] = [
@@ -16,7 +18,7 @@ const SUGGESTED: Omit<Snippet, "id">[] = [
 ];
 
 /** Comandos y textos cortos: copiar con un clic, o correr en PowerShell en la carpeta del proyecto. */
-export function SnippetsPanel({ project, update }: Props) {
+export function SnippetsPanel({ project, update, embedded }: Props) {
   const [copied, setCopied] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -68,7 +70,7 @@ export function SnippetsPanel({ project, update }: Props) {
   };
 
   return (
-    <div className="snippets">
+    <div className={"snippets" + (embedded ? " embedded" : "")}>
       <div className="panel-actions">
         {projectDir ? (
           <span className="prompt-sub" title={projectDir}>Se corren en: {projectDir.split(/[\\/]/).pop()}</span>

@@ -51,6 +51,13 @@ export async function openInAi(project: Project, update: Update, target: "claude
   if (pkg.length > MAX) notify("El paquete es largo", "Lo copié al portapapeles: pegalo en el chat que se abrió (Ctrl+V).");
 }
 
+/** Copia el prompt de cierre: la IA responde con los encabezados que "Pegar como… → Repartir" entiende. */
+export async function copyClosingPrompt(project: Project) {
+  const { closingPrompt } = await import("./report");
+  await copyText(closingPrompt(project));
+  notify("Prompt de cierre copiado", "Pegalo en el chat. Cuando la IA responda, copiá su respuesta y usá Pegar como… (Ctrl+Shift+V) → Repartir automáticamente.");
+}
+
 export function fmtMinutes(m: number) {
   if (m < 60) return `${m} min`;
   const h = Math.floor(m / 60);
