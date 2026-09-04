@@ -526,6 +526,47 @@ struct DirEntryInfo {
     size: u64,
 }
 
+/// Miniatura de una imagen (máx. 320px), cacheada en <datos>/thumbs/. Devuelve la ruta de la miniatura.
+/// Si la imagen ya es chica, devuelve la original.
+#[tauri::command]
+async fn thumbnail(app: AppHandle, path: String) -> Result<String, String> {
+    let src = PathBuf::from(&path);
+    let meta = fs::metadata(&src).map_err(|e| e.to_string())?;
+    if meta.len() < 120_000 {
+        return Ok(path);
+    }
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in path.as_bytes().iter().chain(mtime.to_string().as_bytes()) {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    let dir = base_dir(&app)?.join("thumbs");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let out = dir.join(format!("{h:016x}.jpg"));
+    if out.exists() {
+        return Ok(out.to_string_lossy().to_string());
+    }
+    let out2 = out.clone();
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let img = image::open(&src).map_err(|e| e.to_string())?;
+        let t = img.thumbnail(320, 320).to_rgb8();
+        let f = fs::File::create(&out2).map_err(|e| e.to_string())?;
+        let mut w = std::io::BufWriter::new(f);
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut w, 82)
+            .encode_image(&t)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(out.to_string_lossy().to_string())
+}
+
 /// Lista los archivos de una carpeta (sin recursión profunda: hasta 2 niveles) para una colección.
 #[tauri::command]
 fn list_dir_media(dir: String) -> Result<Vec<DirEntryInfo>, String> {
@@ -612,6 +653,7 @@ pub fn run() {
             set_data_location,
             copy_to_dir,
             list_dir_media,
+            thumbnail,
             read_backup,
             snapshot_now,
             load_state,

@@ -161,6 +161,12 @@ export async function listDirMedia(dir: string): Promise<DirEntryInfo[]> {
   return invoke<DirEntryInfo[]>("list_dir_media", { dir });
 }
 
+/** Miniatura cacheada (jpg ≤320px) de una imagen del disco; fuera de Tauri devuelve la original. */
+export async function thumbnail(path: string): Promise<string> {
+  if (!isTauri) return path;
+  return invoke<string>("thumbnail", { path });
+}
+
 export async function pathExists(path: string): Promise<boolean> {
   if (!isTauri) return true;
   return invoke<boolean>("path_exists", { path });

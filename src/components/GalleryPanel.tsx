@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, markColor } from "../types";
-import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder } from "../backend";
+import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -43,7 +43,82 @@ export function collectMedia(p: Project): Item[] {
 
 const srcOf = (s: string) => (/^(https?:|data:)/i.test(s) ? s : assetUrl(s));
 
+const PAGE = 90;
+const SIZES = [96, 140, 200, 280];
+const thumbCache = new Map<string, string>();
+
+/** Imagen de una casilla: pide la miniatura cacheada cuando entra en pantalla. */
+function Thumb({ src }: { src: string }) {
+  const ref = useRef<HTMLImageElement>(null);
+  const [url, setUrl] = useState<string | null>(thumbCache.get(src) ?? null);
+  useEffect(() => {
+    if (url) return;
+    if (/^(https?:|data:)/i.test(src)) { setUrl(src); return; }
+    const el = ref.current;
+    if (!el) return;
+    let alive = true;
+    const io = new IntersectionObserver((es) => {
+      if (!es.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      thumbnail(src).then((t) => { if (!alive) return; const u = assetUrl(t); thumbCache.set(src, u); setUrl(u); }).catch(() => alive && setUrl(assetUrl(src)));
+    }, { rootMargin: "300px" });
+    io.observe(el);
+    return () => { alive = false; io.disconnect(); };
+  }, [src, url]);
+  return <img ref={ref} src={url ?? undefined} alt="" draggable={false} decoding="async" />;
+}
+
+/** Vista grande: flechas para pasar, 1–4 para marcar, Enter abre, Esc cierra. */
+function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote }: {
+  items: Item[]; index: number; marks: Record<string, Mark>;
+  onIndex: (i: number) => void; onMark: (it: Item, m: Mark | null) => void; onClose: () => void; onGoNote: (it: Item) => void;
+}) {
+  const it = items[index];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); onIndex(Math.min(items.length - 1, index + 1)); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); onIndex(Math.max(0, index - 1)); }
+      else if (e.key === "Enter") openPath(it.src);
+      else if (/^[1-4]$/.test(e.key)) { const m = MARK_ORDER[Number(e.key) - 1]; onMark(it, marks[it.src] === m ? null : m); }
+      else if (e.key === "0" || e.key === "Backspace") onMark(it, null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, items, it, marks, onIndex, onMark, onClose]);
+  if (!it) return null;
+  const mk = marks[it.src];
+  return (
+    <div className="dlg-backdrop lightbox" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <button className="lb-nav prev" onClick={() => onIndex(Math.max(0, index - 1))} disabled={index === 0}>‹</button>
+      <div className="lb-body" style={mk ? { outline: `3px solid ${markColor(mk)}` } : undefined}>
+        {it.kind === "image" && <img src={srcOf(it.src)} alt="" draggable={false} />}
+        {it.kind === "video" && <video src={srcOf(it.src)} controls autoPlay />}
+        {it.kind === "audio" && <audio src={srcOf(it.src)} controls autoPlay />}
+        {(it.kind === "doc" || it.kind === "other") && <div className="gaudio gdoc" style={{ width: 300, height: 200 }}>{(it.src.split(".").pop() ?? "").toUpperCase()}</div>}
+      </div>
+      <button className="lb-nav next" onClick={() => onIndex(Math.min(items.length - 1, index + 1))} disabled={index >= items.length - 1}>›</button>
+      <div className="lb-foot" onMouseDown={(e) => e.stopPropagation()}>
+        <span className="lb-name" title={it.src}>{it.note ? `${it.note.title}${it.paneTitle ? " · " + it.paneTitle : ""}` : it.src.split(/[\\/]/).pop()}</span>
+        <span className="mark-filter">
+          {MARKS.map((m, i) => (
+            <button key={m.id} className={"mark-dot" + (mk === m.id ? " on" : "")} style={{ background: m.color }} title={`${m.label} (${i + 1})`} onClick={() => onMark(it, mk === m.id ? null : m.id)} />
+          ))}
+        </span>
+        <span className="prompt-sub">{index + 1} / {items.length} · ← → pasar · 1–4 marcar · Enter abrir · Esc cerrar</span>
+        {it.note && <button className="chip" onClick={() => { onGoNote(it); onClose(); }}>Ir a la nota</button>}
+        <button className="chip" onClick={() => openPath(it.src)}>Abrir</button>
+        <button className="chip" onClick={() => revealInExplorer(it.src)}>Explorador</button>
+      </div>
+    </div>
+  );
+}
+
 export function GalleryPanel({ project, update, allProjects }: Props) {
+  const [limit, setLimit] = useState(PAGE);
+  const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.tile")) || 140; } catch { return 140; } });
+  const [lbSrc, setLbSrc] = useState<string | null>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
   const [kind, setKind] = useState<"all" | "image" | "video" | "audio" | "doc">("all");
   const [scope, setScope] = useState<"project" | "all">("project");
   /** "notes" = lo que está en las notas; o el id de una colección (carpeta del disco). */
@@ -93,11 +168,17 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     });
   const shown = items
     .filter((i) => kind === "all" || i.kind === kind || (kind === "doc" && i.kind === "other"))
-    .filter((i) => markFilter === "all" || markOf(i) === markFilter)
-    .sort((a, b) => {
-      const ra = MARK_ORDER.indexOf(markOf(a) ?? ("zz" as Mark)), rb = MARK_ORDER.indexOf(markOf(b) ?? ("zz" as Mark));
-      return (ra < 0 ? 9 : ra) - (rb < 0 ? 9 : rb);
-    });
+    .filter((i) => markFilter === "all" || markOf(i) === markFilter);
+  useEffect(() => setLimit(PAGE), [kind, source, scope, markFilter, project.id]);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && setLimit((l) => l + PAGE), { rootMargin: "600px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shown.length]);
+  const visible = shown.slice(0, limit);
+  const lb = lbSrc === null ? null : shown.findIndex((x) => x.src === lbSrc);
   const markCounts = Object.fromEntries(MARKS.map((m) => [m.id, items.filter((i) => markOf(i) === m.id).length])) as Record<Mark, number>;
   const counts = { image: 0, video: 0, audio: 0, doc: 0 };
   items.forEach((i) => counts[i.kind === "other" ? "doc" : i.kind]++);
@@ -219,6 +300,13 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             </button>
           ))}
         </span>
+        <button
+          className="chip"
+          title="Tamaño de las casillas"
+          onClick={() => { const n = SIZES[(SIZES.indexOf(size) + 1) % SIZES.length]; setSize(n); try { localStorage.setItem("gula.tile", String(n)); } catch { /* sin storage */ } }}
+        >
+          {size <= 96 ? "▫ chico" : size <= 140 ? "◽ medio" : size <= 200 ? "◻ grande" : "⬜ enorme"}
+        </button>
         {broken.size > 0 && <span className="chip broken-chip" title="Archivos que ya no están en su ruta: movidos, renombrados o borrados">⚠ {broken.size} sin archivo</span>}
         {loadErr && <span className="chip broken-chip">⚠ {loadErr}</span>}
         {!collection && allProjects && allProjects.length > 1 && (
@@ -227,19 +315,19 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
           </button>
         )}
       </div>
-      <div className="gallery-grid">
-        {shown.map((it, i) => (
+      <div className="gallery-grid" style={{ ["--tile" as string]: size + "px" }}>
+        {visible.map((it, i) => (
           <div
             key={it.src + i}
             className={"gitem " + it.kind + (broken.has(it.src) ? " broken" : "") + (markOf(it) ? " marked" : "")}
             style={markOf(it) ? { borderColor: markColor(markOf(it))!, boxShadow: `inset 0 0 0 2px ${markColor(markOf(it))}` } : undefined}
             title={(broken.has(it.src) ? "⚠ No se encuentra el archivo\n" : "") + (it.prompt ? it.prompt.slice(0, 300) + "\n\n" : "") + `— ${it.note ? it.note.title : it.paneTitle}${it.note && it.paneTitle ? " · " + it.paneTitle : ""}`}
-            onClick={() => (it.note ? goTo(it.note, it.projectId) : openPath(it.src))}
+            onClick={() => setLbSrc(it.src)}
             onDoubleClick={() => openPath(it.src)}
             onContextMenu={(e) => itemMenu(e, it)}
           >
-            {it.kind === "image" && <img src={srcOf(it.src)} alt="" loading="lazy" draggable={false} />}
-            {it.kind === "video" && <video src={srcOf(it.src)} preload="metadata" muted />}
+            {it.kind === "image" && <Thumb src={it.src} />}
+            {it.kind === "video" && (size >= 140 ? <video src={srcOf(it.src)} preload="metadata" muted /> : <div className="gaudio">▶<span>{it.src.split(/[\\/]/).pop()}</span></div>)}
             {it.kind === "audio" && <div className="gaudio">♪<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             {(it.kind === "doc" || it.kind === "other") && <div className="gaudio gdoc">{(it.src.split(".").pop() ?? "").toUpperCase().slice(0, 5)}<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             <div className="gmarks" onClick={(e) => e.stopPropagation()}>
@@ -253,6 +341,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             </div>
           </div>
         ))}
+        {shown.length > visible.length && <div ref={sentinel} className="empty wide">Cargando… ({visible.length} de {shown.length})</div>}
         {shown.length === 0 && (
           <div className="empty wide">
             {collection
@@ -262,6 +351,17 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
         )}
       </div>
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
+      {lb !== null && lb >= 0 && (
+        <Lightbox
+          items={shown}
+          index={lb}
+          marks={project.marks}
+          onIndex={(i) => { setLbSrc(shown[i]?.src ?? null); if (i + 10 > limit) setLimit((l) => l + PAGE); }}
+          onMark={(it, m) => setMark(it, m)}
+          onClose={() => setLbSrc(null)}
+          onGoNote={(it) => goTo(it.note!, it.projectId)}
+        />
+      )}
     </div>
   );
 }
