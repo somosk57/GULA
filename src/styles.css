@@ -737,17 +737,29 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
   padding-right: 4px;
 }
 .coll-card {
-  aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-start; text-align: left;
-  padding: 12px 12px 10px; border-radius: 8px; cursor: pointer;
+  position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-start;
+  text-align: left; padding: 12px 12px 10px; border-radius: 8px; cursor: pointer;
   background: var(--bg-input, var(--bg-panel)); border: 1px solid var(--border);
-  color: var(--text); overflow: hidden;
+  color: var(--text); overflow: hidden; user-select: none;
 }
 .coll-card:hover { border-color: var(--border-strong); background: var(--bg-hover); }
 .coll-title {
   font-size: 13px; line-height: 1.35; font-weight: 500; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
 }
-.coll-empty { margin-top: auto; font-size: 10.5px; color: var(--text-faint); }
+.coll-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; min-height: 16px; }
+.coll-empty, .coll-kind { font-size: 10.5px; color: var(--text-faint); }
+.coll-copy {
+  margin-left: auto; font-size: 10.5px; padding: 2px 7px; border-radius: 4px; cursor: pointer;
+  color: var(--text-faint); background: var(--bg-code); border: 1px solid transparent; opacity: 0; transition: opacity 0.12s;
+}
+.coll-card:hover .coll-copy { opacity: 1; }
+.coll-copy:hover { color: var(--text); border-color: var(--border-strong); }
+/* Miniatura del archivo que tenga adentro: de fondo, con el título encima. */
+.coll-thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
+.coll-card:hover .coll-thumb { opacity: 0.55; }
+.coll-card > .coll-title, .coll-card > .coll-foot { position: relative; z-index: 1; }
+.coll-card:has(.coll-thumb) .coll-title { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); }
 .coll-card.add {
   align-items: center; justify-content: center; font-size: 22px; color: var(--text-faint);
   border-style: dashed;
@@ -779,3 +791,12 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 /* Colores a la derecha del título (filtro de la colección) */
 .head-marks { display: flex; align-items: center; gap: 5px; margin-left: 2px; }
 .mode-btn.wide { padding: 0 10px; font-size: 11.5px; white-space: nowrap; }
+
+/* Buscador y tamaño de la colección, en la cabecera */
+.coll-q {
+  width: 150px; flex: none; font-size: 11.5px; padding: 4px 8px; border-radius: 5px;
+  background: var(--bg-input, var(--bg-code)); border: 1px solid var(--border); color: var(--text);
+}
+.coll-q:focus { border-color: var(--border-strong); outline: none; }
+.coll-size { width: 74px; flex: none; accent-color: var(--text-faint); cursor: pointer; }
+.coll-grid .empty.wide { grid-column: 1 / -1; }

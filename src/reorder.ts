@@ -34,7 +34,7 @@ export function useReorder<T extends HTMLElement>(opts: Opts) {
       if (e.button !== 0) return;
       const t = (e.target as HTMLElement).closest<HTMLElement>(o.current.item);
       if (!t || !root.contains(t)) return;
-      if ((e.target as HTMLElement).closest("input, textarea, .chip")) return;
+      if ((e.target as HTMLElement).closest("input, textarea, .chip, .coll-copy")) return;
       dragEl = t;
       startX = e.clientX; startY = e.clientY; active = false;
       window.addEventListener("mousemove", onMove);

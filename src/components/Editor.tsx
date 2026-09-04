@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
 import { AppState, MARKS, Mark, Note, Pane, Project, deriveTitle, markColor, syncNote, uid } from "../types";
 import { openUrl } from "../backend";
-import { MarkdownEditor, insertImage, isImagePath } from "./MarkdownEditor";
+import { MarkdownEditor, insertImage, isImagePath, matchImage } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
-import { assetUrl, copyToDir, pickImage, win } from "../backend";
+import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, pickImage, win } from "../backend";
 import { useRef } from "react";
 import { ContextMenu, MenuItem } from "./ContextMenu";
-import { ask, confirmDlg } from "../dialog";
+import { ask, confirmDlg, notify } from "../dialog";
+import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
 
 marked.setOptions({ gfm: true, breaks: true });
@@ -23,6 +24,8 @@ interface Props {
 export function Editor({ project, note, update, keys }: Props) {
   const [preview, setPreview] = useState(false);
   const [focusPane, setFocusPane] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.card")) || 150; } catch { return 150; } });
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
@@ -34,9 +37,24 @@ export function Editor({ project, note, update, keys }: Props) {
       if (!media.length) return;
       // El recuadro que está debajo del mouse al soltar; si no hay, el que tiene foco; si no, el primero.
       let target: EditorView | undefined;
+      const copyDirNow = project.collections.find((c) => c.id === project.copyTo)?.path;
       if (at) {
         const under = document.elementFromPoint(at.x, at.y);
         if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso, no una imagen de la nota
+        // Un cuadrado de la colección no tiene editor abierto: se escribe directo en su texto.
+        const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
+        const paneId = card?.dataset.pane;
+        if (paneId) {
+          (async () => {
+            const lines: string[] = [];
+            for (const m of media) lines.push(`![](<${copyDirNow ? await copyToDir(m, copyDirNow).catch(() => m) : m}>)`);
+            setNote((n) => {
+              const pane = n.panes.find((x) => x.id === paneId);
+              if (pane) pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + lines.join("\n") + "\n";
+            });
+          })();
+          return;
+        }
         const el = under?.closest(".pane, .single");
         const host = el?.querySelector(".cm-editor");
         target = Object.values(views.current).find((v) => v.dom === host);
@@ -98,6 +116,7 @@ export function Editor({ project, note, update, keys }: Props) {
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
     // Colección recién creada (un cuadro vacío): abrirla directo para escribir.
+    setQ("");
     const only = note.panes.length === 1 && !note.panes[0].body.trim() && !note.panes[0].title.trim();
     setFocusPane(note.view === "grid" && only ? note.panes[0].id : null);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -188,6 +207,33 @@ export function Editor({ project, note, update, keys }: Props) {
       n.hidePaneMarks = h.includes(m) ? h.filter((x) => x !== m) : [...h, m];
     });
 
+  const dupPane = (p: Pane) =>
+    setNote((n) => {
+      const i = n.panes.findIndex((x) => x.id === p.id);
+      n.panes.splice(i + 1, 0, { id: uid(), title: p.title, body: p.body, mark: p.mark });
+    });
+
+  const copyPane = async (p: Pane) => {
+    await copyText(p.body.trim());
+    notify("Copiado", p.title.trim() || "El texto del cuadro ya está en el portapapeles.");
+  };
+
+  /** Arrastrar cuadros para reordenarlos. */
+  const gridRef = useReorder<HTMLDivElement>({
+    item: ".coll-card:not(.add)",
+    attr: "data-pane",
+    axis: "xy",
+    onDrop: (dragId, overId, before) =>
+      setNote((n) => {
+        const from = n.panes.findIndex((x) => x.id === dragId);
+        if (from < 0) return;
+        const [moved] = n.panes.splice(from, 1);
+        const to = n.panes.findIndex((x) => x.id === overId);
+        if (to < 0) { n.panes.push(moved); return; }
+        n.panes.splice(before ? to : to + 1, 0, moved);
+      }),
+  });
+
   const addPane = () => {
     const id = uid();
     setNote((n) => n.panes.push({ id, title: "", body: "" }));
@@ -209,6 +255,8 @@ export function Editor({ project, note, update, keys }: Props) {
           insertImage(v, path);
         },
       },
+      { label: "Copiar el texto", onClick: () => copyPane(p) },
+      { label: "Duplicar", onClick: () => dupPane(p) },
       {
         label: "Renombrar recuadro",
         onClick: async () => {
@@ -244,7 +292,12 @@ export function Editor({ project, note, update, keys }: Props) {
 
   const count = note.panes.length;
   const cols = count <= 3 ? count : count === 4 ? 2 : 3;
-  const visible = note.panes.filter((p) => !(p.mark && hidden.includes(p.mark)));
+  const needle = q.trim().toLowerCase();
+  const visible = note.panes.filter(
+    (p) =>
+      !(p.mark && hidden.includes(p.mark)) &&
+      (!needle || (p.title + "\n" + p.body).toLowerCase().includes(needle)),
+  );
   const focused = grid && focusPane ? note.panes.find((p) => p.id === focusPane) ?? null : null;
 
   return (
@@ -276,6 +329,23 @@ export function Editor({ project, note, update, keys }: Props) {
                 />
               ))}
             </span>
+            <input
+              className="coll-q"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={`Filtrar ${count} cuadro${count === 1 ? "" : "s"}…`}
+              spellCheck={false}
+            />
+            <input
+              className="coll-size"
+              type="range"
+              min={110}
+              max={280}
+              step={10}
+              value={size}
+              onChange={(e) => { const v = Number(e.target.value); setSize(v); try { localStorage.setItem("gula.card", String(v)); } catch { /* sin localStorage */ } }}
+              title="Tamaño de los cuadros"
+            />
             <button className="mode-btn wide" onClick={addPane} title="Sumar un cuadro a la colección">+ Cuadro</button>
           </>
         )}
@@ -328,21 +398,40 @@ export function Editor({ project, note, update, keys }: Props) {
           </div>
         ) : (
           <div className="collection">
-            <div className="coll-grid">
-              {visible.map((p) => (
-                <button
-                  key={p.id}
-                  className="coll-card"
-                  style={markColor(p.mark) ? { borderColor: markColor(p.mark)!, boxShadow: `inset 3px 0 0 ${markColor(p.mark)}` } : undefined}
-                  onClick={() => setFocusPane(p.id)}
-                  onContextMenu={(e) => paneMenu(e, p)}
-                  title={p.body.trim().slice(0, 300) || "Vacío"}
-                >
-                  <span className="coll-title">{paneLabel(p, note.panes.indexOf(p))}</span>
-                  {!p.body.trim() && <span className="coll-empty">vacío</span>}
-                </button>
-              ))}
-              <button className="coll-card add" onClick={addPane}>+</button>
+            <div className="coll-grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
+              {visible.map((p) => {
+                const media = firstMedia(p.body);
+                const color = markColor(p.mark);
+                return (
+                  <div
+                    key={p.id}
+                    className="coll-card"
+                    data-pane={p.id}
+                    style={color ? { borderColor: color, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                    onClick={() => setFocusPane(p.id)}
+                    onContextMenu={(e) => paneMenu(e, p)}
+                    title={p.body.trim().slice(0, 300) || "Vacío"}
+                  >
+                    {media?.image && <img className="coll-thumb" src={assetUrl(media.src)} alt="" loading="lazy" />}
+                    <span className="coll-title">{paneLabel(p, note.panes.indexOf(p))}</span>
+                    <span className="coll-foot">
+                      {media && !media.image && <span className="coll-kind">{media.video ? "▶ video" : "♪ audio"}</span>}
+                      {!p.body.trim() && <span className="coll-empty">vacío</span>}
+                      {p.body.trim() && (
+                        <button
+                          className="coll-copy"
+                          title="Copiar el texto de este cuadro"
+                          onClick={(e) => { e.stopPropagation(); copyPane(p); }}
+                        >
+                          Copiar
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+              {!needle && <button className="coll-card add" onClick={addPane}>+</button>}
+              {needle && visible.length === 0 && <div className="empty wide">Ningún cuadro dice “{q.trim()}”.</div>}
             </div>
           </div>
         )
@@ -396,6 +485,15 @@ function GridIcon() {
       ))}
     </svg>
   );
+}
+
+/** Primer archivo que aparece en el texto del cuadro (para la miniatura). */
+function firstMedia(body: string): { src: string; image: boolean; video: boolean } | null {
+  for (const raw of body.split("\n")) {
+    const src = matchImage(raw.trim());
+    if (src) return { src, image: !isVideoPath(src) && !isAudioPath(src), video: isVideoPath(src) };
+  }
+  return null;
 }
 
 /** Título que se ve en el cuadrado: el del recuadro, o la primera línea con texto. */
