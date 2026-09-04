@@ -17,24 +17,8 @@ interface Props {
   update: (fn: (d: AppState) => void) => void;
 }
 
-const MAX_PANES = 6;
-
-/** Presets de columnas: un workflow dentro de la nota. */
-const PRESETS: { label: string; titles: string[] }[] = [
-  { label: "1 columna", titles: [] },
-  { label: "2 columnas", titles: ["", ""] },
-  { label: "3 columnas", titles: ["", "", ""] },
-  { label: "Por hacer · Haciendo · Hecho", titles: ["Por hacer", "Haciendo", "Hecho"] },
-  { label: "Prompt · Imagen", titles: ["Prompt", "Imagen"] },
-  { label: "Prompt · Imagen · Video", titles: ["Prompt", "Imagen", "Video"] },
-  { label: "Idea · Prompt · Imagen · Video", titles: ["Idea", "Prompt", "Imagen", "Video"] },
-  { label: "Prompt · Audio", titles: ["Prompt", "Audio"] },
-  { label: "Escena · Música · Referencias", titles: ["Escena", "Música", "Referencias"] },
-  { label: "Idea · Prompt · Resultado", titles: ["Idea", "Prompt", "Resultado"] },
-  { label: "Escena · Notas · Dudas", titles: ["Escena", "Notas", "Dudas"] },
-  { label: "Idea · Escena · Personaje · Prompt · Referencias · Video", titles: ["Idea", "Escena", "Personaje", "Prompt", "Referencias", "Video"] },
-  { label: "6 casillas", titles: ["", "", "", "", "", ""] },
-];
+/** Cantidades de recuadros para el clic derecho (el clic normal alterna 1 → 3 → 6). */
+const COUNTS = [1, 2, 3, 4, 5, 6];
 
 export function Editor({ project, note, update }: Props) {
   const [preview, setPreview] = useState(false);
@@ -139,13 +123,10 @@ export function Editor({ project, note, update }: Props) {
     });
 
   const layoutMenu = (e: React.MouseEvent) => {
-    const items: MenuItem[] = PRESETS.map((p) => ({ label: p.label, onClick: () => applyPreset(p.titles) }));
-    if (note.panes.length < MAX_PANES)
-      items.push({
-        label: "+ Agregar columna",
-        separator: true,
-        onClick: () => setNote((n) => n.panes.push({ id: uid(), title: "", body: "" })),
-      });
+    const items: MenuItem[] = COUNTS.map((c) => ({
+      label: `${c} recuadro${c === 1 ? "" : "s"}${c === note.panes.length ? "  ✓" : ""}`,
+      onClick: () => applyPreset(Array(c).fill("")),
+    }));
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
 
@@ -205,7 +186,7 @@ export function Editor({ project, note, update }: Props) {
           className="mode-btn"
           onClick={() => applyPreset(count < 3 ? ["", "", ""] : count < 6 ? ["", "", "", "", "", ""] : [])}
           onContextMenu={(e) => { e.preventDefault(); layoutMenu(e); }}
-          title="Recuadros: clic pasa de 1 → 3 → 6 · clic derecho: presets y agregar columna"
+          title="Recuadros: clic pasa de 1 → 3 → 6 · clic derecho: elegir cantidad"
         >
           <LayoutIcon n={count} />
         </button>
