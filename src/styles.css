@@ -846,3 +846,15 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
   grid-column: 1 / -1; min-height: 0; height: 34px; aspect-ratio: auto;
   font-size: 12px; letter-spacing: .02em;
 }
+
+/* Miniatura de video en un cuadrado: si no se pudo sacar el cuadro, el cartel ▶ ocupa el lugar */
+.coll-thumb.gaudio {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; opacity: .35; font-size: 20px; color: var(--text-dim); background: var(--bg-code);
+}
+.coll-thumb.gaudio span { display: none; }
+/* Un mp3 no tiene imagen: nota grande de fondo */
+.coll-audio {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 44px; color: var(--text-faint); opacity: .28; pointer-events: none;
+}

@@ -51,7 +51,9 @@ const thumbCache = new Map<string, string>();
 /** Imagen de una casilla: pide la miniatura cacheada cuando entra en pantalla. */
 let videoQueue: Promise<unknown> = Promise.resolve();
 
-function Thumb({ src, video }: { src: string; video?: boolean }) {
+/** Miniatura de un archivo del disco: imagen redimensionada, o el primer cuadro si es video.
+ *  La usan la Galería y los cuadrados de una colección. */
+export function Thumb({ src, video, className }: { src: string; video?: boolean; className?: string }) {
   const ref = useRef<HTMLImageElement>(null);
   const [url, setUrl] = useState<string | null>(thumbCache.get(src) ?? null);
   const [failed, setFailed] = useState(false);
@@ -78,8 +80,8 @@ function Thumb({ src, video }: { src: string; video?: boolean }) {
     io.observe(el);
     return () => { alive = false; io.disconnect(); };
   }, [src, url, video]);
-  if (video && failed) return <div className="gaudio">▶<span>{src.split(/[\\/]/).pop()}</span></div>;
-  return <img ref={ref} src={url ?? undefined} alt="" draggable={false} decoding="async" />;
+  if (video && failed) return <div className={"gaudio" + (className ? " " + className : "")}>▶<span>{src.split(/[\\/]/).pop()}</span></div>;
+  return <img ref={ref} className={className} src={url ?? undefined} alt="" draggable={false} decoding="async" />;
 }
 
 /** Vista grande: flechas para pasar, 1–4 para marcar, Enter abre, Esc cierra. */

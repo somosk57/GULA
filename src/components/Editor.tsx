@@ -5,6 +5,7 @@ import { MarkdownEditor, insertImage, isImagePath, matchImage } from "./Markdown
 import type { EditorView } from "@codemirror/view";
 import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickImage, win } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
+import { Thumb } from "./GalleryPanel";
 import { ask, confirmDlg, notify } from "../dialog";
 import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
@@ -405,7 +406,8 @@ export function Editor({ project, note, update, keys }: Props) {
                 onContextMenu={(e) => paneMenu(e, p)}
                 title={`${inner} recuadro${inner === 1 ? "" : "s"}`}
               >
-                {media?.image && <img className="coll-thumb" src={assetUrl(media.src)} alt="" loading="lazy" />}
+                {media && (media.image || media.video) && <Thumb className="coll-thumb" src={media.src} video={media.video} />}
+                {media?.audio && <span className="coll-audio">♪</span>}
                 <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>−</button>
                 <span className="coll-title">{paneLabel(p, level.indexOf(p))}</span>
                 <span className="coll-foot">
@@ -475,14 +477,19 @@ export function Editor({ project, note, update, keys }: Props) {
 }
 
 /** Primer archivo que aparece en el cuadrado (para la miniatura). */
-function firstMedia(p: Pane): { src: string; image: boolean; video: boolean } | null {
+function firstMedia(p: Pane): { src: string; image: boolean; video: boolean; audio: boolean } | null {
   const bodies = p.panes?.length ? p.panes.map((x) => x.body) : [p.body];
+  let fallback: { src: string; image: boolean; video: boolean; audio: boolean } | null = null;
   for (const body of bodies)
     for (const raw of body.split("\n")) {
       const src = matchImage(raw.trim());
-      if (src) return { src, image: !isVideoPath(src) && !isAudioPath(src), video: isVideoPath(src) };
+      if (!src) continue;
+      const m = { src, image: !isVideoPath(src) && !isAudioPath(src), video: isVideoPath(src), audio: isAudioPath(src) };
+      // Un audio no da miniatura: si más adelante hay una imagen o un video, mejor esa.
+      if (!m.audio) return m;
+      fallback ??= m;
     }
-  return null;
+  return fallback;
 }
 
 /** Lo que se lee en el cuadrado: su título, o la primera línea con texto. */
