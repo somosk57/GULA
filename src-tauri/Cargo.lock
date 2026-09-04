@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "gula"
-version = "2.7.1"
+version = "2.7.2"
 dependencies = [
  "image",
  "serde",

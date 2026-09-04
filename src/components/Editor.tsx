@@ -386,7 +386,11 @@ export function Editor({ project, note, update, keys }: Props) {
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
       ) : showGrid ? (
-        <div className="coll-grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
+        <div
+          className="coll-grid"
+          ref={gridRef}
+          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))`, gridAutoRows: `${size}px` }}
+        >
           {visible.map((p) => {
             const media = firstMedia(p);
             const color = markColor(p.mark);

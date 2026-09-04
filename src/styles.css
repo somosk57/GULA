@@ -479,9 +479,10 @@ body.reordering * { cursor: grabbing !important; }
 
 /* ---------- Columnas dentro de la nota ---------- */
 .panes {
-  flex: 1; min-height: 0; display: grid; gap: 10px; align-content: start;
-  grid-auto-rows: minmax(230px, 1fr); overflow-y: auto; padding-right: 4px;
+  flex: 1; min-height: 0; display: grid; gap: 12px; align-content: start; align-items: start;
+  grid-auto-rows: minmax(230px, auto); overflow-y: auto; padding: 2px 6px 12px 2px;
 }
+.panes > .pane { height: 100%; }
 .pane {
   display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   background: var(--bg-panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 4px;
@@ -748,18 +749,20 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 .mark-dot.off { opacity: 0.22; }
 .mark-dot:hover { transform: scale(1.2); }
 .coll-grid {
-  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 10px; align-content: start;
+  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 12px;
+  align-content: start; align-items: start;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  padding-right: 4px;
+  padding: 2px 6px 12px 2px;
 }
+/* La altura la fija la grilla (grid-auto-rows), no aspect-ratio: un ítem estirado
+   ignora aspect-ratio y las filas se aplastaban hasta tocarse. */
 .coll-card {
-  position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-start;
+  position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-start;
   text-align: left; padding: 12px 12px 10px; border-radius: 8px; cursor: pointer;
   background: var(--bg-panel); border: 1px solid var(--line);
   color: var(--text); overflow: hidden; user-select: none;
 }
 .coll-card:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-.coll-card[style*="inset"] { border-color: transparent; }
 .coll-title {
   font-size: 13px; line-height: 1.35; font-weight: 500; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
