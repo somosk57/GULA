@@ -17,9 +17,6 @@ interface Props {
   update: (fn: (d: AppState) => void) => void;
 }
 
-/** Cantidades de recuadros para el clic derecho (el clic normal alterna 1 → 3 → 6). */
-const COUNTS = [1, 2, 3, 4, 5, 6];
-
 export function Editor({ project, note, update }: Props) {
   const [preview, setPreview] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -122,14 +119,6 @@ export function Editor({ project, note, update }: Props) {
       if (titles.some(Boolean)) titles.forEach((t, i) => (n.panes[i].title = t));
     });
 
-  const layoutMenu = (e: React.MouseEvent) => {
-    const items: MenuItem[] = COUNTS.map((c) => ({
-      label: `${c} recuadro${c === 1 ? "" : "s"}${c === note.panes.length ? "  ✓" : ""}`,
-      onClick: () => applyPreset(Array(c).fill("")),
-    }));
-    setMenu({ x: e.clientX, y: e.clientY, items });
-  };
-
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const i = note.panes.findIndex((x) => x.id === p.id);
@@ -189,8 +178,7 @@ export function Editor({ project, note, update }: Props) {
             const next = cycle[(cycle.indexOf(count) + 1) % cycle.length] ?? 1;
             applyPreset(Array(next).fill(""));
           }}
-          onContextMenu={(e) => { e.preventDefault(); layoutMenu(e); }}
-          title="Recuadros: clic pasa de 1 → 2 → 3 → 4 → 6 · clic derecho: elegir cantidad"
+          title="Recuadros: 1 → 2 → 3 → 4 → 6"
         >
           <LayoutIcon n={count} />
         </button>
