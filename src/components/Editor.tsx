@@ -21,19 +21,19 @@ interface Props {
 
 /**
  * Una nota es una de dos cosas, y se elige al crearla:
- *  - "boxes": recuadros sueltos (Idea, Prompt, Imagen, Escena…). Un solo nivel.
+ *  - "boxes": recuadros (Idea, Prompt, Imagen, Escena…). Un solo nivel.
  *  - "collection": colecciones; adentro de cada una, sus recuadros. Dos niveles.
- * Las dos se ven igual: una grilla de cuadrados con el título, "+" para sumar
- * y "−" para sacar. No hay repartidor de 1 a 6 ni cambio de tipo.
+ * Los recuadros van SIEMPRE ABIERTOS: escribís y pegás sin entrar a ninguno.
+ * La grilla de cuadrados existe solo para elegir en qué colección estás
+ * trabajando. "+" suma, "−" saca. No hay repartidor de 1 a 6 ni cambio de tipo.
  */
 export function Editor({ project, note, update, keys }: Props) {
   const [preview, setPreview] = useState(false);
   /** Colección abierta (solo en notas de colección). */
   const [into, setInto] = useState<string | null>(null);
-  /** Recuadro abierto para escribir. */
-  const [openBox, setOpenBox] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.card")) || 150; } catch { return 150; } });
+  const [paneW, setPaneW] = useState<number>(() => { try { return Number(localStorage.getItem("gula.pane")) || 340; } catch { return 340; } });
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
@@ -82,10 +82,8 @@ export function Editor({ project, note, update, keys }: Props) {
   const level: Pane[] = parent ? parent.panes ?? [] : note.panes;
   /** En este nivel, ¿los cuadrados son colecciones? */
   const levelIsCollections = isCollection && !parent;
-  const box = openBox ? findPane(note, openBox) ?? null : null;
-  /** Una nota de un solo recuadro se abre derecho: no hay grilla que mostrar. */
-  const soloBox = !isCollection && note.panes.length === 1 ? note.panes[0] : null;
-  const editing = box ?? soloBox;
+  /** La grilla de cuadrados existe solo para elegir colección. Los recuadros van abiertos. */
+  const showGrid = levelIsCollections;
 
   const hidden = note.hidePaneMarks ?? [];
   const needle = q.trim().toLowerCase();
@@ -129,14 +127,12 @@ export function Editor({ project, note, update, keys }: Props) {
       ),
     );
     if (levelIsCollections) setInto(id);
-    else setOpenBox(id);
   };
 
   const removePane = async (p: Pane) => {
     const inner = p.panes?.length ?? 0;
     const hasText = p.body.trim() || (p.panes ?? []).some((x) => x.body.trim() || x.title.trim());
-    if (level.length === 1 && !parent && !isCollection)
-      return notify("Es el único recuadro", "Una nota tiene que tener al menos uno.");
+    if (level.length === 1 && !isCollection) return notify("Es el único recuadro", "Una nota tiene que tener al menos uno.");
     if (
       hasText &&
       !(await confirmDlg(
@@ -152,7 +148,6 @@ export function Editor({ project, note, update, keys }: Props) {
       if (i >= 0) list.splice(i, 1);
       if (n.panes.length === 0) n.panes.push({ id: uid(), title: "", body: "" });
     });
-    if (openBox === p.id) setOpenBox(null);
     if (into === p.id) setInto(null);
   };
 
@@ -175,7 +170,7 @@ export function Editor({ project, note, update, keys }: Props) {
 
   /** Arrastrar cuadrados para reordenar el nivel actual. */
   const gridRef = useReorder<HTMLDivElement>({
-    item: ".coll-card:not(.add)",
+    item: ".coll-card:not(.add), .pane:not(.add)",
     attr: "data-pane",
     axis: "xy",
     onDrop: (dragId, overId, before) =>
@@ -198,21 +193,19 @@ export function Editor({ project, note, update, keys }: Props) {
       if (c === comboFor(keys, "preview")) {
         e.preventDefault();
         setPreview((v) => !v);
-      } else if (e.key === "Escape") {
-        // Un paso atrás: del recuadro a la lista, y de adentro de una colección al primer nivel.
-        if (openBox && !soloBox) { e.preventDefault(); setOpenBox(null); }
-        else if (into) { e.preventDefault(); setInto(null); }
+      } else if (e.key === "Escape" && into) {
+        e.preventDefault();
+        setInto(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [keys, openBox, into, soloBox]);
+  }, [keys, into]);
 
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
     setQ("");
     setInto(null);
-    setOpenBox(null);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- archivos soltados desde el Explorador ----
@@ -232,16 +225,26 @@ export function Editor({ project, note, update, keys }: Props) {
     if (at) {
       const under = document.elementFromPoint(at.x, at.y);
       if (under?.closest(".bottom")) return; // cayó en el panel de abajo: es un acceso
-      const card = under?.closest(".coll-card:not(.add)") as HTMLElement | null;
-      if (card?.dataset.pane) { write(card.dataset.pane); return; }
+      const el = under?.closest("[data-pane]") as HTMLElement | null;
+      const id = el?.dataset.pane;
+      if (id) {
+        // Si ese recuadro está abierto, va donde tenés el cursor; si es un cuadrado, al final de su texto.
+        const view = views.current[id];
+        if (view) {
+          (async () => {
+            for (const m of media) insertImage(view, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
+          })();
+        } else write(id);
+        return;
+      }
     }
-    // Si no cayó sobre un cuadrado: al recuadro que está abierto.
+    // Si no cayó sobre nada en particular: al recuadro donde estabas escribiendo.
     const view = Object.values(views.current).find((v) => v.hasFocus) ?? Object.values(views.current)[0];
     if (view) {
       (async () => {
         for (const m of media) insertImage(view, copyDir ? await copyToDir(m, copyDir).catch(() => m) : m);
       })();
-    } else if (editing) write(editing.id);
+    }
   };
 
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
@@ -324,7 +327,7 @@ export function Editor({ project, note, update, keys }: Props) {
           placeholder="Título (o escribí abajo y se completa solo)"
           spellCheck={false}
         />
-        {!preview && !editing && (
+        {!preview && (
           <>
             <span className="head-marks">
               {MARKS.map((m) => (
@@ -344,94 +347,48 @@ export function Editor({ project, note, update, keys }: Props) {
               placeholder={`Filtrar ${level.length}…`}
               spellCheck={false}
             />
-            <input
-              className="coll-size"
-              type="range"
-              min={110}
-              max={280}
-              step={10}
-              value={size}
-              onChange={(e) => { const v = Number(e.target.value); setSize(v); try { localStorage.setItem("gula.card", String(v)); } catch { /* sin localStorage */ } }}
-              title="Tamaño de los cuadrados"
-            />
-          </>
-        )}
-        {!preview &&
-          (soloBox ? (
-            <button
-              className="mode-btn wide"
-              onClick={() => { const id = uid(); setNote((n) => n.panes.push({ id, title: "", body: "" })); setOpenBox(id); }}
-              title="Sumar otro recuadro a la nota"
-            >
-              + Recuadro
-            </button>
-          ) : !editing ? (
-            <button className="mode-btn wide" onClick={add} title={levelIsCollections ? "Sumar una colección" : "Sumar un recuadro"}>
+            {showGrid ? (
+              <input
+                className="coll-size"
+                type="range"
+                min={110}
+                max={280}
+                step={10}
+                value={size}
+                onChange={(e) => { const v = Number(e.target.value); setSize(v); try { localStorage.setItem("gula.card", String(v)); } catch { /* sin localStorage */ } }}
+                title="Tamaño de los cuadrados"
+              />
+            ) : (
+              <input
+                className="coll-size"
+                type="range"
+                min={220}
+                max={720}
+                step={20}
+                value={paneW}
+                onChange={(e) => { const v = Number(e.target.value); setPaneW(v); try { localStorage.setItem("gula.pane", String(v)); } catch { /* sin localStorage */ } }}
+                title="Ancho de los recuadros"
+              />
+            )}
+            <button className="mode-btn wide" onClick={add} title={showGrid ? "Sumar una colección" : "Sumar un recuadro"}>
               {addLabel}
             </button>
-          ) : null)}
+          </>
+        )}
       </div>
 
-      {!preview && (into || (box && !soloBox)) && (
+      {!preview && parent && (
         <div className="crumbs">
-          <button className="crumb" onClick={() => { setOpenBox(null); setInto(null); }}>
-            {isCollection ? "Colecciones" : "Recuadros"}
-          </button>
-          {parent && (
-            <>
-              <span className="crumb-sep">›</span>
-              <button className="crumb" onClick={() => setOpenBox(null)}>
-                {parent.title.trim() || "Sin título"}
-              </button>
-            </>
-          )}
-          {box && (
-            <>
-              <span className="crumb-sep">›</span>
-              <span className="crumb here">{paneLabel(box, 0)}</span>
-            </>
-          )}
+          <button className="crumb" onClick={() => setInto(null)}>Colecciones</button>
+          <span className="crumb-sep">›</span>
+          <span className="crumb here">{paneLabel(parent, 0)}</span>
           <span className="crumb-hint">Esc vuelve</span>
         </div>
       )}
 
       {preview ? (
         <div className="md" dangerouslySetInnerHTML={{ __html: html }} onClick={onPreviewClick} />
-      ) : editing ? (
-        <div
-          className="pane focused"
-          data-pane={editing.id}
-          onContextMenu={(e) => { if ((e.target as HTMLElement).closest(".cm-editor")) paneMenu(e, editing); }}
-        >
-          <div className="focus-head">
-            <input
-              className="pane-title"
-              value={editing.title}
-              onChange={(e) => setPane(editing.id, (x) => (x.title = e.target.value))}
-              placeholder={soloBox ? "Título del recuadro (opcional)…" : "Título…"}
-              spellCheck={false}
-            />
-            {MARKS.map((m) => (
-              <button
-                key={m.id}
-                className={"mark-dot" + (editing.mark === m.id ? " on" : " off")}
-                style={{ background: m.color }}
-                title={m.label}
-                onClick={() => setPaneMark(editing.id, editing.mark === m.id ? null : m.id)}
-              />
-            ))}
-          </div>
-          <MarkdownEditor
-            key={note.id + editing.id}
-            value={editing.body}
-            onChange={(v) => setPane(editing.id, (x) => (x.body = v))}
-            placeholder={"Escribí acá…\n\n# Título\n- [ ] tarea\n**negrita** (Ctrl+B)\n![](imagen.png) muestra una imagen"}
-            onReady={(v) => (views.current[editing.id] = v)}
-            marks={project.marks}
-            onMark={setMark}
-          />
-        </div>
-      ) : (
+      ) : showGrid ? (
         <div className="coll-grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
           {visible.map((p) => {
             const media = firstMedia(p);
@@ -440,29 +397,20 @@ export function Editor({ project, note, update, keys }: Props) {
             return (
               <div
                 key={p.id}
-                className={"coll-card" + (p.panes ? " is-coll" : "")}
+                className="coll-card"
                 data-pane={p.id}
-                style={color ? { borderColor: color, boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-                onClick={() => (p.panes ? setInto(p.id) : setOpenBox(p.id))}
+                style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                onClick={() => setInto(p.id)}
                 onContextMenu={(e) => paneMenu(e, p)}
-                title={(p.panes ? `${inner} recuadro${inner === 1 ? "" : "s"}` : p.body.trim().slice(0, 300)) || "Vacío"}
+                title={`${inner} recuadro${inner === 1 ? "" : "s"}`}
               >
                 {media?.image && <img className="coll-thumb" src={assetUrl(media.src)} alt="" loading="lazy" />}
-                <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>
-                  −
-                </button>
+                <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>−</button>
                 <span className="coll-title">{paneLabel(p, level.indexOf(p))}</span>
                 <span className="coll-foot">
-                  {p.panes ? (
-                    <span className="coll-kind">{inner} recuadro{inner === 1 ? "" : "s"}</span>
-                  ) : (
-                    <>
-                      {media && !media.image && <span className="coll-kind">{media.video ? "▶ video" : "♪ audio"}</span>}
-                      {!p.body.trim() && <span className="coll-empty">vacío</span>}
-                    </>
-                  )}
-                  {(p.body.trim() || inner > 0) && (
-                    <button className="coll-copy" title="Copiar el texto" onClick={(e) => { e.stopPropagation(); copyPane(p); }}>
+                  <span className="coll-kind">{inner} recuadro{inner === 1 ? "" : "s"}</span>
+                  {inner > 0 && (
+                    <button className="coll-copy" title="Copiar el texto de la colección" onClick={(e) => { e.stopPropagation(); copyPane(p); }}>
                       Copiar
                     </button>
                   )}
@@ -470,12 +418,48 @@ export function Editor({ project, note, update, keys }: Props) {
               </div>
             );
           })}
-          {!needle && (
-            <button className="coll-card add" onClick={add} title={addLabel}>
-              +
-            </button>
-          )}
-          {needle && visible.length === 0 && <div className="empty wide">Nada dice “{q.trim()}”.</div>}
+          {!needle && <button className="coll-card add" onClick={add} title={addLabel}>+</button>}
+          {needle && visible.length === 0 && <div className="empty wide">Ninguna colección dice “{q.trim()}”.</div>}
+        </div>
+      ) : (
+        // Los recuadros van abiertos: escribís y pegás sin tener que entrar a ninguno.
+        <div className="panes" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fit, minmax(min(${paneW}px, 100%), 1fr))` }}>
+          {visible.map((p) => {
+            const color = markColor(p.mark);
+            return (
+              <div
+                key={p.id}
+                className="pane"
+                data-pane={p.id}
+                style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                onContextMenu={(e) => paneMenu(e, p)}
+              >
+                <div className="pane-head">
+                  <input
+                    className="pane-title"
+                    value={p.title}
+                    onChange={(e) => setPane(p.id, (x) => (x.title = e.target.value))}
+                    placeholder={`Título ${level.indexOf(p) + 1}…`}
+                    spellCheck={false}
+                  />
+                  <button className="pane-x" title="Sacar este recuadro" onClick={() => removePane(p)}>−</button>
+                </div>
+                <MarkdownEditor
+                  key={note.id + p.id}
+                  value={p.body}
+                  onChange={(v) => setPane(p.id, (x) => (x.body = v))}
+                  placeholder="…"
+                  compact
+                  onReady={(v) => (views.current[p.id] = v)}
+                  marks={project.marks}
+                  onMark={setMark}
+                />
+              </div>
+            );
+          })}
+          {/* Con un solo recuadro ocupa todo el ancho y alcanza el "+ Recuadro" de arriba. */}
+          {!needle && visible.length > 1 && <button className="pane add" onClick={add} title={addLabel}>+</button>}
+          {needle && visible.length === 0 && <div className="empty wide">Ningún recuadro dice “{q.trim()}”.</div>}
         </div>
       )}
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}

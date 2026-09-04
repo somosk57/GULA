@@ -478,12 +478,28 @@ body.reordering * { cursor: grabbing !important; }
 .cm-checkbox.checked + span, .cm-line:has(.cm-checkbox.checked) { color: var(--text-dim); }
 
 /* ---------- Columnas dentro de la nota ---------- */
-.panes { flex: 1; min-height: 0; display: grid; gap: 10px; grid-auto-rows: minmax(120px, 1fr); overflow-y: auto; }
+.panes {
+  flex: 1; min-height: 0; display: grid; gap: 10px; align-content: start;
+  grid-auto-rows: minmax(230px, 1fr); overflow-y: auto; padding-right: 4px;
+}
 .pane {
-  display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   background: var(--bg-panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 4px;
 }
 .pane:focus-within { border-color: var(--border-strong); }
+.pane-head { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.pane-head .pane-title { flex: 1; border-bottom: none; margin-bottom: 0; }
+.pane-x {
+  flex: none; width: 18px; height: 18px; line-height: 1; border: none; border-radius: 4px; cursor: pointer;
+  font-size: 14px; color: var(--text-faint); background: none; opacity: 0; transition: opacity .12s;
+}
+.pane:hover .pane-x { opacity: 1; }
+.pane-x:hover { color: #ff5f57; background: var(--bg-hover); }
+.pane.add {
+  align-items: center; justify-content: center; font-size: 22px; color: var(--text-faint);
+  border-style: dashed; cursor: pointer; min-height: 230px;
+}
+.pane.add:hover { color: var(--text); border-color: var(--border-strong); }
 .pane-title {
   font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-faint); padding: 0 2px 6px; border-bottom: 1px solid var(--line); margin-bottom: 6px;
@@ -739,10 +755,11 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 .coll-card {
   position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-start;
   text-align: left; padding: 12px 12px 10px; border-radius: 8px; cursor: pointer;
-  background: var(--bg-input, var(--bg-panel)); border: 1px solid var(--border);
+  background: var(--bg-panel); border: 1px solid var(--line);
   color: var(--text); overflow: hidden; user-select: none;
 }
 .coll-card:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.coll-card[style*="inset"] { border-color: transparent; }
 .coll-title {
   font-size: 13px; line-height: 1.35; font-weight: 500; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical;
@@ -772,7 +789,7 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 /* ---------- Panel de abajo cerrado ---------- */
 .bottom-show {
   flex: none; width: 100%; padding: 5px 12px; text-align: left; font-size: 11px;
-  color: var(--text-faint); background: var(--bg-panel); border: none; border-top: 1px solid var(--border);
+  color: var(--text-faint); background: var(--bg-panel); border: none; border-top: 1px solid var(--line);
   cursor: pointer;
 }
 .bottom-show:hover { color: var(--text); background: var(--bg-hover); }
@@ -795,7 +812,7 @@ body.dragging-media .pane, body.dragging-media .single, body.dragging-media .not
 /* Buscador y tamaño de la colección, en la cabecera */
 .coll-q {
   width: 150px; flex: none; font-size: 11.5px; padding: 4px 8px; border-radius: 5px;
-  background: var(--bg-input, var(--bg-code)); border: 1px solid var(--border); color: var(--text);
+  background: var(--bg-input); border: 1px solid var(--line); color: var(--text);
 }
 .coll-q:focus { border-color: var(--border-strong); outline: none; }
 .coll-size { width: 74px; flex: none; accent-color: var(--text-faint); cursor: pointer; }
