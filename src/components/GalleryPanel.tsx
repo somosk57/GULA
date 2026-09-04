@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, syncNote, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, syncNote, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail, getThumb, putThumb, videoFrame, moveToSubdir } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
@@ -288,7 +288,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     update((d) => {
       const p = d.projects.find((p) => p.id === it.projectId)!;
       const name = it.src.split(/[\\/]/).pop()?.replace(/\.[a-z0-9]+$/i, "") ?? "Resultado";
-      const n = newNote(name.slice(0, 60), "");
+      const n = newNote(name.slice(0, 60), "", DEFAULT_GROUP, "cols");
       n.autoTitle = false;
       n.panes = [{ id: uid(), title: "Prompt", body: "" }, { id: uid(), title: "Resultado", body: `![](<${it.src}>)\n` }];
       n.body = joinPanes(n.panes);

@@ -1,7 +1,7 @@
 // Captura distribuida: pegás la respuesta de cierre de la IA (con los encabezados
 // fijos) y GULA la reparte: Hecho → entrada del día, Pendiente → nota de tareas,
 // Decisiones → bloque de contexto, Prompts → prompts, Fichas → fichas, Ahora → "ahora estoy en".
-import { AppState, CardKind, Project, newNote, syncNote, uid } from "./types";
+import { AppState, CardKind, DEFAULT_GROUP, Project, newNote, syncNote, uid } from "./types";
 import { appendToDay } from "./diary";
 
 const HEADS = ["hecho", "pendiente", "decisiones", "prompts", "fichas", "ahora", "notas"] as const;
@@ -50,7 +50,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
   if (c.pendiente?.trim()) {
     const ls = items(c.pendiente);
     let n = p.notes.find((x) => /^tareas$/i.test(x.title));
-    if (!n) { n = newNote("Tareas", ""); p.notes.push(n); }
+    if (!n) { n = newNote("Tareas", "", DEFAULT_GROUP, "cols"); p.notes.push(n); }
     const pane = n.panes[0];
     pane.body = (pane.body.trimEnd() ? pane.body.trimEnd() + "\n" : "") + ls.map((t) => `- [ ] ${t}`).join("\n") + "\n";
     syncNote(n);
@@ -100,7 +100,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
     done.push("“ahora estoy en” actualizado");
   }
   if (c.notas?.trim()) {
-    const n = newNote(items(c.notas)[0]?.slice(0, 60) || "Notas de la sesión", c.notas.trim());
+    const n = newNote(items(c.notas)[0]?.slice(0, 60) || "Notas de la sesión", c.notas.trim(), DEFAULT_GROUP, "cols");
     p.notes.push(n);
     d.activeNoteId[p.id] = n.id;
     done.push("1 nota");

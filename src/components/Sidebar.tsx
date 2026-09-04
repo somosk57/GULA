@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ask, confirmDlg } from "../dialog";
+import { ask, confirmDlg, pick } from "../dialog";
 import { useReorder } from "../reorder";
 import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, markColor, newNote, noteMark, uid } from "../types";
 import { fmtAgo } from "../ai";
@@ -80,7 +80,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
   const selectNote = (id: string) => edit((_, d) => (d.activeNoteId[project.id] = id));
 
   /** Nota nueva en una sección: hereda los recuadros (cantidad y títulos) de la última nota de esa sección. */
-  const addNote = (group = DEFAULT_GROUP, from?: Note) =>
+  const addNote = (group = DEFAULT_GROUP, from?: Note, view?: "cols" | "grid") =>
     edit((p, d) => {
       const n = newNote("Nueva nota", "", group);
       const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
@@ -88,9 +88,20 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       if (template && template.panes.length > 1) {
         n.panes = template.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
       }
+      n.view = view ?? template?.view ?? "grid";
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });
+
+  /** Nota nueva preguntando primero qué tipo de nota es. */
+  const newNoteAsking = async (group = DEFAULT_GROUP) => {
+    const kind = await pick("¿Qué tipo de nota?", [
+      { id: "grid", label: "Colección", hint: "cuadrados con solo el título: prompts, escenas, ideas, tomas… todos los que quieras" },
+      { id: "cols", label: "Recuadros", hint: "mesa de trabajo: 2, 3, 4 o 6 recuadros a la vista" },
+    ]);
+    if (!kind) return;
+    addNote(group, undefined, kind as "cols" | "grid");
+  };
 
   const notesRef = useReorder<HTMLDivElement>({
     item: ".note-item",
@@ -108,7 +119,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
 
   const addGroup = async () => {
     const name = await ask("Nueva sección", "", { placeholder: "Ej: Ideas futuras" });
-    if (name?.trim()) addNote(name.trim());
+    if (name?.trim()) newNoteAsking(name.trim());
   };
 
   const noteMenu = (e: React.MouseEvent, noteId: string) => {
@@ -186,7 +197,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "Nueva nota acá", onClick: () => addNote(g) },
+        { label: "Nueva nota acá", onClick: () => newNoteAsking(g) },
         {
           label: "Renombrar sección",
           onClick: async () => {
@@ -281,7 +292,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
                 >
                   {g}
                 </button>
-                <button className="group-add" onClick={() => addNote(g)} title="Nueva nota en esta sección">+</button>
+                <button className="group-add" onClick={() => newNoteAsking(g)} title="Nueva nota en esta sección">+</button>
               </div>
               {!isCollapsed &&
                 items.map((n) => {
@@ -324,7 +335,7 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       </div>
 
       <div className="sidebar-foot">
-        <button className="add-note" onClick={() => addNote()} title="Nueva nota (Ctrl+N)">+ Nota</button>
+        <button className="add-note" onClick={() => newNoteAsking()} title="Nueva nota (Ctrl+N crea una directo)">+ Nota</button>
         <button className="add-note" onClick={addGroup} title="Nueva sección">+ Sección</button>
       </div>
 

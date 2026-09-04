@@ -83,6 +83,12 @@ export function Editor({ project, note, update, keys }: Props) {
         e.preventDefault();
         setFocusPane(null);
         setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid"));
+      } else if (e.key === "Escape") {
+        // Adentro de un cuadro: Escape vuelve a la colección.
+        setFocusPane((f) => {
+          if (f) e.preventDefault();
+          return null;
+        });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -91,7 +97,9 @@ export function Editor({ project, note, update, keys }: Props) {
 
   useEffect(() => {
     if (!note.body.trim()) setPreview(false);
-    setFocusPane(null);
+    // Colección recién creada (un cuadro vacío): abrirla directo para escribir.
+    const only = note.panes.length === 1 && !note.panes[0].body.trim() && !note.panes[0].title.trim();
+    setFocusPane(note.view === "grid" && only ? note.panes[0].id : null);
   }, [note.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const html = useMemo(
@@ -124,26 +132,46 @@ export function Editor({ project, note, update, keys }: Props) {
     }
   };
 
+  /** Texto de un recuadro que se funde con otro: conserva su título como encabezado. */
+  const merged = (p: Pane) => (p.title.trim() ? `## ${p.title.trim()}\n${p.body}` : p.body);
+
   const applyPreset = (titles: string[]) =>
     setNote((n) => {
       const want = Math.max(1, titles.length);
       if (want === 1) {
-        // Volver a una columna: juntar solo los textos reales (sin los "## título" internos).
         if (n.panes.length > 1) {
-          const joined = n.panes.map((p) => p.body.trim()).filter(Boolean).join("\n\n");
-          n.panes = [{ id: n.panes[0].id, title: "", body: joined }];
+          const joined = n.panes.map((p) => merged(p).trim()).filter(Boolean).join("\n\n");
+          n.panes = [{ id: n.panes[0].id, title: "", body: joined, mark: n.panes[0].mark }];
         }
         return;
       }
       while (n.panes.length < want) n.panes.push({ id: uid(), title: "", body: "" });
       while (n.panes.length > want) {
         const last = n.panes.pop()!;
-        if (last.body.trim()) n.panes[n.panes.length - 1].body += "\n\n" + last.body;
+        if (merged(last).trim()) n.panes[n.panes.length - 1].body += "\n\n" + merged(last);
       }
       // Un preset con nombres (Por hacer · Haciendo · Hecho) reemplaza los títulos;
       // uno sin nombres (3 columnas, 6 casillas) respeta los que ya escribiste.
       if (titles.some(Boolean)) titles.forEach((t, i) => (n.panes[i].title = t));
     });
+
+  /** El botón de recuadros: 1 → 2 → 3 → 4 → 6. Nunca funde recuadros con texto sin avisar. */
+  const cyclePreset = async () => {
+    const cycle = [1, 2, 3, 4, 6];
+    const i = cycle.indexOf(count);
+    const next = i < 0 ? 6 : cycle[(i + 1) % cycle.length];
+    const losing = note.panes.slice(next).filter((p) => p.body.trim() || p.title.trim()).length;
+    if (
+      losing > 0 &&
+      !(await confirmDlg(
+        `¿Pasar a ${next} recuadro${next === 1 ? "" : "s"}?`,
+        `${losing} recuadro${losing === 1 ? " con texto se funde" : "s con texto se funden"} con el anterior (no se pierde nada: el título queda como encabezado, y Ctrl+Z lo deshace).`,
+        { okLabel: `Pasar a ${next}` },
+      ))
+    )
+      return;
+    applyPreset(Array(next).fill(""));
+  };
 
   const grid = note.view === "grid";
   const hidden = note.hidePaneMarks ?? [];
@@ -235,32 +263,33 @@ export function Editor({ project, note, update, keys }: Props) {
           placeholder="Título (o escribí abajo y se completa solo)"
           spellCheck={false}
         />
+        {grid && !focused && !preview && (
+          <>
+            <span className="head-marks">
+              {MARKS.map((m) => (
+                <button
+                  key={m.id}
+                  className={"mark-dot" + (hidden.includes(m.id) ? " off" : " on")}
+                  style={{ background: m.color }}
+                  title={`${hidden.includes(m.id) ? "Mostrar" : "Ocultar"}: ${m.label} · se ven ${visible.length} de ${count}`}
+                  onClick={() => toggleHidden(m.id)}
+                />
+              ))}
+            </span>
+            <button className="mode-btn wide" onClick={addPane} title="Sumar un cuadro a la colección">+ Cuadro</button>
+          </>
+        )}
         {!grid && (
-          <button
-            className="mode-btn"
-            onClick={() => {
-              const cycle = [1, 2, 3, 4, 6];
-              const next = cycle[(cycle.indexOf(count) + 1) % cycle.length] ?? 1;
-              applyPreset(Array(next).fill(""));
-            }}
-            title="Recuadros: 1 → 2 → 3 → 4 → 6"
-          >
+          <button className="mode-btn" onClick={cyclePreset} title="Recuadros: 1 → 2 → 3 → 4 → 6">
             <LayoutIcon n={count} />
           </button>
         )}
         <button
           className={"mode-btn" + (grid ? " active" : "")}
           onClick={() => { setFocusPane(null); setNote((n) => (n.view = n.view === "grid" ? "cols" : "grid")); }}
-          title="Colección: cada recuadro es un cuadrado con su título (Ctrl+G)"
+          title={grid ? "Pasar a recuadros (mesa de trabajo) · Ctrl+G" : "Pasar a colección (cuadrados con el título) · Ctrl+G"}
         >
           <GridIcon />
-        </button>
-        <button
-          className={"mode-btn" + (preview ? " active" : "")}
-          onClick={() => setPreview((v) => !v)}
-          title="Alternar vista / edición (Ctrl+E)"
-        >
-          {preview ? "Editar" : "Vista"}
         </button>
       </div>
       {preview ? (
@@ -299,19 +328,6 @@ export function Editor({ project, note, update, keys }: Props) {
           </div>
         ) : (
           <div className="collection">
-            <div className="coll-filter">
-              {MARKS.map((m) => (
-                <button
-                  key={m.id}
-                  className={"mark-dot" + (hidden.includes(m.id) ? " off" : " on")}
-                  style={{ background: m.color }}
-                  title={hidden.includes(m.id) ? `Mostrar: ${m.label}` : `Ocultar: ${m.label}`}
-                  onClick={() => toggleHidden(m.id)}
-                />
-              ))}
-              <span className="coll-count">{visible.length} de {count}</span>
-              <button className="chip" onClick={addPane}>+ Cuadro</button>
-            </div>
             <div className="coll-grid">
               {visible.map((p) => (
                 <button

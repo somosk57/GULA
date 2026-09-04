@@ -219,8 +219,9 @@ export interface AppState {
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP): Note {
-  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota" };
+/** Nota nueva. Por defecto es una colección; `view: "cols"` la crea como mesa de trabajo. */
+export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP, view: "cols" | "grid" = "grid"): Note {
+  return { id: uid(), title, body, panes: [{ id: uid(), title: "", body }], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota", view };
 }
 
 /** Texto completo de una nota a partir de sus columnas. */
@@ -245,7 +246,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     profile,
     stage: "idea",
     now: "",
-    notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group)),
+    notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group, "cols")),
     links: [],
     prompts: t.prompts.map((p) => ({ id: uid(), title: p.title, body: p.body, updatedAt: Date.now(), lastUsedAt: null })),
     blocks: t.blocks.map((b) => ({ id: uid(), title: b.title, body: fill(b.body), enabled: b.enabled })),
@@ -268,7 +269,7 @@ export function defaultState(): AppState {
   p.notes[0].title = "Cómo usar GULA";
   p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- El botón de recuadros (arriba a la derecha) divide la nota en 2, 3, 4 o 6; cada recuadro tiene su título.\n- El botón de al lado (Ctrl+G) los muestra como **colección**: cuadrados con solo el título, todos los que quieras. Clic derecho en uno para ponerle color, y los puntos de arriba filtran.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una para ocultarla); el × cierra el panel entero.\n- Ctrl+/ muestra los atajos y te deja cambiarlos a tu gusto.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís **Colección** (cuadrados con solo el título, todos los que quieras) o **Recuadros** (mesa de trabajo). El botón de arriba a la derecha (Ctrl+G) la pasa de una a otra.\n- En la colección: clic en un cuadro para escribir, **Esc** vuelve; los 4 puntos de arriba filtran por color y **+ Cuadro** suma.\n- En **Recuadros**, el botón de arriba divide la nota en 2, 3, 4 o 6; cada uno con su título. Clic derecho en cualquiera: color, renombrar, mover, quitar.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota: marcala azul (maestro), verde (sirve), amarillo o rojo. Los puntos de arriba ocultan cada color.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una para ocultarla); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver el texto con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos a tu gusto.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],
@@ -302,6 +303,8 @@ export function migrate(raw: unknown): AppState {
       ...n,
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
+      // Las notas que ya existían se quedan como estaban (recuadros); las nuevas nacen colección.
+      view: n.view ?? "cols",
       createdAt: n.createdAt ?? n.updatedAt ?? Date.now(),
       autoTitle: n.autoTitle ?? n.title === "Nueva nota",
     })).map((n) => {
