@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, markColor } from "../types";
+import { AppState, MARKS, MARK_ORDER, Mark, Note, Project, joinPanes, markColor, newNote, uid } from "../types";
 import { assetUrl, isAudioPath, isVideoPath, openPath, revealInExplorer, copyText, pathExists, listDirMedia, DirEntryInfo, pickFolder, thumbnail } from "../backend";
 import { ask, confirmDlg } from "../dialog";
 import { matchImage } from "./MarkdownEditor";
@@ -69,9 +69,9 @@ function Thumb({ src }: { src: string }) {
 }
 
 /** Vista grande: flechas para pasar, 1–4 para marcar, Enter abre, Esc cierra. */
-function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote }: {
+function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote, onNewEntry }: {
   items: Item[]; index: number; marks: Record<string, Mark>;
-  onIndex: (i: number) => void; onMark: (it: Item, m: Mark | null) => void; onClose: () => void; onGoNote: (it: Item) => void;
+  onIndex: (i: number) => void; onMark: (it: Item, m: Mark | null) => void; onClose: () => void; onGoNote: (it: Item) => void; onNewEntry: (it: Item) => void;
 }) {
   const it = items[index];
   useEffect(() => {
@@ -82,10 +82,11 @@ function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote }: {
       else if (e.key === "Enter") openPath(it.src);
       else if (/^[1-4]$/.test(e.key)) { const m = MARK_ORDER[Number(e.key) - 1]; onMark(it, marks[it.src] === m ? null : m); }
       else if (e.key === "0" || e.key === "Backspace") onMark(it, null);
+      else if (e.key.toLowerCase() === "n" && !it.note) onNewEntry(it);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [index, items, it, marks, onIndex, onMark, onClose]);
+  }, [index, items, it, marks, onIndex, onMark, onClose, onNewEntry]);
   if (!it) return null;
   const mk = marks[it.src];
   return (
@@ -105,8 +106,8 @@ function Lightbox({ items, index, marks, onIndex, onMark, onClose, onGoNote }: {
             <button key={m.id} className={"mark-dot" + (mk === m.id ? " on" : "")} style={{ background: m.color }} title={`${m.label} (${i + 1})`} onClick={() => onMark(it, mk === m.id ? null : m.id)} />
           ))}
         </span>
-        <span className="prompt-sub">{index + 1} / {items.length} · ← → pasar · 1–4 marcar · Enter abrir · Esc cerrar</span>
-        {it.note && <button className="chip" onClick={() => { onGoNote(it); onClose(); }}>Ir a la nota</button>}
+        <span className="prompt-sub">{index + 1} / {items.length} · ← → pasar · 1–4 marcar{it.note ? "" : " · N nueva entrada"} · Enter abrir · Esc cerrar</span>
+        {it.note ? <button className="chip" onClick={() => { onGoNote(it); onClose(); }}>Ir a la nota</button> : <button className="chip add" onClick={() => onNewEntry(it)} title="Crea una entrada con Prompt y Resultado (N)">N · Nueva entrada</button>}
         <button className="chip" onClick={() => openPath(it.src)}>Abrir</button>
         <button className="chip" onClick={() => revealInExplorer(it.src)}>Explorador</button>
       </div>
@@ -122,30 +123,41 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   const [kind, setKind] = useState<"all" | "image" | "video" | "audio" | "doc">("all");
   const [scope, setScope] = useState<"project" | "all">("project");
   /** "notes" = lo que está en las notas; o el id de una colección (carpeta del disco). */
-  const [source, setSource] = useState<string>("notes");
-  const [files, setFiles] = useState<DirEntryInfo[]>([]);
+  const [source, setSource] = useState<string>("all");
+  const [files, setFiles] = useState<(DirEntryInfo & { collection: string })[]>([]);
+  const [loose, setLoose] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [markFilter, setMarkFilter] = useState<Mark | "all">("all");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const collection = project.collections.find((c) => c.id === source) ?? null;
 
-  // Colección: leer la carpeta del disco.
+  // Colecciones: leer las carpetas del disco (la elegida, o todas en "Todo").
+  const wanted = collection ? [collection] : source === "all" ? project.collections : [];
+  const wantedKey = wanted.map((c) => c.id + "|" + c.path).join(";");
   useEffect(() => {
-    if (!collection) { setFiles([]); setLoadErr(null); return; }
+    if (!wanted.length) { setFiles([]); setLoadErr(null); return; }
     let alive = true;
-    listDirMedia(collection.path)
-      .then((f) => { if (alive) { setFiles(f); setLoadErr(null); } })
-      .catch((e) => { if (alive) { setFiles([]); setLoadErr(String(e)); } });
+    Promise.all(wanted.map((c) => listDirMedia(c.path).then((f) => f.map((x) => ({ ...x, collection: c.name })), (e) => { if (alive) setLoadErr(String(e)); return []; })))
+      .then((all) => { if (alive) { setFiles(all.flat()); } });
     return () => { alive = false; };
-  }, [collection?.id, collection?.path, project.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wantedKey, project.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const items = useMemo<Item[]>(() => {
-    if (collection) {
-      return files.map((f) => ({ projectId: project.id, src: f.path, kind: f.kind, note: null, paneTitle: collection.name, prompt: "" }));
+    const fromNotes = scope === "all" && allProjects ? allProjects.flatMap(collectMedia) : collectMedia(project);
+    if (source === "notes") return fromNotes;
+    // Una sola grilla: cada archivo una vez. Si está en una nota, gana la versión de la nota (trae prompt y título).
+    const norm = (s: string) => s.replace(/\\/g, "/").toLowerCase();
+    const seen = new Map<string, Item>();
+    if (source === "all") for (const it of fromNotes) if (!seen.has(norm(it.src))) seen.set(norm(it.src), it);
+    for (const f of files) {
+      const k = norm(f.path);
+      const inNote = fromNotes.find((it) => norm(it.src) === k);
+      if (seen.has(k)) continue;
+      seen.set(k, inNote ?? { projectId: project.id, src: f.path, kind: f.kind, note: null, paneTitle: f.collection, prompt: "" });
     }
-    return scope === "all" && allProjects ? allProjects.flatMap(collectMedia) : collectMedia(project);
-  }, [project, allProjects, scope, collection, files]);
+    return [...seen.values()];
+  }, [project, allProjects, scope, source, files]);
 
   // Detectar archivos que ya no están (movidos o borrados).
   useEffect(() => {
@@ -168,8 +180,10 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
     });
   const shown = items
     .filter((i) => kind === "all" || i.kind === kind || (kind === "doc" && i.kind === "other"))
-    .filter((i) => markFilter === "all" || markOf(i) === markFilter);
-  useEffect(() => setLimit(PAGE), [kind, source, scope, markFilter, project.id]);
+    .filter((i) => markFilter === "all" || markOf(i) === markFilter)
+    .filter((i) => !loose || !i.note);
+  const looseCount = items.filter((i) => !i.note).length;
+  useEffect(() => setLimit(PAGE), [kind, source, scope, markFilter, loose, project.id]);
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
@@ -182,6 +196,20 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   const markCounts = Object.fromEntries(MARKS.map((m) => [m.id, items.filter((i) => markOf(i) === m.id).length])) as Record<Mark, number>;
   const counts = { image: 0, video: 0, audio: 0, doc: 0 };
   items.forEach((i) => counts[i.kind === "other" ? "doc" : i.kind]++);
+
+  /** Entrada nueva con este archivo en el recuadro "Resultado" (y un "Prompt" vacío al lado). */
+  const newEntryWith = (it: Item) =>
+    update((d) => {
+      const p = d.projects.find((p) => p.id === it.projectId)!;
+      const name = it.src.split(/[\\/]/).pop()?.replace(/\.[a-z0-9]+$/i, "") ?? "Resultado";
+      const n = newNote(name.slice(0, 60), "");
+      n.autoTitle = false;
+      n.panes = [{ id: uid(), title: "Prompt", body: "" }, { id: uid(), title: "Resultado", body: `![](<${it.src}>)\n` }];
+      n.body = joinPanes(n.panes);
+      const lastIdx = p.notes.map((x) => x.group).lastIndexOf(n.group);
+      p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
+      d.activeNoteId[p.id] = n.id;
+    });
 
   const goTo = (n: Note, projectId = project.id) =>
     update((d) => {
@@ -199,7 +227,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
           label: `${markOf(it) === m.id ? "● " : "○ "}${m.label}`,
           onClick: () => setMark(it, markOf(it) === m.id ? null : m.id),
         })),
-        ...(it.note ? [{ label: "Ir a la nota", separator: true, onClick: () => goTo(it.note!, it.projectId) }] : []),
+        ...(it.note ? [{ label: "Ir a la nota", separator: true, onClick: () => goTo(it.note!, it.projectId) }] : [{ label: "Nueva entrada con este archivo", separator: true, onClick: () => newEntryWith(it) }]),
         {
           label: "Insertar en la nota abierta",
           separator: !it.note,
@@ -225,7 +253,8 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
   return (
     <div className="gallery">
       <div className="panel-actions sources">
-        <button className={"chip" + (source === "notes" ? " on" : "")} onClick={() => setSource("notes")} title="Lo que está en las notas del proyecto">En las notas</button>
+        <button className={"chip" + (source === "all" ? " on" : "")} onClick={() => setSource("all")} title="Todo junto: lo de las notas y lo de las colecciones, cada archivo una vez">Todo</button>
+        <button className={"chip" + (source === "notes" ? " on" : "")} onClick={() => setSource("notes")} title="Solo lo que está en las notas del proyecto">En las notas</button>
         {project.collections.map((c) => (
           <button
             key={c.id}
@@ -284,7 +313,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
       <div className="panel-actions">
         {(["all", "image", "video", "audio", "doc"] as const).map((k) => (
           <button key={k} className={"chip" + (kind === k ? " on" : "")} onClick={() => setKind(k)}>
-            {k === "all" ? `Todo ${items.length}` : k === "image" ? `Imágenes ${counts.image}` : k === "video" ? `Videos ${counts.video}` : k === "audio" ? `Audios ${counts.audio}` : `Docs ${counts.doc}`}
+            {k === "all" ? `Todos ${items.length}` : k === "image" ? `Imágenes ${counts.image}` : k === "video" ? `Videos ${counts.video}` : k === "audio" ? `Audios ${counts.audio}` : `Docs ${counts.doc}`}
           </button>
         ))}
         <span className="mark-filter">
@@ -307,6 +336,11 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
         >
           {size <= 96 ? "▫ chico" : size <= 140 ? "◽ medio" : size <= 200 ? "◻ grande" : "⬜ enorme"}
         </button>
+        {source !== "notes" && (
+          <button className={"chip" + (loose ? " on" : "")} title="Archivos de las colecciones que todavía no están en ninguna entrada" onClick={() => setLoose((v) => !v)}>
+            Sueltos {looseCount}
+          </button>
+        )}
         {broken.size > 0 && <span className="chip broken-chip" title="Archivos que ya no están en su ruta: movidos, renombrados o borrados">⚠ {broken.size} sin archivo</span>}
         {loadErr && <span className="chip broken-chip">⚠ {loadErr}</span>}
         {!collection && allProjects && allProjects.length > 1 && (
@@ -330,6 +364,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
             {it.kind === "video" && (size >= 140 ? <video src={srcOf(it.src)} preload="metadata" muted /> : <div className="gaudio">▶<span>{it.src.split(/[\\/]/).pop()}</span></div>)}
             {it.kind === "audio" && <div className="gaudio">♪<span>{it.src.split(/[\\/]/).pop()}</span></div>}
             {(it.kind === "doc" || it.kind === "other") && <div className="gaudio gdoc">{(it.src.split(".").pop() ?? "").toUpperCase().slice(0, 5)}<span>{it.src.split(/[\\/]/).pop()}</span></div>}
+            {it.note && source !== "notes" && <span className="gnote" title={`En la nota: ${it.note.title}`}>#</span>}
             <div className="gmarks" onClick={(e) => e.stopPropagation()}>
               {MARKS.map((m) => (
                 <button key={m.id} className={"mark-dot tiny" + (markOf(it) === m.id ? " on" : "")} style={{ background: m.color }} title={m.label} onClick={() => setMark(it, markOf(it) === m.id ? null : m.id)} />
@@ -360,6 +395,7 @@ export function GalleryPanel({ project, update, allProjects }: Props) {
           onMark={(it, m) => setMark(it, m)}
           onClose={() => setLbSrc(null)}
           onGoNote={(it) => goTo(it.note!, it.projectId)}
+          onNewEntry={newEntryWith}
         />
       )}
     </div>
