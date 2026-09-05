@@ -13,6 +13,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { assetUrl, isAudioPath, isImagePath, isVideoPath, saveImage } from "../backend";
+import { openMedia } from "./MediaViewer";
 
 interface Props {
   value: string;
@@ -165,6 +166,21 @@ class ImageWidget extends WidgetType {
       el.alt = "";
     }
     el.draggable = false;
+    // Clic en la imagen (o en el ⤢ del video) → verla en grande, sin el recuadro apretándola.
+    if (!isAudioPath(this.src)) {
+      const big = document.createElement("button");
+      big.className = "cm-big";
+      big.textContent = "⤢";
+      big.title = "Ver en grande";
+      big.onmousedown = (ev) => { ev.preventDefault(); ev.stopPropagation(); openMedia(this.src); };
+      wrap.appendChild(big);
+      if (!(el instanceof HTMLMediaElement)) {
+        el.style.cursor = "zoom-in";
+        el.onclick = () => openMedia(this.src);
+      } else {
+        el.ondblclick = () => openMedia(this.src);
+      }
+    }
     el.onerror = () => {
       wrap.classList.add("broken");
       wrap.textContent = (el instanceof HTMLMediaElement ? "No se puede reproducir (¿formato no soportado? probá .mp4 H.264 o .mp3): " : "No se encuentra el archivo: ") + this.src;

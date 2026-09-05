@@ -867,3 +867,30 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   position: absolute; left: 100%; top: -4px; margin-left: 2px;
   max-height: 320px; overflow-y: auto; z-index: 1;
 }
+
+/* ---------- Ver una imagen o un video en grande ---------- */
+.viewer {
+  position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column;
+  background: rgba(0, 0, 0, .88);
+}
+.viewer-bar {
+  flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+  background: var(--bg-panel); border-bottom: 1px solid var(--line);
+}
+.viewer-name {
+  flex: 1; min-width: 0; font-size: 12px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.viewer-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto; }
+.viewer-body img, .viewer-body video { max-width: 100%; max-height: 100%; display: block; }
+/* Tamaño real: la imagen se muestra tal cual y el marco scrollea. */
+.viewer-body.real { align-items: flex-start; justify-content: flex-start; }
+.viewer-body.real img { max-width: none; max-height: none; }
+/* El ⤢ de cada archivo en el recuadro */
+.cm-big {
+  position: absolute; top: 10px; left: 6px; z-index: 2; width: 22px; height: 22px;
+  border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
+  color: var(--text-dim); background: rgba(0, 0, 0, .55); opacity: 0; transition: opacity .12s;
+}
+.cm-image:hover .cm-big { opacity: 1; }
+.cm-big:hover { color: #fff; background: rgba(0, 0, 0, .8); }
