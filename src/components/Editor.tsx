@@ -319,6 +319,20 @@ export function Editor({ project, note, update, keys }: Props) {
     ],
   });
 
+  /** Clic derecho en el fondo (no sobre un cuadrado ni un recuadro). */
+  const bgMenu = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".coll-card, .pane")) return;
+    e.preventDefault();
+    const items: MenuItem[] = [
+      { label: showGrid ? "+ Nueva colección" : "+ Nuevo recuadro", onClick: add },
+      { label: preview ? "Volver a escribir  (Ctrl+E)" : "Ver con formato  (Ctrl+E)", onClick: () => setPreview((v) => !v), separator: true },
+    ];
+    if (parent) items.push({ label: "Volver a las colecciones  (Esc)", onClick: () => setInto(null) });
+    if (hidden.length) items.push({ label: "Mostrar todos los colores", onClick: () => setNote((n) => (n.hidePaneMarks = [])) });
+    if (parent) items.push({ label: "⤓ Bajar esta colección a una carpeta…", separator: true, onClick: () => downloadPane(parent) });
+    setMenu({ x: e.clientX, y: e.clientY, items });
+  };
+
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const items: MenuItem[] = [
@@ -462,6 +476,7 @@ export function Editor({ project, note, update, keys }: Props) {
       ) : showGrid ? (
         <div
           className="coll-grid"
+          onContextMenu={bgMenu}
           ref={gridRef}
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))`, gridAutoRows: `${size}px` }}
         >
@@ -498,7 +513,7 @@ export function Editor({ project, note, update, keys }: Props) {
         </div>
       ) : (
         // Los recuadros van abiertos: escribís y pegás sin tener que entrar a ninguno.
-        <div className="panes" ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fit, minmax(min(${paneW}px, 100%), 1fr))` }}>
+        <div className="panes" onContextMenu={bgMenu} ref={gridRef} style={{ gridTemplateColumns: `repeat(auto-fit, minmax(min(${paneW}px, 100%), 1fr))` }}>
           {visible.map((p) => {
             const color = markColor(p.mark);
             return (

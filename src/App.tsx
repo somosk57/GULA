@@ -63,6 +63,18 @@ export default function App() {
     }
   }, [state?.hiddenTabs, state?.bottomTab, update]);
 
+  // El menú nativo del WebView (Back, Refresh, Print…) no pinta nada acá.
+  // Se deja solo adentro de un campo de texto, donde sirve para copiar y pegar.
+  useEffect(() => {
+    const onCtx = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest?.("input, textarea, .cm-editor, [contenteditable='true']")) return;
+      e.preventDefault();
+    };
+    window.addEventListener("contextmenu", onCtx);
+    return () => window.removeEventListener("contextmenu", onCtx);
+  }, []);
+
   // Tema: data-theme en <html>; "system" no estampa nada y decide el sistema.
   useEffect(() => {
     const t = state?.theme ?? "dark";

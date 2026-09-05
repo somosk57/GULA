@@ -79,6 +79,25 @@ export function PromptsPanel({ project, update }: Props) {
     });
   };
 
+  /** Guarda en una carpeta el texto de cada recuadro del proyecto. */
+  const dumpAll = async () => {
+    const total = textFiles(project).length;
+    if (!total) return notify("No hay textos", "Todavía no escribiste nada en los recuadros de este proyecto.");
+    const how = await pick(`Bajar los textos (${total} recuadros con texto)`, [
+      { id: "box", label: "Un .txt por recuadro", hint: "Nota / Colección / 01 - Idea.txt — para usar cada prompt suelto" },
+      { id: "coll", label: "Un .txt por colección", hint: "todos los recuadros de una colección en un solo archivo" },
+    ]);
+    if (!how) return;
+    const dir = await pickFolder();
+    if (!dir) return;
+    try {
+      const n = await dumpTexts(project, dir, how === "coll");
+      notify(`${n} archivo${n === 1 ? "" : "s"} en la carpeta`, dir);
+    } catch (e) {
+      notify("No se pudieron guardar", String(e));
+    }
+  };
+
   const promptMenu = (e: React.MouseEvent, p: Prompt) => {
     e.preventDefault();
     e.stopPropagation();
@@ -122,29 +141,28 @@ export function PromptsPanel({ project, update }: Props) {
         <button
           className="chip"
           title="Guardar en una carpeta el texto de cada recuadro de este proyecto, como .txt"
-          onClick={async () => {
-            const total = textFiles(project).length;
-            if (!total) return notify("No hay textos", "Todavía no escribiste nada en los recuadros de este proyecto.");
-            const how = await pick(`Bajar los textos (${total} recuadros con texto)`, [
-              { id: "box", label: "Un .txt por recuadro", hint: "Nota / Colección / 01 - Idea.txt — para usar cada prompt suelto" },
-              { id: "coll", label: "Un .txt por colección", hint: "todos los recuadros de una colección en un solo archivo" },
-            ]);
-            if (!how) return;
-            const dir = await pickFolder();
-            if (!dir) return;
-            try {
-              const n = await dumpTexts(project, dir, how === "coll");
-              notify(`${n} archivo${n === 1 ? "" : "s"} en la carpeta`, dir);
-            } catch (e) {
-              notify("No se pudieron guardar", String(e));
-            }
-          }}
+          onClick={dumpAll}
         >
           ⤓ Bajar textos…
         </button>
         <button className="chip add" onClick={() => add()}>+ Nuevo</button>
       </div>
-      <div className="prompt-list">
+      <div
+        className="prompt-list"
+        onContextMenu={(e) => {
+          if ((e.target as HTMLElement).closest(".prompt")) return;
+          e.preventDefault();
+          setMenu({
+            x: e.clientX,
+            y: e.clientY,
+            items: [
+              { label: "+ Nuevo prompt", onClick: () => add() },
+              { label: "Pegar del portapapeles", onClick: fromClipboard },
+              { label: "⤓ Bajar los textos del proyecto…", separator: true, onClick: dumpAll },
+            ],
+          });
+        }}
+      >
         {ordered.map((p) => {
           const isOpen = openId === p.id;
           return (
