@@ -3,12 +3,13 @@ import { marked } from "marked";
 import { AppState, MARKS, Mark, Note, Pane, Project, deriveTitle, findPane, markColor, syncNote, uid } from "../types";
 import { MarkdownEditor, insertImage, isImagePath, matchImage } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
-import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickImage, win } from "../backend";
+import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickFolder, pickImage, win } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { Thumb } from "./GalleryPanel";
 import { ask, confirmDlg, notify } from "../dialog";
 import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
+import { dumpPane, paneFiles } from "../dump";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -169,6 +170,33 @@ export function Editor({ project, note, update, keys }: Props) {
     notify("Copiado", p.title.trim() || "Ya está en el portapapeles.");
   };
 
+  /** Baja a una carpeta todo lo de esa colección (o de ese recuadro): textos y archivos. */
+  const downloadPane = async (p: Pane) => {
+    const files = paneFiles(p);
+    const boxes = p.panes?.length ? p.panes : [p];
+    const conTexto = boxes.filter((b) => b.body.trim()).length;
+    if (!conTexto && !files.length) return notify("No hay nada que bajar", "Esta colección todavía está vacía.");
+    const dir = await pickFolder();
+    if (!dir) return;
+    if (
+      !(await confirmDlg(
+        `¿Bajar “${p.title.trim() || paneLabel(p, 0)}”?`,
+        `${conTexto} texto${conTexto === 1 ? "" : "s"} y ${files.length} archivo${files.length === 1 ? "" : "s"} van a:\n${dir}\n\nLos originales quedan donde están.`,
+        { okLabel: "Bajar" },
+      ))
+    )
+      return;
+    try {
+      const r = await dumpPane(p, dir);
+      notify(
+        `${r.texts} texto${r.texts === 1 ? "" : "s"} y ${r.copied} archivo${r.copied === 1 ? "" : "s"} en la carpeta`,
+        r.failed.length ? `${r.failed.length} no se pudieron copiar:\n` + r.failed.slice(0, 10).join("\n") : dir,
+      );
+    } catch (e) {
+      notify("No se pudo bajar", String(e));
+    }
+  };
+
   /** Arrastrar cuadrados para reordenar el nivel actual. */
   const gridRef = useReorder<HTMLDivElement>({
     item: ".coll-card:not(.add), .pane:not(.add)",
@@ -252,6 +280,7 @@ export function Editor({ project, note, update, keys }: Props) {
     e.preventDefault();
     const items: MenuItem[] = [
       { label: "Copiar el texto", onClick: () => copyPane(p) },
+      { label: p.panes ? "⤓ Bajar la colección a una carpeta…" : "⤓ Bajar el recuadro a una carpeta…", onClick: () => downloadPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
       {
         label: p.panes ? "Renombrar la colección" : "Renombrar el recuadro",

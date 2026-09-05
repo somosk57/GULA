@@ -85,6 +85,48 @@ export function textFiles(p: Project): { name: string; content: string }[] {
   return out;
 }
 
+/** Los recuadros de un cuadrado: los de adentro si es una colección, o él mismo. */
+const boxesOf = (p: Pane): Pane[] => (p.panes?.length ? p.panes : [p]);
+
+/** Archivos locales que hay adentro de una colección (o de un recuadro suelto). */
+export function paneFiles(p: Pane): string[] {
+  const out = new Set<string>();
+  for (const b of boxesOf(p))
+    for (const line of b.body.split("\n")) {
+      const src = matchImage(line.trim());
+      if (src && !/^(https?:|data:)/i.test(src)) out.add(src);
+    }
+  return [...out];
+}
+
+/**
+ * Baja una colección entera a una carpeta: un .txt por recuadro con texto y una
+ * copia de cada archivo, todo junto (la carpeta ya es la de esa colección).
+ */
+export async function dumpPane(
+  p: Pane,
+  dir: string,
+  onStep?: (done: number, total: number) => void,
+): Promise<{ texts: number; copied: number; failed: string[] }> {
+  const files = boxesOf(p)
+    .map((b, i) => ({ name: `${boxName(b, i)}.txt`, content: b.body.trim() + "\n" }))
+    .filter((f) => f.content.trim());
+  if (files.length) await exportFiles(dir, files);
+  const media = paneFiles(p);
+  let copied = 0;
+  const failed: string[] = [];
+  for (const src of media) {
+    try {
+      await copyToDir(src, dir);
+      copied++;
+    } catch {
+      failed.push(src);
+    }
+    onStep?.(copied + failed.length, media.length);
+  }
+  return { texts: files.length, copied, failed };
+}
+
 /** Un .txt por colección, con sus recuadros adentro. */
 export function textFilesByCollection(p: Project): { name: string; content: string }[] {
   const out: { name: string; content: string }[] = [];
