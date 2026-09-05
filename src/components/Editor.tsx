@@ -28,6 +28,7 @@ import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
 import { dumpPane, paneFiles } from "../dump";
 import { onGoToPane } from "../navigate";
+import { pinMenuItem } from "./Shelves";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -330,17 +331,7 @@ export function Editor({ project, update, keys }: Props) {
           if (t !== null) editPane(p.id, (x) => (x.title = t.trim()));
         },
       },
-      ...(isColl(p)
-        ? [{
-            label: (project.pins ?? []).includes(p.id) ? "★ Dejar de fijar a la izquierda" : "★ Fijar a la izquierda",
-            onClick: () =>
-              update((d) => {
-                const pr = d.projects.find((x) => x.id === project.id)!;
-                const pins = pr.pins ?? [];
-                pr.pins = pins.includes(p.id) ? pins.filter((x) => x !== p.id) : [...pins, p.id];
-              }),
-          }]
-        : []),
+      ...(isColl(p) ? [pinMenuItem(p, project, update)] : []),
       { label: "Copiar el texto", onClick: () => copyPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
       { label: "⤓ Bajar a una carpeta…", onClick: () => downloadPane(p) },

@@ -226,6 +226,13 @@ export interface Collection {
   path: string;
 }
 
+/** Un estante: una fila con nombre ("PERSONAJES") con colecciones de cualquier parte del mapa. */
+export interface Shelf {
+  id: string;
+  title: string;
+  ids: string[];
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -245,6 +252,8 @@ export interface Project {
   labels?: string[];
   /** Colecciones fijadas: aparecen en la columna de la izquierda para volver de un clic. */
   pins?: string[];
+  /** Estantes: filas con nombre donde juntás colecciones de cualquier lado del mapa. */
+  shelves?: Shelf[];
   /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
   hideMarks: Mark[];
   cards: Card[];
@@ -420,7 +429,7 @@ export function defaultState(): AppState {
   const guia = newNote("Cómo usar GULA");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: queda en la columna, chiquita, para volver de un clic desde donde estés.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: en la columna (siempre a la vista) o en un **estante**, una fila con nombre (PERSONAJES, ESCENAS) donde juntás colecciones de lugares distintos y te movés con las flechas.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -484,6 +493,7 @@ export function migrate(raw: unknown): AppState {
     marks: p.marks ?? {},
     labels: p.labels ?? [],
     pins: p.pins ?? [],
+    shelves: p.shelves ?? [],
     hideMarks: p.hideMarks ?? [],
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
     collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),

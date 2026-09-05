@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AppState, Project, STAGES } from "../types";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { labelMenuItems, viewMenuItems } from "../menus";
+import { Shelves } from "./Shelves";
 
 interface Props {
   state: AppState;
@@ -64,6 +65,8 @@ export function Sidebar({ state, project, update }: Props) {
         placeholder={"Idea…\n\n¿En qué andás? Una línea para cuando vuelvas."}
         spellCheck={false}
       />
+
+      <Shelves project={project} update={update} />
 
       <div className="sidebar-foot tools">
         <button

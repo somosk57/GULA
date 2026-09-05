@@ -1,6 +1,6 @@
 // Ir a un recuadro desde cualquier lado (Tareas, buscador, vista por etiqueta).
 // Con un mapa grande, poder saltar al lugar exacto es lo que evita perderse.
-import { AppState, Note, Pane, Project } from "./types";
+import { AppState, Note, Pane, Project, findPane } from "./types";
 
 const GO = "gula:ir-recuadro";
 
@@ -62,4 +62,20 @@ export function walkPanes(p: Project, collections = false): Located[] {
   };
   for (const note of p.notes) walk(note, note.panes, note.title);
   return out;
+}
+
+/** ¿Este archivo está adentro de este cuadrado (a cualquier profundidad)? */
+export function paneHas(p: Pane, src: string): boolean {
+  if (p.panes) return p.panes.some((x) => paneHas(x, src));
+  return p.body.includes(src);
+}
+
+/** Encuentra un cuadrado del proyecto por su id, sepa o no en qué nota vive. */
+export function locatePane(p: Project, id: string): { pane: Pane; noteId: string; name: string } | null {
+  for (const n of p.notes) {
+    if (n.id === id) return { pane: n as unknown as Pane, noteId: n.id, name: n.title };
+    const found = findPane(n, id);
+    if (found) return { pane: found, noteId: n.id, name: found.title };
+  }
+  return null;
 }
