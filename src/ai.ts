@@ -4,16 +4,16 @@ import { Note, Project, allBoxes, syncNote } from "./types";
 export function toggleTaskInNote(n: Note, line: number) {
   const flip = (s: string) => s.replace(/\[([ xX])\]/, (_, x) => (x === " " ? "[x]" : "[ ]"));
   const boxes = allBoxes(n);
-  if (boxes.length <= 1 && !n.panes[0]?.panes?.length) {
+  if (boxes.length <= 1 && !n.panes[0]?.panes) {
     const lines = n.body.split("\n");
     lines[line] = flip(lines[line] ?? "");
-    boxes[0].body = lines.join("\n");
+    if (boxes[0]) boxes[0].body = lines.join("\n");
   } else {
-    // Mismo recorrido que joinPanes: "## título" + cuerpo, separados por línea vacía.
+    // Mismo recorrido que joinPanes: cada recuadro va con su encabezado arriba.
     let cursor = 0;
     for (const p of boxes) {
       const bodyLines = p.body.split("\n");
-      const start = cursor + 1; // después de "## título"
+      const start = cursor + 1; // después del encabezado
       if (line >= start && line < start + bodyLines.length) {
         bodyLines[line - start] = flip(bodyLines[line - start]);
         p.body = bodyLines.join("\n");
@@ -25,17 +25,11 @@ export function toggleTaskInNote(n: Note, line: number) {
   syncNote(n);
 }
 
-export interface TaskItem {
-  noteId: string;
-  noteTitle: string;
-  line: number;
-  text: string;
-  done: boolean;
-}
+export interface TaskItem { noteId: string; noteTitle: string; line: number; text: string; done: boolean }
 
 const TASK_LINE = /^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/;
 
-/** Junta todas las `- [ ]` de todas las notas del proyecto. */
+/** Las `- [ ]` escritas a mano, de todas las notas. */
 export function collectTasks(p: Project): TaskItem[] {
   const out: TaskItem[] = [];
   for (const n of p.notes) {

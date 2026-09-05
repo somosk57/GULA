@@ -17,7 +17,7 @@ const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Dat
 export function dayEntry(p: Project, at = Date.now()): Note {
   let n = p.notes.find((x) => x.group === SESSIONS_GROUP && sameDay(x.createdAt, at));
   if (n) return n;
-  n = newNote(dayTitle(at), "", SESSIONS_GROUP, "boxes");
+  n = newNote(dayTitle(at), "", SESSIONS_GROUP);
   n.autoTitle = false;
   n.createdAt = at;
   n.updatedAt = at;

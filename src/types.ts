@@ -50,25 +50,78 @@ export interface Pane {
   body: string;
   /** Color de etiqueta (para filtrar). */
   mark?: Mark;
-  /** Solo en el primer nivel de una nota de colección: los recuadros de adentro. */
+  /** Si está definido, este cuadrado es una COLECCIÓN y estos son sus hijos.
+   *  Sin `panes`, es un recuadro: se escribe adentro. Sin límite de profundidad. */
   panes?: Pane[];
   /** Marcado como pendiente con el círculo de la esquina. `true` = pendiente, `false` = hecho. */
   todo?: boolean;
+  /** Colores ocultos mientras estás parado adentro de esta colección. */
+  hidePaneMarks?: Mark[];
 }
 
-/** Todos los recuadros con texto de una nota, entren o no en una colección. */
+/** ¿Es una colección (tiene hijos) o un recuadro (se escribe adentro)? */
+export const isColl = (p: Pane) => p.panes !== undefined;
+
+/** Todos los recuadros con texto, a cualquier profundidad. */
 export function allBoxes(n: { panes: Pane[] }): Pane[] {
-  return n.panes.flatMap((p) => (p.panes?.length ? p.panes : [p]));
+  const out: Pane[] = [];
+  const walk = (list: Pane[]) => {
+    for (const p of list) {
+      if (p.panes) walk(p.panes);
+      else out.push(p);
+    }
+  };
+  walk(n.panes);
+  return out;
 }
 
-/** Busca un recuadro por id en los dos niveles. */
+/** Todos los cuadrados, colecciones incluidas, a cualquier profundidad. */
+export function allPanes(n: { panes: Pane[] }): Pane[] {
+  const out: Pane[] = [];
+  const walk = (list: Pane[]) => {
+    for (const p of list) {
+      out.push(p);
+      if (p.panes) walk(p.panes);
+    }
+  };
+  walk(n.panes);
+  return out;
+}
+
+/** Busca un cuadrado por id, a cualquier profundidad. */
 export function findPane(n: { panes: Pane[] }, id: string): Pane | undefined {
   for (const p of n.panes) {
     if (p.id === id) return p;
-    const inner = p.panes?.find((x) => x.id === id);
+    const inner = p.panes && findPane({ panes: p.panes }, id);
     if (inner) return inner;
   }
   return undefined;
+}
+
+/** El camino de ids hasta un cuadrado (sin incluirlo), para poder abrirlo. */
+export function pathTo(n: { panes: Pane[] }, id: string): string[] | null {
+  const walk = (list: Pane[], acc: string[]): string[] | null => {
+    for (const p of list) {
+      if (p.id === id) return acc;
+      if (p.panes) {
+        const deep = walk(p.panes, [...acc, p.id]);
+        if (deep) return deep;
+      }
+    }
+    return null;
+  };
+  return walk(n.panes, []);
+}
+
+/** La lista de hijos que corresponde a un camino de ids. */
+export function listAt(n: { panes: Pane[] }, path: string[]): Pane[] {
+  let list = n.panes;
+  for (const id of path) {
+    const p = list.find((x) => x.id === id);
+    if (!p?.panes) return list;
+    list = p.panes;
+  }
+  return list;
 }
 
 /** El último recuadro donde escribir (el de más adentro). */
@@ -93,11 +146,6 @@ export interface Note {
   autoTitle: boolean;
   /** Marca de la entrada entera (opcional). Si no está, se deduce de la mejor marca de sus archivos. */
   mark?: Mark;
-  /** Qué es la nota: "boxes" = recuadros sueltos; "collection" = colecciones,
-   *  y adentro de cada una, sus recuadros. Se elige al crearla y no cambia. */
-  kind?: "boxes" | "collection";
-  /** (viejo) Cómo se veían los recuadros antes de 2.6. Se conserva para migrar. */
-  view?: "cols" | "grid";
   /** Colores ocultos en la vista colección. */
   hidePaneMarks?: Mark[];
 }
@@ -238,13 +286,29 @@ export interface AppState {
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
-/** Nota nueva. Por defecto son recuadros sueltos; "collection" la crea como colección de colecciones. */
-export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP, kind: "boxes" | "collection" = "boxes"): Note {
-  const first: Pane =
-    kind === "collection"
-      ? { id: uid(), title: "", body: "", panes: [{ id: uid(), title: "", body: "" }, { id: uid(), title: "", body: "" }] }
-      : { id: uid(), title: "", body };
-  return { id: uid(), title, body, panes: [first], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota", kind };
+/**
+ * Una nota es una colección de la raíz: el primer nivel del mapa.
+ * Nace con un recuadro adentro (o con el texto que le pases).
+ */
+export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP): Note {
+  return {
+    id: uid(),
+    title,
+    body,
+    panes: [{ id: uid(), title: "", body }],
+    pinned: false,
+    updatedAt: Date.now(),
+    createdAt: Date.now(),
+    group,
+    autoTitle: title === "Nueva nota",
+  };
+}
+
+/** Un cuadrado nuevo: colección (con un recuadro adentro) o recuadro suelto. */
+export function newPane(coll: boolean, title = ""): Pane {
+  return coll
+    ? { id: uid(), title, body: "", panes: [{ id: uid(), title: "", body: "" }] }
+    : { id: uid(), title, body: "" };
 }
 
 /** Copia entera de una nota: mismo tipo, mismos recuadros (y los de adentro), con ids nuevos. */
@@ -272,12 +336,12 @@ export function cloneNote(n: Note, title = n.title): Note {
 
 /** Texto completo de una nota a partir de sus recuadros (dos niveles si es colección). */
 export function joinPanes(panes: Pane[], depth = 2): string {
-  if (panes.length <= 1 && !panes[0]?.panes?.length) return panes[0]?.body ?? "";
-  const h = "#".repeat(depth);
+  if (panes.length <= 1 && !panes[0]?.panes) return panes[0]?.body ?? "";
+  const h = "#".repeat(Math.min(depth, 6));
   return panes
     .map((p) => {
-      const head = `${h} ${p.title || (p.panes?.length ? "Colección" : "Recuadro")}`;
-      return p.panes?.length ? `${head}\n${joinPanes(p.panes, depth + 1)}` : `${head}\n${p.body}`;
+      const head = `${h} ${p.title || (p.panes ? "Colección" : "Recuadro")}`;
+      return p.panes ? `${head}\n${joinPanes(p.panes, depth + 1)}` : `${head}\n${p.body}`;
     })
     .join("\n\n");
 }
@@ -290,12 +354,12 @@ export function syncNote(n: Note) {
 }
 
 /**
- * Con qué arranca un proyecto nuevo: lo mínimo para entender cómo se usa.
- * GENERAL → "GULA", una nota de colección con Colección 1 y dos recuadros.
- * APUNTES → "PROMPTS", una nota de recuadros con dos recuadros abiertos.
+ * Con qué arranca un proyecto nuevo: lo mínimo para entender el mapa.
+ * "GULA" es una colección que adentro tiene otra ("Colección 1") con dos
+ * recuadros; "PROMPTS" es una colección con dos recuadros directos.
  */
 export function defaultNotes(): Note[] {
-  const gula = newNote("GULA", "", DEFAULT_GROUP, "collection");
+  const gula = newNote("GULA");
   gula.autoTitle = false;
   gula.panes = [
     {
@@ -310,7 +374,7 @@ export function defaultNotes(): Note[] {
   ];
   syncNote(gula);
 
-  const prompts = newNote("PROMPTS", "", NOTES_GROUP, "boxes");
+  const prompts = newNote("PROMPTS", "", NOTES_GROUP);
   prompts.autoTitle = false;
   prompts.panes = [
     { id: uid(), title: "Primer Prompt", body: "- Hola Mundo.." },
@@ -349,10 +413,10 @@ export { PROFILES };
 export function defaultState(): AppState {
   const p = newProject("Mi proyecto", "blank");
   // La nota de bienvenida va primera, antes de GULA y PROMPTS. Se puede borrar.
-  const guia = newNote("Cómo usar GULA", "", DEFAULT_GROUP, "boxes");
+  const guia = newNote("Cómo usar GULA");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- El **○** de cada recuadro lo deja pendiente y aparece en **Tareas** con el camino para volver de un clic.\n- Clic derecho en un recuadro o en una colección: **Etiquetas** (los títulos que usás siempre: Idea, Prompt, Imagen…, se ponen de un clic), copiar, bajar a una carpeta, duplicar, renombrar, color. Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala. Clic derecho en un proyecto (arriba o en la columna de la izquierda): renombrar, etapa, exportar, eliminar.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre) y **Settings** (qué se ve y qué no: tema, columnas, panel y pestañas). Las pestañas vienen con Accesos, Prompts y Fichas; Galería y Tareas se prenden ahí.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Fichas** → *+ Ficha* → *Traer de una colección*: una colección es una ficha. Y desde el clic derecho de una ficha, *Mandar a una colección* hace el camino inverso.\n- Al terminar un chat: ⋯ → *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Cada cuadrado tiene un **○** (dejarlo pendiente: aparece en Tareas con el camino para volver) y un **−** para sacarlo. Arrastrá para reordenar.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+K** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -390,8 +454,6 @@ export function migrate(raw: unknown): AppState {
       ...n,
       group: n.group || DEFAULT_GROUP,
       panes: n.panes?.length ? n.panes : [{ id: uid(), title: "", body: n.body ?? "" }],
-      // Todo lo que ya existía es una nota de recuadros sueltos (un solo nivel).
-      kind: n.kind ?? "boxes",
       createdAt: n.createdAt ?? n.updatedAt ?? Date.now(),
       autoTitle: n.autoTitle ?? n.title === "Nueva nota",
     })).map((n) => {

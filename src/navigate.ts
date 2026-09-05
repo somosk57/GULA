@@ -45,34 +45,21 @@ export function paneName(p: Pane, fallback = "Recuadro"): string {
   return fallback;
 }
 
-/** Recorre todos los recuadros del proyecto sabiendo dónde está cada uno. */
-export function walkPanes(p: Project): Located[] {
+/** Recorre TODOS los cuadrados del proyecto, a cualquier profundidad, con su camino. */
+export function walkPanes(p: Project, collections = false): Located[] {
   const out: Located[] = [];
-  for (const note of p.notes) {
-    note.panes.forEach((top, i) => {
-      if (top.panes?.length) {
-        const coll = paneName(top, `Colección ${i + 1}`);
-        for (const b of top.panes)
-          out.push({
-            projectId: p.id,
-            noteId: note.id,
-            collId: top.id,
-            paneId: b.id,
-            path: `${note.title} › ${coll} › ${paneName(b)}`,
-            pane: b,
-            note,
-          });
+  const walk = (note: Note, list: Pane[], prefix: string, parentId?: string) => {
+    list.forEach((x, i) => {
+      const name = paneName(x, x.panes ? `Colección ${i + 1}` : `Recuadro ${i + 1}`);
+      const path = `${prefix} › ${name}`;
+      if (x.panes) {
+        if (collections) out.push({ projectId: p.id, noteId: note.id, collId: parentId, paneId: x.id, path, pane: x, note });
+        walk(note, x.panes, path, x.id);
       } else {
-        out.push({
-          projectId: p.id,
-          noteId: note.id,
-          paneId: top.id,
-          path: `${note.title} › ${paneName(top, `Recuadro ${i + 1}`)}`,
-          pane: top,
-          note,
-        });
+        out.push({ projectId: p.id, noteId: note.id, collId: parentId, paneId: x.id, path, pane: x, note });
       }
     });
-  }
+  };
+  for (const note of p.notes) walk(note, note.panes, note.title);
   return out;
 }

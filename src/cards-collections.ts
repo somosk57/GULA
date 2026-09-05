@@ -15,18 +15,15 @@ export interface CollRef {
 /** Todas las colecciones del proyecto, de todas las notas de colección. */
 export function allCollections(p: Project): CollRef[] {
   const out: CollRef[] = [];
-  for (const n of p.notes) {
-    if (n.kind !== "collection") continue;
-    n.panes.forEach((c, i) => {
-      out.push({
-        noteId: n.id,
-        paneId: c.id,
-        label: `${n.title} › ${c.title.trim() || collLabel(c, i)}`,
-        boxes: c.panes?.length ?? 0,
-        pane: c,
-      });
+  const walk = (noteId: string, list: Pane[], prefix: string) => {
+    list.forEach((c, i) => {
+      if (!c.panes) return;
+      const label = `${prefix} › ${collLabel(c, i)}`;
+      out.push({ noteId, paneId: c.id, label, boxes: c.panes.length, pane: c });
+      walk(noteId, c.panes, label);
     });
-  }
+  };
+  for (const n of p.notes) walk(n.id, n.panes, n.title);
   return out;
 }
 
@@ -94,4 +91,4 @@ export function collectionFromCard(c: Card): Pane {
 }
 
 /** Las notas de colección del proyecto (para elegir a cuál mandar una ficha). */
-export const collectionNotes = (p: Project): Note[] => p.notes.filter((n) => n.kind === "collection");
+export const collectionNotes = (p: Project): Note[] => p.notes;

@@ -1,6 +1,6 @@
 // Bajar a una carpeta todo lo que el proyecto tiene adentro: los archivos
 // (imágenes, videos, audios) y los textos de cada recuadro, como .txt.
-import { Note, Pane, Project, allBoxes } from "./types";
+import { Pane, Project, allBoxes } from "./types";
 import { copyToDir, exportFiles } from "./backend";
 import { matchImage } from "./components/MarkdownEditor";
 
@@ -55,10 +55,9 @@ function boxName(b: Pane, i: number): string {
 }
 
 /**
- * Un .txt por recuadro, ordenados en carpetas:
- *   <Nota>/<Colección>/01 - Idea.txt   (nota de colección)
- *   <Nota>/01 - Idea.txt               (nota de recuadros)
- * Los recuadros sin texto no generan archivo.
+ * Un .txt por recuadro, en carpetas que copian el mapa:
+ *   01 - Nota/01 - Colección/02 - Sub/01 - Idea.txt
+ * Los recuadros vacíos no generan archivo. Sin límite de profundidad.
  */
 export function textFiles(p: Project): { name: string; content: string }[] {
   const out: { name: string; content: string }[] = [];
@@ -69,24 +68,18 @@ export function textFiles(p: Project): { name: string; content: string }[] {
     seen.add(name.toLowerCase());
     out.push({ name, content });
   };
-  p.notes.forEach((n: Note, ni) => {
-    const noteDir = `${nn(ni)} - ${clean(n.title, "Nota")}`;
-    n.panes.forEach((p1, i1) => {
-      if (p1.panes?.length) {
-        const collDir = `${noteDir}/${nn(i1)} - ${clean(p1.title, `Colección ${i1 + 1}`)}`;
-        p1.panes.forEach((b, i) => {
-          if (b.body.trim()) push(`${collDir}/${boxName(b, i)}.txt`, b.body.trim() + "\n");
-        });
-      } else if (p1.body.trim()) {
-        push(`${noteDir}/${boxName(p1, i1)}.txt`, p1.body.trim() + "\n");
-      }
+  const walk = (list: Pane[], dir: string) => {
+    list.forEach((x, i) => {
+      if (x.panes) walk(x.panes, `${dir}/${nn(i)} - ${clean(x.title, `Colección ${i + 1}`)}`);
+      else if (x.body.trim()) push(`${dir}/${boxName(x, i)}.txt`, x.body.trim() + "\n");
     });
-  });
+  };
+  p.notes.forEach((n, ni) => walk(n.panes, `${nn(ni)} - ${clean(n.title, "Nota")}`));
   return out;
 }
 
-/** Los recuadros de un cuadrado: los de adentro si es una colección, o él mismo. */
-const boxesOf = (p: Pane): Pane[] => (p.panes?.length ? p.panes : [p]);
+/** Los recuadros de un cuadrado, a cualquier profundidad. */
+const boxesOf = (p: Pane): Pane[] => (p.panes ? p.panes.flatMap(boxesOf) : [p]);
 
 /** Archivos locales que hay adentro de una colección (o de un recuadro suelto). */
 export function paneFiles(p: Pane): string[] {
@@ -127,20 +120,22 @@ export async function dumpPane(
   return { texts: files.length, copied, failed };
 }
 
-/** Un .txt por colección, con sus recuadros adentro. */
+/** Un .txt por colección, con todo lo que tenga adentro. */
 export function textFilesByCollection(p: Project): { name: string; content: string }[] {
   const out: { name: string; content: string }[] = [];
-  p.notes.forEach((n, ni) => {
-    const noteDir = `${nn(ni)} - ${clean(n.title, "Nota")}`;
-    n.panes.forEach((p1, i1) => {
-      const boxes = p1.panes?.length ? p1.panes : [p1];
-      const body = boxes
+  const walk = (list: Pane[], dir: string) => {
+    list.forEach((x, i) => {
+      if (!x.panes) return;
+      const name = `${nn(i)} - ${clean(x.title, `Colección ${i + 1}`)}`;
+      const body = boxesOf(x)
         .filter((b) => b.body.trim())
         .map((b) => (b.title.trim() ? `## ${b.title.trim()}\n${b.body.trim()}` : b.body.trim()))
         .join("\n\n");
-      if (body) out.push({ name: `${noteDir}/${nn(i1)} - ${clean(p1.title, `Colección ${i1 + 1}`)}.txt`, content: body + "\n" });
+      if (body) out.push({ name: `${dir}/${name}.txt`, content: body + "\n" });
+      walk(x.panes, `${dir}/${name}`);
     });
-  });
+  };
+  p.notes.forEach((n, ni) => walk(n.panes, `${nn(ni)} - ${clean(n.title, "Nota")}`));
   return out;
 }
 

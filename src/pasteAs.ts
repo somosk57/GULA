@@ -1,6 +1,6 @@
 // "Pegar como…": lo que tengas copiado (una respuesta de la IA, un prompt que
 // funcionó, un comando) entra a GULA como nota, bloque, prompt, comando o línea del día.
-import { AppState, DEFAULT_GROUP, Project, Tab, lastBox, newNote, syncNote, uid } from "./types";
+import { AppState, Project, Tab, lastBox, newNote, syncNote, uid } from "./types";
 import { SESSIONS_GROUP, appendToDay } from "./diary";
 import { readClipboard } from "./backend";
 import { ask, notify, pick } from "./dialog";
@@ -52,7 +52,7 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
     const now = Date.now();
     switch (choice) {
       case "note": {
-        const n = newNote(title!.trim() || firstLine(text), text.trim(), DEFAULT_GROUP, "boxes");
+        const n = newNote(title!.trim() || firstLine(text), text.trim());
         p.notes.push(n);
         d.activeNoteId[p.id] = n.id;
         break;

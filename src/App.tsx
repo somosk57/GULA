@@ -14,13 +14,14 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { MediaViewer } from "./components/MediaViewer";
 import { LabelView } from "./components/LabelView";
+import { goToPane } from "./navigate";
 import { SearchPalette, Hit } from "./components/SearchPalette";
 import { pasteAs } from "./pasteAs";
 import { HomeOverlay } from "./components/HomeOverlay";
 import { firstRun } from "./onboarding";
 import { setShortcut, win } from "./backend";
 import { notify } from "./dialog";
-import { TABS, newNote, uid } from "./types";
+import { TABS, newNote } from "./types";
 import { comboFor, comboFromEvent } from "./keys";
 import { collectTasks } from "./ai";
 import "./styles.css";
@@ -33,7 +34,6 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [homeOpen, setHomeOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [split, setSplit] = useState<number>(() => Number(localStorage.getItem(SPLIT_KEY)) || 62);
   const [compact, setCompact] = useState(false);
   const [drawer, setDrawer] = useState(false);
@@ -140,18 +140,13 @@ export default function App() {
       else if (is("undo")) { if (inField()) return; e.preventDefault(); undo(); }
       else if (is("redo") || (!IS_MAC_APP && c === "Ctrl+Y")) { if (inField()) return; e.preventDefault(); redo(); }
       else if (is("newNote")) {
+        // Una colección nueva en la raíz del mapa.
         e.preventDefault();
         update((d) => {
           const p = activeProject(d);
-          const cur = p.notes.find((n) => n.id === d.activeNoteId[p.id]);
-          const group = cur?.group ?? "General";
-          const lastIdx = p.notes.map((x) => x.group).lastIndexOf(group);
-          const tpl = lastIdx >= 0 ? p.notes[lastIdx] : undefined;
-          const n = newNote("Nueva nota", "", group, tpl?.kind ?? "boxes");
-          if (n.kind === "boxes" && tpl?.kind !== "collection" && tpl && tpl.panes.length > 1)
-            n.panes = tpl.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
-          else if (n.kind === "boxes" && n.panes.length === 1) n.panes.push({ id: uid(), title: "", body: "" });
-          p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
+          const n = newNote("Nueva colección");
+          n.autoTitle = false;
+          p.notes.push(n);
           d.activeNoteId[p.id] = n.id;
         });
       }
@@ -217,17 +212,14 @@ export default function App() {
 
   if (!state) return <div className="loading">GULA<span className="slogan">CONTROLA TU GULA.</span></div>;
 
-  const goTo = (h: Hit) =>
-    update((d) => {
-      d.activeProjectId = h.projectId;
-      if (h.noteId) d.activeNoteId[h.projectId] = h.noteId;
-      if (h.tab) d.bottomTab = h.tab;
-    });
+  const goTo = (h: Hit) => {
+    if (h.noteId) goToPane(update, { projectId: h.projectId, noteId: h.noteId });
+    else update((d) => { d.activeProjectId = h.projectId; if (h.tab) d.bottomTab = h.tab; });
+  };
 
   const visibleTabs = TABS.filter((t) => !(state.hiddenTabs ?? []).includes(t.id));
   const bottomOpen = state.bottomOpen !== false && visibleTabs.length > 0;
   const project = activeProject(state);
-  const note = project.notes.find((n) => n.id === state.activeNoteId[project.id]) ?? project.notes[0];
 
   return (
     <div className={"app" + (compact ? " compact" : "")}>
@@ -259,7 +251,7 @@ export default function App() {
         <HomeOverlay
           state={state}
           onClose={() => setHomeOpen(false)}
-          onGo={(pid, nid) => update((d) => { d.activeProjectId = pid; if (nid) d.activeNoteId[pid] = nid; })}
+          onGo={(pid, nid) => (nid ? goToPane(update, { projectId: pid, noteId: nid }) : update((d) => (d.activeProjectId = pid)))}
         />
       )}
       <div className="layout">
@@ -272,12 +264,12 @@ export default function App() {
             const t = e.target as HTMLElement;
             if (t === e.currentTarget || t.closest(".note-item, .proj-item")) setDrawer(false);
           }}>
-            <Sidebar state={state} project={project} update={update} search={search} onSearch={setSearch} />
+            <Sidebar state={state} project={project} update={update} />
           </div>
         )}
         <div className="main" ref={mainRef}>
           <div className="top" style={{ flexBasis: bottomOpen ? `${split}%` : "100%" }}>
-            <Editor project={project} note={note} update={update} keys={state.keys} />
+            <Editor project={project} update={update} keys={state.keys} />
           </div>
           {!bottomOpen && visibleTabs.length > 0 && (
             <button className="bottom-show" onClick={() => update((d) => (d.bottomOpen = true))} title="Mostrar el panel de abajo">

@@ -7,23 +7,21 @@ const mod = IS_MAC ? "⌘" : "Ctrl+";
 
 /** Cosas que no son teclas configurables, pero conviene tener a mano. */
 const NOTES: [string, string][] = [
+  ["Esc", "subir un nivel del mapa"],
+  ["Clic derecho en una miga", "saltar a otra colección del mismo nivel"],
+  ["+ Colección / + Recuadro", "los cuadrados punteados del final de cada nivel"],
+  ["○ en un cuadrado", "dejarlo pendiente: aparece en Tareas con el camino"],
+  ["− en un cuadrado", "sacarlo"],
+  ["Arrastrar un cuadrado", "reordenar el nivel"],
+  ["Clic derecho en un cuadrado", "etiquetas, color, copiar, duplicar, bajar, sacar"],
+  ["Clic en una imagen", "verla en grande (el video, con el ⤢ o doble clic)"],
+  ["Clic derecho en un archivo", "abrir, abrir la carpeta, copiar la ruta"],
   [`${mod}1…6`, "ir a una pestaña del panel de abajo"],
   [`${mod}Shift+1…9`, "ir al proyecto N"],
   [`${mod}Enter`, "marcar / desmarcar la tarea de la línea"],
-  [`${mod}B / ${mod}I`, "negrita / cursiva (dentro del texto)"],
-  ["Clic derecho en una nota", "marcar de color, fijar, mover, duplicar"],
-  ["Clic en una imagen del recuadro", "verla en grande (el video, con el ⤢ o doble clic)"],
-  ["Clic derecho en un archivo", "ver en grande, abrir, abrir la carpeta, copiar la ruta"],
-  ["Esc", "cerrar lo que esté abierto: el archivo grande, o la colección"],
-  ["Clic derecho en un recuadro", "etiquetas, copiar, bajar a una carpeta, duplicar, renombrar, color, sacar"],
   ["Clic derecho en un proyecto", "renombrar, etapa, exportar, eliminar"],
   ["Clic derecho en la barra de arriba", "el menú de ⋯ (incluye Recargar)"],
-  ["Abajo a la izquierda", "Etiquetas y Settings"],
-  ["○ en un recuadro", "dejarlo pendiente: aparece en Tareas con el camino"],
-  ["Etiquetas › una › Ver todos", "todos los recuadros con esa etiqueta, de todo el proyecto"],
-  ["Arrastrar desde el borde de un recuadro", "reordenar"],
-  ["− del recuadro", "sacarlo"],
-  ["Clic derecho en una pestaña", "ocultarla (vuelve desde el menú ⋯)"],
+  ["Abajo a la izquierda", "Etiquetas y Ver…"],
   ["Galería: ← → · 1 2 3 4 · 0 · N · Enter", "pasar · marcar · quitar marca · nueva entrada · abrir"],
 ];
 
