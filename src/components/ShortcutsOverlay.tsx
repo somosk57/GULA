@@ -19,6 +19,8 @@ const NOTES: [string, string][] = [
   ["Clic derecho en un proyecto", "renombrar, etapa, exportar, eliminar"],
   ["Clic derecho en la barra de arriba", "el menú de ⋯ (incluye Recargar)"],
   ["Abajo a la izquierda", "Etiquetas y Settings"],
+  ["○ en un recuadro", "dejarlo pendiente: aparece en Tareas con el camino"],
+  ["Etiquetas › una › Ver todos", "todos los recuadros con esa etiqueta, de todo el proyecto"],
   ["Arrastrar desde el borde de un recuadro", "reordenar"],
   ["− del recuadro", "sacarlo"],
   ["Clic derecho en una pestaña", "ocultarla (vuelve desde el menú ⋯)"],

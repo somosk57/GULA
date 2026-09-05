@@ -10,6 +10,7 @@ import { ask, confirmDlg, notify, pick } from "../dialog";
 import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
 import { dumpPane, paneFiles } from "../dump";
+import { onGoToPane } from "../navigate";
 
 marked.setOptions({ gfm: true, breaks: true });
 
@@ -37,6 +38,8 @@ export function Editor({ project, note, update, keys }: Props) {
   const [size, setSize] = useState<number>(() => { try { return Number(localStorage.getItem("gula.card")) || 150; } catch { return 150; } });
   const [paneW, setPaneW] = useState<number>(() => { try { return Number(localStorage.getItem("gula.pane")) || 340; } catch { return 340; } });
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  /** Recuadro al que acaban de mandarnos (Tareas, buscador): se resalta un segundo. */
+  const [flash, setFlash] = useState<string | null>(null);
   const views = useRef<Record<string, EditorView>>({});
 
   const isCollection = note.kind === "collection";
@@ -103,6 +106,14 @@ export function Editor({ project, note, update, keys }: Props) {
     setNote((n) => {
       const h = n.hidePaneMarks ?? [];
       n.hidePaneMarks = h.includes(m) ? h.filter((x) => x !== m) : [...h, m];
+    });
+
+  /** El círculo de la esquina: sin tocar = nada, un clic = pendiente, otro = hecho, otro = nada. */
+  const cycleTodo = (p: Pane) =>
+    setPane(p.id, (x) => {
+      if (x.todo === undefined) x.todo = true;
+      else if (x.todo) x.todo = false;
+      else delete x.todo;
     });
 
   const setPaneMark = (paneId: string, mark: Mark | null) =>
@@ -213,6 +224,22 @@ export function Editor({ project, note, update, keys }: Props) {
         list.splice(before ? to : to + 1, 0, moved);
       }),
   });
+
+  // Alguien nos mandó a un recuadro (Tareas, buscador): entrar a su colección y resaltarlo.
+  useEffect(
+    () =>
+      onGoToPane((paneId) => {
+        const top = note.panes.find((x) => x.id === paneId || x.panes?.some((b) => b.id === paneId));
+        if (!top) return;
+        setInto(top.panes?.length && top.id !== paneId ? top.id : null);
+        setFlash(paneId);
+        setTimeout(() => {
+          document.querySelector(`[data-pane="${paneId}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }, 40);
+        setTimeout(() => setFlash((f) => (f === paneId ? null : f)), 2000);
+      }),
+    [note],
+  );
 
   // ---- atajos ----
   useEffect(() => {
@@ -336,7 +363,8 @@ export function Editor({ project, note, update, keys }: Props) {
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const items: MenuItem[] = [
-      { label: "Copiar el texto", onClick: () => copyPane(p) },
+      { label: p.todo === undefined ? "○ Dejar pendiente" : p.todo ? "✓ Marcar como hecho" : "Sacar de Tareas", onClick: () => cycleTodo(p) },
+      { label: "Copiar el texto", separator: true, onClick: () => copyPane(p) },
       { label: p.panes ? "⤓ Bajar la colección a una carpeta…" : "⤓ Bajar el recuadro a una carpeta…", onClick: () => downloadPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
       { ...labelMenu(p), separator: true },
@@ -481,21 +509,27 @@ export function Editor({ project, note, update, keys }: Props) {
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))`, gridAutoRows: `${size}px` }}
         >
           {visible.map((p) => {
-            const media = firstMedia(p);
             const color = markColor(p.mark);
             const inner = p.panes?.length ?? 0;
             return (
               <div
                 key={p.id}
-                className="coll-card"
+                className={"coll-card" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "")}
                 data-pane={p.id}
                 style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
                 onClick={() => setInto(p.id)}
                 onContextMenu={(e) => paneMenu(e, p)}
                 title={`${inner} recuadro${inner === 1 ? "" : "s"}`}
               >
-                {media && <CardMedia media={media} />}
+                <Mosaic pane={p} />
                 <button className="coll-x" title="Sacar" onClick={(e) => { e.stopPropagation(); removePane(p); }}>−</button>
+                <button
+                  className={"coll-todo" + (p.todo === undefined ? "" : p.todo ? " on" : " done")}
+                  title={p.todo === undefined ? "Dejar pendiente" : p.todo ? "Marcar como hecho" : "Sacar de Tareas"}
+                  onClick={(e) => { e.stopPropagation(); cycleTodo(p); }}
+                >
+                  {p.todo === false ? "✓" : "○"}
+                </button>
                 <span className="coll-title">{paneLabel(p, level.indexOf(p))}</span>
                 <span className="coll-foot">
                   <span className="coll-kind">{inner} recuadro{inner === 1 ? "" : "s"}</span>
@@ -560,6 +594,28 @@ export function Editor({ project, note, update, keys }: Props) {
       )}
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </section>
+  );
+}
+
+/**
+ * El mosaico de un cuadrado: hasta cuatro archivos de adentro. Un mapa se
+ * reconoce mirando, no leyendo, y con 400 colecciones eso es la diferencia.
+ */
+function Mosaic({ pane }: { pane: Pane }) {
+  const all: Media[] = [];
+  for (const b of pane.panes?.length ? pane.panes : [pane]) {
+    const m = firstMedia(b);
+    if (m) all.push(m);
+    if (all.length === 4) break;
+  }
+  if (!all.length) return null;
+  if (all.length === 1) return <CardMedia media={all[0]} />;
+  return (
+    <span className={"coll-mosaic n" + all.length}>
+      {all.map((m, i) => (
+        <CardMedia key={m.src + i} media={m} />
+      ))}
+    </span>
   );
 }
 

@@ -2,6 +2,7 @@
 import { AppState, TABS } from "./types";
 import { MenuItem } from "./components/ContextMenu";
 import { ask, confirmDlg, pick } from "./dialog";
+import { openLabelView } from "./components/LabelView";
 
 type Update = (fn: (d: AppState) => void) => void;
 
@@ -72,7 +73,8 @@ export function labelMenuItems(labels: string[], update: Update, projectId: stri
       label: t,
       onClick: () => {},
       items: [
-        { label: "Renombrar…", onClick: () => rename(t) },
+        { label: "Ver todos los de esta etiqueta", onClick: () => openLabelView(t) },
+        { label: "Renombrar…", separator: true, onClick: () => rename(t) },
         {
           label: "Borrar de la lista",
           danger: true,

@@ -913,3 +913,48 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 }
 .foot-btn:hover { color: var(--text); background: var(--bg-hover); border-color: var(--line); }
 .foot-btn .count { font-size: 10px; text-transform: none; color: var(--text-faint); background: var(--bg-code); padding: 0 5px; border-radius: 8px; }
+
+/* ---------- Mosaico: el cuadrado muestra lo que tiene adentro ---------- */
+.coll-mosaic { position: absolute; inset: 0; display: grid; gap: 1px; }
+.coll-mosaic.n2 { grid-template-columns: 1fr 1fr; }
+.coll-mosaic.n3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.coll-mosaic.n3 > *:first-child { grid-row: span 2; }
+.coll-mosaic.n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.coll-mosaic > * { position: relative; inset: auto; width: 100%; height: 100%; }
+
+/* ---------- Pendientes: el círculo de la esquina ---------- */
+.coll-todo, .pane-todo {
+  border: none; background: none; cursor: pointer; line-height: 1; padding: 0;
+  color: var(--text-faint); font-size: 13px; opacity: 0; transition: opacity .12s, color .12s;
+}
+.coll-todo { position: absolute; top: 5px; right: 26px; z-index: 2; width: 18px; height: 18px; border-radius: 4px; background: var(--bg-code); }
+.pane-todo { flex: none; width: 18px; height: 18px; border-radius: 4px; }
+.coll-card:hover .coll-todo, .pane:hover .pane-todo { opacity: 1; }
+.coll-todo.on, .pane-todo.on, .coll-todo.done, .pane-todo.done { opacity: 1; }
+.coll-todo.on, .pane-todo.on { color: #e2b04a; }
+.coll-todo.done, .pane-todo.done { color: #3ddc84; }
+.coll-todo:hover, .pane-todo:hover { color: var(--text); background: var(--bg-hover); }
+/* Un pendiente se ve de lejos: barrita amarilla arriba */
+.coll-card.todo::before, .pane.todo::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #e2b04a; z-index: 3;
+}
+.pane { position: relative; }
+
+/* Llegaste acá desde Tareas o el buscador */
+@keyframes gula-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+.coll-card.flash, .pane.flash { animation: gula-flash 1.8s ease-out; }
+
+/* Tareas: el camino debajo del texto */
+.task-text.go { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; background: none; border: none; cursor: pointer; color: inherit; padding: 0; flex: 1; min-width: 0; }
+.task-text.go > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.task-text.go:hover > span:first-child { text-decoration: underline; }
+.task-path { font-size: 10.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+/* Vista de una etiqueta: todos sus recuadros, de todo el proyecto */
+.label-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.label-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.label-row:hover { background: var(--bg-hover); }
+.label-go { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: none; color: inherit; cursor: pointer; padding: 0; }
+.label-path { font-size: 10.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label-go:hover .label-path { color: var(--text-dim); }
+.label-text { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

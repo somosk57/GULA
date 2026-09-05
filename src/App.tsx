@@ -13,6 +13,7 @@ import { GalleryPanel, collectMedia } from "./components/GalleryPanel";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { Dialogs } from "./dialog";
 import { MediaViewer } from "./components/MediaViewer";
+import { LabelView } from "./components/LabelView";
 import { SearchPalette, Hit } from "./components/SearchPalette";
 import { pasteAs } from "./pasteAs";
 import { HomeOverlay } from "./components/HomeOverlay";
@@ -251,6 +252,7 @@ export default function App() {
       <UpdateBanner />
       <Dialogs />
       <MediaViewer />
+      <LabelView project={activeProject(state)} update={update} />
       {searchOpen && <SearchPalette state={state} onClose={() => setSearchOpen(false)} onGo={goTo} />}
       {keysOpen && <ShortcutsOverlay state={state} update={update} onClose={() => setKeysOpen(false)} />}
       {homeOpen && (
