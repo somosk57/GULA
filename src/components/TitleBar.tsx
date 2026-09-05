@@ -6,8 +6,9 @@ import { lastDiaryLine } from "../diary";
 import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
 import { ProfileId } from "../profiles";
 import { collectTasks, fmtAgo, fmtDate } from "../ai";
-import { buildAiPackage, exportProject } from "../ai";
+import { exportProject } from "../ai";
 import { buildReport } from "../report";
+import { closeSession, copyClosingPrompt, startSession } from "../session";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { labelMenuItems, viewMenuItems } from "../menus";
 
@@ -113,6 +114,12 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
         { label: `Atajos de teclado  (${mod}/)`, onClick: onKeys, separator: true },
         { label: `Recargar la app  (${mod}R)`, onClick: onReload },
+        {
+          label: project.sessionStartedAt ? "Cerrar la sesión de trabajo…" : "Empezar una sesión de trabajo",
+          separator: true,
+          onClick: () => (project.sessionStartedAt ? closeSession(project, update) : startSession(project, update)),
+        },
+        { label: "Prompt de cierre (para repartir con Ctrl+Shift+V)", onClick: () => copyClosingPrompt(project) },
         { label: "Mostrar / ocultar", separator: true, onClick: () => {}, items: viewMenuItems(state, update) },
         { label: "Etiquetas", onClick: () => {}, items: labelMenuItems(project.labels ?? [], update, project.id) },
         {
@@ -141,7 +148,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v2.15.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v2.16.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -256,7 +263,6 @@ export function projectMenuItems(
         if (id) update((d) => (d.projects.find((p) => p.id === project.id)!.stage = id as Project["stage"]));
       },
     },
-    { label: "Copiar todo para la IA", separator: true, onClick: () => copyText(buildAiPackage(project)) },
     {
       label: "Informe del proyecto…",
       onClick: async () => {

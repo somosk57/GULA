@@ -1,5 +1,4 @@
 import { Note, Project, allBoxes, syncNote } from "./types";
-import { SESSIONS_GROUP } from "./diary";
 
 /** Tilda/destilda la tarea que está en la línea `line` del texto completo de la nota (funciona con columnas). */
 export function toggleTaskInNote(n: Note, line: number) {
@@ -62,61 +61,12 @@ export function fmtDate(t: number) {
   return new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
-/**
- * Paquete para pegar en un chat nuevo: contexto + tareas pendientes +
- * últimas sesiones + último prompt usado.
- */
-/** Texto del contexto: solo los bloques encendidos, cada uno con su título. */
-export function contextText(p: Project, onlyEnabled = true): string {
-  const blocks = p.blocks.filter((b) => (!onlyEnabled || b.enabled) && b.body.trim());
-  if (!blocks.length) return `# Proyecto: ${p.name}`;
-  return `# Proyecto: ${p.name}\n\n` + blocks.map((b) => `## ${b.title}\n${b.body.trim()}`).join("\n\n");
-}
-
 /** Estimación gruesa de tokens (≈ 4 caracteres por token en español/inglés). */
 export const estimateTokens = (text: string) => Math.max(1, Math.round(text.length / 4));
-
-export function buildAiPackage(p: Project): string {
-  const parts: string[] = [];
-  parts.push(contextText(p));
-
-  const o = p.pkg;
-  const groups: [string, string][] = o.cards ? [["character", "Personajes"], ["place", "Lugares"], ["item", "Objetos"]] : [];
-  for (const [kind, title] of groups) {
-    const cs = p.cards.filter((c) => c.kind === kind && c.inContext);
-    if (cs.length) parts.push(`## ${title}\n` + cs.map((c) => `- **${c.name}**${c.summary ? `: ${c.summary}` : ""}`).join("\n"));
-  }
-  const scenes = o.cards ? p.cards.filter((c) => c.kind === "scene" && c.inContext) : [];
-  if (scenes.length) {
-    const st = { idea: "idea", draft: "borrador", done: "lista" } as const;
-    parts.push("## Escenas\n" + scenes.map((c) => `- ${c.name} (${st[c.status ?? "idea"]})${c.summary ? `: ${c.summary}` : ""}${c.tags?.length ? ` — ${c.tags.join(", ")}` : ""}`).join("\n"));
-  }
-
-  const masters = o.masters ? Object.entries(p.marks).filter(([, m]) => m === "master").map(([src]) => src) : [];
-  if (masters.length) parts.push("## Referencias maestras (archivos aprobados como guía)\n" + masters.map((s) => `- ${s}`).join("\n"));
-
-  const pending = o.tasks ? collectTasks(p).filter((t) => !t.done) : [];
-  if (pending.length) {
-    parts.push("## Tareas pendientes\n" + pending.slice(0, 20).map((t) => `- [ ] ${t.text}`).join("\n"));
-  }
-
-  const days = p.notes.filter((n) => n.group === SESSIONS_GROUP).sort((a, b) => b.createdAt - a.createdAt).slice(0, o.sessions);
-  if (days.length) {
-    parts.push("## Últimas sesiones\n" + days.map((n) => `### ${n.title}\n${n.body.trim()}`).join("\n\n"));
-  }
-
-  const last = o.lastPrompt ? [...p.prompts].filter((x) => x.lastUsedAt).sort((a, b) => b.lastUsedAt! - a.lastUsedAt!)[0] : undefined;
-  if (last) {
-    parts.push(`## Último prompt que estaba usando\n${last.body.trim()}`);
-  }
-
-  return parts.join("\n\n") + "\n";
-}
 
 /** Archivos .md para exportar el proyecto entero. */
 export function exportProject(p: Project): { name: string; content: string }[] {
   const files: { name: string; content: string }[] = [];
-  files.push({ name: "00-contexto.md", content: contextText(p, false) + "\n" });
   p.notes.forEach((n, i) => {
     files.push({ name: `${String(i + 1).padStart(2, "0")}-${n.title}.md`, content: `# ${n.title}\n\n${n.body}\n` });
   });

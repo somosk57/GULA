@@ -1,21 +1,19 @@
-// Ciclo de sesión: "Empezar sesión" copia el paquete para la IA y anota la hora;
+// Ciclo de sesión: "Empezar sesión" anota la hora;
 // "Cerrar sesión" pide qué se logró y lo anota en la entrada del día con el link del chat.
 import { AppState, Project } from "./types";
 import { appendToDay } from "./diary";
 import { copyText } from "./backend";
-import { buildAiPackage } from "./ai";
 import { ask, notify } from "./dialog";
 
 type Update = (fn: (d: AppState) => void) => void;
 
 export async function startSession(project: Project, update: Update) {
-  await copyText(buildAiPackage(project));
   update((d) => {
     const p = d.projects.find((p) => p.id === project.id)!;
     p.sessionStartedAt = Date.now();
     p.lastSessionAt = Date.now();
   });
-  notify("Sesión empezada", "El paquete para la IA ya está en el portapapeles: abrí un chat nuevo y pegalo. Cuando termines, tocá \"Cerrar sesión\".");
+  notify("Sesión empezada", "Se cuenta el tiempo. Cuando termines, tocá \"Cerrar sesión\" y anotás qué lograste.");
 }
 
 export async function closeSession(project: Project, update: Update) {
@@ -37,21 +35,6 @@ export async function closeSession(project: Project, update: Update) {
   });
 }
 
-/** Abre un chat nuevo en el navegador con el paquete ya escrito (Claude y ChatGPT aceptan ?q=). */
-export async function openInAi(project: Project, update: Update, target: "claude" | "chatgpt") {
-  const { openUrl } = await import("./backend");
-  const pkg = buildAiPackage(project);
-  await copyText(pkg);
-  update((d) => (d.projects.find((p) => p.id === project.id)!.lastSessionAt = Date.now()));
-  // Los navegadores aguantan URLs largas, pero por las dudas: si el paquete es enorme, va solo un aviso y el texto queda en el portapapeles.
-  const MAX = 7000;
-  const q = pkg.length <= MAX ? pkg : "Te voy a pegar el contexto de mi proyecto (lo tengo en el portapapeles). Esperá a que lo pegue antes de responder.";
-  const url = target === "claude"
-    ? `https://claude.ai/new?q=${encodeURIComponent(q)}`
-    : `https://chatgpt.com/?q=${encodeURIComponent(q)}`;
-  await openUrl(url);
-  if (pkg.length > MAX) notify("El paquete es largo", "Lo copié al portapapeles: pegalo en el chat que se abrió (Ctrl+V).");
-}
 
 /** Copia el prompt de cierre: la IA responde con los encabezados que "Pegar como… → Repartir" entiende. */
 export async function copyClosingPrompt(project: Project) {

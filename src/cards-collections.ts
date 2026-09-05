@@ -78,7 +78,6 @@ export function cardFromCollection(ref: CollRef, kind: Card["kind"], index: numb
     summary: firstLine(body),
     body,
     image: firstImage(ref.pane),
-    inContext: kind !== "scene",
     status: kind === "scene" ? "idea" : undefined,
     source: { noteId: ref.noteId, paneId: ref.paneId },
   };

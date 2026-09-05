@@ -58,11 +58,6 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
   }
   if (c.decisiones?.trim()) {
     const ls = items(c.decisiones);
-    let b = p.blocks.find((x) => /decisi/i.test(x.title));
-    if (!b) { b = { id: uid(), title: "Decisiones tomadas", body: "", enabled: true }; p.blocks.push(b); }
-    const stamp = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
-    b.body = (b.body.trim() ? b.body.trim() + "\n" : "") + ls.map((t) => `- (${stamp}) ${t}`).join("\n");
-    b.updatedAt = now;
     appendToDay(p, ls, { heading: "Decisiones" });
     done.push(`${ls.length} decisiones`);
   }
@@ -89,7 +84,7 @@ export function applyCapture(d: AppState, projectId: string, c: Partial<Record<H
       if (!name) continue;
       const existing = p.cards.find((x) => x.name.toLowerCase() === name.toLowerCase());
       if (existing) { if (summary && !existing.summary) existing.summary = summary; }
-      else p.cards.push({ id: uid(), kind, name, summary, body: "", inContext: kind !== "scene", status: kind === "scene" ? "idea" : undefined });
+      else p.cards.push({ id: uid(), kind, name, summary, body: "", status: kind === "scene" ? "idea" : undefined });
       count++;
     }
     done.push(`${count} fichas`);

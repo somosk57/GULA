@@ -7,7 +7,6 @@ import { Sidebar } from "./components/Sidebar";
 import { Editor } from "./components/Editor";
 import { LinksPanel } from "./components/LinksPanel";
 import { PromptsPanel } from "./components/PromptsPanel";
-import { ContextPanel } from "./components/ContextPanel";
 import { TasksPanel } from "./components/TasksPanel";
 import { CardsPanel } from "./components/CardsPanel";
 import { GalleryPanel, collectMedia } from "./components/GalleryPanel";
@@ -328,7 +327,6 @@ export default function App() {
             </div>
             {state.bottomTab === "links" && <LinksPanel project={project} update={update} showCommands={state.showCommands !== false} />}
             {state.bottomTab === "prompts" && <PromptsPanel project={project} update={update} />}
-            {state.bottomTab === "context" && <ContextPanel project={project} update={update} />}
             {state.bottomTab === "gallery" && <GalleryPanel project={project} update={update} allProjects={state.projects} />}
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}

@@ -2,12 +2,11 @@ import { foldLogIntoDiary } from "./diary";
 import { PROFILES, ProfileId, profileById } from "./profiles";
 
 export type LinkKind = "folder" | "file" | "url";
-export type Tab = "links" | "prompts" | "context" | "snippets" | "tasks" | "cards" | "gallery";
+export type Tab = "links" | "prompts" | "snippets" | "tasks" | "cards" | "gallery";
 export const TABS: { id: Tab; label: string }[] = [
   { id: "links", label: "Accesos" },
   { id: "gallery", label: "Galería" },
   { id: "prompts", label: "Prompts" },
-  { id: "context", label: "Contexto" },
   { id: "cards", label: "Fichas" },
   { id: "tasks", label: "Tareas" },
 ];
@@ -151,16 +150,6 @@ export interface LogEntry {
   minutes?: number;
 }
 
-/** Un bloque del contexto (Qué es, Estilo, Decisiones…). Los apagados no van en "Copiar para la IA". */
-export interface ContextBlock {
-  id: string;
-  title: string;
-  body: string;
-  enabled: boolean;
-  /** Última edición del texto (para ver qué quedó viejo). */
-  updatedAt?: number;
-}
-
 /** Ficha de la biblia: personaje, lugar, objeto o escena. */
 export interface Card {
   id: string;
@@ -172,8 +161,6 @@ export interface Card {
   body: string;
   /** Ruta a una imagen de referencia (local). */
   image?: string;
-  /** Va en "Copiar para la IA" (nombre + resumen). */
-  inContext: boolean;
   /** Solo escenas. */
   status?: SceneStatus;
   /** Solo escenas: personajes/lugar involucrados, por nombre. */
@@ -206,19 +193,15 @@ export interface Project {
   marks: Record<string, Mark>;
   /** Etiquetas: títulos que usás seguido en los recuadros (Idea, Prompt, Imagen, Video…). */
   labels?: string[];
-  /** Qué entra en "Copiar para la IA" además de los bloques encendidos. */
-  pkg: { cards: boolean; tasks: boolean; sessions: 0 | 1 | 3; masters: boolean; lastPrompt: boolean };
   /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
   hideMarks: Mark[];
   cards: Card[];
   notes: Note[];
   links: Link[];
   prompts: Prompt[];
-  /** Contexto del proyecto para pegarle a la IA, en bloques. */
-  blocks: ContextBlock[];
   snippets: Snippet[];
   log: LogEntry[];
-  /** Última vez que se hizo "Copiar para la IA" (para la pantalla de proyectos). */
+  /** Última vez que se empezó una sesión de trabajo (para la pantalla de proyectos). */
   lastSessionAt: number | null;
   /** Sesión de trabajo abierta (Empezar sesión → Cerrar sesión). */
   sessionStartedAt: number | null;
@@ -338,7 +321,6 @@ export function defaultNotes(): Note[] {
 
 export function newProject(name: string, profile: ProfileId = "blank"): Project {
   const t = profileById(profile);
-  const fill = (x: string) => x.replace(/\{name\}/g, name);
   return {
     id: uid(),
     name,
@@ -348,14 +330,12 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     notes: defaultNotes(),
     links: [],
     prompts: t.prompts.map((p) => ({ id: uid(), title: p.title, body: p.body, updatedAt: Date.now(), lastUsedAt: null })),
-    blocks: t.blocks.map((b) => ({ id: uid(), title: b.title, body: fill(b.body), enabled: b.enabled })),
     snippets: t.snippets.map((s) => ({ id: uid(), ...s })),
     log: [],
     cards: [],
     marks: {},
     labels: [],
     hideMarks: [],
-    pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true },
     collections: [],
     lastSessionAt: null,
     sessionStartedAt: null,
@@ -370,7 +350,7 @@ export function defaultState(): AppState {
   const guia = newNote("Cómo usar GULA", "", DEFAULT_GROUP, "boxes");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- Clic derecho en un recuadro o en una colección: **Etiquetas** (los títulos que usás siempre: Idea, Prompt, Imagen…, se ponen de un clic), copiar, bajar a una carpeta, duplicar, renombrar, color. Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala. Clic derecho en un proyecto (arriba o en la columna de la izquierda): renombrar, etapa, exportar, eliminar.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre) y **Settings** (qué se ve y qué no: tema, columnas, panel y pestañas). Las pestañas vienen con Accesos, Prompts y Fichas; el resto se prende ahí.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Fichas** → *+ Ficha* → *Traer de una colección*: una colección es una ficha. Y desde el clic derecho de una ficha, *Mandar a una colección* hace el camino inverso.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- Clic derecho en un recuadro o en una colección: **Etiquetas** (los títulos que usás siempre: Idea, Prompt, Imagen…, se ponen de un clic), copiar, bajar a una carpeta, duplicar, renombrar, color. Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala. Clic derecho en un proyecto (arriba o en la columna de la izquierda): renombrar, etapa, exportar, eliminar.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre) y **Settings** (qué se ve y qué no: tema, columnas, panel y pestañas). Las pestañas vienen con Accesos, Prompts y Fichas; Galería y Tareas se prenden ahí.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Fichas** → *+ Ficha* → *Traer de una colección*: una colección es una ficha. Y desde el clic derecho de una ficha, *Mandar a una colección* hace el camino inverso.\n- Al terminar un chat: ⋯ → *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -386,7 +366,7 @@ export function defaultState(): AppState {
     onboarded: false,
     // De fábrica quedan a la vista solo Accesos, Prompts y Fichas. El resto se
     // prende desde ⋯ cuando haga falta.
-    hiddenTabs: ["gallery", "context", "tasks"],
+    hiddenTabs: ["gallery", "tasks"],
     bottomOpen: true,
     showCommands: false,
     keys: {},
@@ -395,7 +375,7 @@ export function defaultState(): AppState {
 
 /** Completa campos que falten en datos guardados por versiones anteriores. */
 export function migrate(raw: unknown): AppState {
-  type OldProject = Partial<Omit<Project, "blocks">> & { context?: string; blocks?: ContextBlock[] };
+  type OldProject = Partial<Project> & { context?: string };
   const s = raw as Partial<Omit<AppState, "projects">> & { projects?: OldProject[] };
   const projects: Project[] = (s.projects ?? []).map((p: OldProject) => ({
     id: p.id ?? uid(),
@@ -428,15 +408,12 @@ export function migrate(raw: unknown): AppState {
     }),
     links: p.links ?? [],
     prompts: p.prompts ?? [],
-    // v2 tenía un solo texto de contexto: pasa a ser el primer bloque.
-    blocks: p.blocks ?? (p.context?.trim() ? [{ id: uid(), title: "Contexto", body: p.context ?? "", enabled: true }] : [{ id: uid(), title: "Qué es", body: "", enabled: true }]),
     snippets: p.snippets ?? [],
     log: p.log ?? [],
     cards: p.cards ?? [],
     marks: p.marks ?? {},
     labels: p.labels ?? [],
     hideMarks: p.hideMarks ?? [],
-    pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true, ...(p.pkg ?? {}) },
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
     collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),
     copyTo: p.copyTo ?? ((p as { assetsDir?: string }).assetsDir ? "assets-" + (p.id ?? uid()) : undefined),
@@ -453,7 +430,7 @@ export function migrate(raw: unknown): AppState {
     projects,
     activeProjectId,
     activeNoteId: s.activeNoteId ?? {},
-    bottomTab: (s.bottomTab as string) === "log" ? "context" : s.bottomTab ?? "links",
+    bottomTab: ["log", "context"].includes(s.bottomTab as string) ? "links" : s.bottomTab ?? "links",
     alwaysOnTop: s.alwaysOnTop ?? false,
     theme: s.theme ?? "dark",
     noteSort: s.noteSort ?? "manual",

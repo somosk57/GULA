@@ -43,7 +43,7 @@ export function CardsPanel({ project, update }: Props) {
     const id = uid();
     update((d) => {
       d.projects.find((p) => p.id === project.id)!.cards.push({
-        id, kind: k, name: name.trim(), summary: "", body: "", inContext: k !== "scene",
+        id, kind: k, name: name.trim(), summary: "", body: "",
         status: k === "scene" ? "idea" : undefined,
       });
     });
@@ -117,7 +117,6 @@ export function CardsPanel({ project, update }: Props) {
             if (t?.trim()) edit(c.id, (x) => (x.name = t.trim()));
           },
         },
-        { label: c.inContext ? "Sacar de Copiar para la IA" : "Incluir en Copiar para la IA", onClick: () => edit(c.id, (x) => (x.inContext = !x.inContext)) },
         { label: c.source ? "↑ Mandar de nuevo a una colección…" : "↑ Mandar a una colección…", separator: true, onClick: () => toCollection(c) },
         {
           label: "Duplicar",
@@ -180,7 +179,7 @@ export function CardsPanel({ project, update }: Props) {
         {shown.map((c) => {
           const meta = KINDS.find((k) => k.id === c.kind)!;
           return (
-            <button key={c.id} data-id={c.id} className={"card" + (c.inContext ? "" : " off")} onClick={() => setOpenId(c.id)} onContextMenu={(e) => cardMenu(e, c)} title={c.summary || meta.placeholder}>
+            <button key={c.id} data-id={c.id} className="card" onClick={() => setOpenId(c.id)} onContextMenu={(e) => cardMenu(e, c)} title={c.summary || meta.placeholder}>
               {c.image ? (
                 <img className="card-img" src={assetUrl(c.image)} alt="" draggable={false} />
               ) : (
@@ -199,7 +198,7 @@ export function CardsPanel({ project, update }: Props) {
         {shown.length === 0 && (
           <div className="empty wide">
             {project.cards.length === 0
-              ? "La biblia del proyecto: personajes, lugares, objetos y escenas, con imagen de referencia. Los que estén encendidos van resumidos en \"Copiar para la IA\"."
+              ? "La biblia del proyecto: personajes, lugares, objetos y escenas, con imagen de referencia. Una colección es una ficha: traelas con “+ Ficha”."
               : "Nada en esta categoría."}
           </div>
         )}
@@ -224,9 +223,6 @@ function CardEditor({ card, project, edit, onBack }: { card: Card; project: Proj
             ))}
           </span>
         )}
-        <label className="chip toggle-chip" title="Nombre + resumen van en Copiar para la IA">
-          <input type="checkbox" checked={card.inContext} onChange={() => edit(card.id, (c) => (c.inContext = !c.inContext))} /> Para la IA
-        </label>
       </div>
       <div className="card-editor-body">
         <div className="card-side">

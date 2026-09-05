@@ -2,7 +2,7 @@
 // arriba a abajo y entiende qué es, en qué etapa está, qué se decidió, qué se
 // hizo, qué está en curso, qué falta, qué piezas hay y qué prompts se usan.
 import { MARKS, Project, STAGES, allBoxes, noteMark } from "./types";
-import { collectTasks, contextText, fmtDate } from "./ai";
+import { collectTasks, fmtDate } from "./ai";
 import { collectMedia } from "./components/GalleryPanel";
 import { matchImage } from "./components/MarkdownEditor";
 
@@ -38,10 +38,6 @@ export function buildReport(p: Project, o: ReportOptions): string {
       S.push(`- **${n.title}** [${MARKS.find((x) => x.id === m)?.short}] — ${fmtDate(n.createdAt)}${noteSummary(n.body) ? `: ${noteSummary(n.body)}` : ""}`);
     }
   }
-
-  // Contexto (bloques encendidos y apagados: el informe es completo)
-  const ctx = contextText(p, false);
-  if (ctx.trim()) S.push("\n" + ctx.replace(/^# Proyecto:.*\n?/, "## Qué es y cómo trabajamos\n"));
 
   // Fichas
   const kinds: [string, string][] = [["character", "Personajes"], ["place", "Lugares"], ["item", "Objetos"], ["scene", "Escenas"]];

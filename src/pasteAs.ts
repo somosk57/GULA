@@ -24,7 +24,6 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
     ...(parsed ? [{ id: "auto", label: "Repartir automáticamente", hint: "detecté Hecho / Pendiente / Decisiones…" }] : []),
     { id: "note", label: "Nota nueva", hint: "en este proyecto" },
     { id: "append", label: "Al final de la nota abierta", hint: activeNoteId ? "" : "no hay nota abierta" },
-    { id: "block", label: "Bloque de contexto", hint: "entra en Copiar para la IA" },
     { id: "prompt", label: "Prompt", hint: "para reutilizar" },
     { id: "snippet", label: looksLikeCommand ? "Comando (parece uno)" : "Comando", hint: "▶ Correr" },
     { id: "log", label: "Línea en la entrada del día", hint: "sección Sesiones" },
@@ -65,10 +64,6 @@ export async function pasteAs(project: Project, activeNoteId: string | undefined
         syncNote(n);
         break;
       }
-      case "block":
-        p.blocks.push({ id: uid(), title: title!.trim(), body: text.trim(), enabled: true });
-        tab = "context";
-        break;
       case "prompt":
         p.prompts.unshift({ id: uid(), title: title!.trim(), body: text.trim(), updatedAt: now, lastUsedAt: null });
         tab = "prompts";
