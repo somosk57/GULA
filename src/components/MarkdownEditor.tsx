@@ -13,7 +13,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { assetUrl, isAudioPath, isImagePath, isVideoPath, saveImage } from "../backend";
-import { openMedia } from "./MediaViewer";
+import { openMedia, openMediaMenu } from "./MediaViewer";
 
 interface Props {
   value: string;
@@ -166,6 +166,11 @@ class ImageWidget extends WidgetType {
       el.alt = "";
     }
     el.draggable = false;
+    wrap.oncontextmenu = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openMediaMenu(this.src, ev.clientX, ev.clientY);
+    };
     // Clic en la imagen (o en el ⤢ del video) → verla en grande, sin el recuadro apretándola.
     if (!isAudioPath(this.src)) {
       const big = document.createElement("button");
@@ -191,13 +196,36 @@ class ImageWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+/** La ruta cruda del archivo, achicada a una fichita con el nombre. */
+class SrcWidget extends WidgetType {
+  constructor(readonly src: string) { super(); }
+  eq(o: SrcWidget) { return o.src === this.src; }
+  toDOM() {
+    const s = document.createElement("span");
+    s.className = "cm-src";
+    s.textContent = this.src.split(/[\\/]/).pop() ?? this.src;
+    s.title = this.src + "\n(clic para ver o editar la ruta)";
+    return s;
+  }
+  /** Que el clic lo maneje el editor: pone el cursor en la línea y aparece la ruta entera. */
+  ignoreEvent() { return false; }
+}
+
+/** Una línea que es solo `![](archivo)` y nada más. */
+const ONLY_IMAGE = /^\s*!\[[^\]]*\]\(<?[^)]*>?\)\s*$/;
+
 function buildImageDecos(state: EditorState) {
   const b = new RangeSetBuilder<Decoration>();
   const marks = state.field(marksField, false) ?? {};
+  const cursor = state.doc.lineAt(state.selection.main.head).number;
   for (let i = 1; i <= state.doc.lines; i++) {
     const line = state.doc.line(i);
     const src = matchImage(line.text);
-    if (src) b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(src, marks[src] ?? null), block: true, side: 1 }));
+    if (!src) continue;
+    // Con el cursor en otra línea, la ruta larga estorba: queda solo el nombre.
+    if (i !== cursor && ONLY_IMAGE.test(line.text) && line.from < line.to)
+      b.add(line.from, line.to, Decoration.replace({ widget: new SrcWidget(src) }));
+    b.add(line.to, line.to, Decoration.widget({ widget: new ImageWidget(src, marks[src] ?? null), block: true, side: 1 }));
   }
   return b.finish();
 }
@@ -206,7 +234,8 @@ function buildImageDecos(state: EditorState) {
 const imageField = StateField.define<DecorationSet>({
   create: buildImageDecos,
   update(decos, tr) {
-    return tr.docChanged || tr.effects.some((e) => e.is(setMarks)) ? buildImageDecos(tr.state) : decos;
+    // También al mover el cursor: entrar en la línea muestra la ruta entera.
+    return tr.docChanged || tr.selection || tr.effects.some((e) => e.is(setMarks)) ? buildImageDecos(tr.state) : decos;
   },
   provide: (f) => EditorView.decorations.from(f),
 });

@@ -13,6 +13,7 @@ const NOTES: [string, string][] = [
   [`${mod}B / ${mod}I`, "negrita / cursiva (dentro del texto)"],
   ["Clic derecho en una nota", "marcar de color, fijar, mover, duplicar"],
   ["Clic en una imagen del recuadro", "verla en grande (el video, con el ⤢ o doble clic)"],
+  ["Clic derecho en un archivo", "ver en grande, abrir, abrir la carpeta, copiar la ruta"],
   ["Esc", "cerrar lo que esté abierto: el archivo grande, o la colección"],
   ["Clic derecho en un recuadro", "etiquetas, copiar, bajar a una carpeta, duplicar, renombrar, color, sacar"],
   ["Clic derecho en un proyecto", "renombrar, etapa, exportar, eliminar"],

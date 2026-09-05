@@ -894,3 +894,11 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 }
 .cm-image:hover .cm-big { opacity: 1; }
 .cm-big:hover { color: #fff; background: rgba(0, 0, 0, .8); }
+
+/* La ruta del archivo, achicada al nombre mientras no estés escribiendo en esa línea */
+.cm-src {
+  display: inline-block; max-width: 100%; padding: 1px 7px; border-radius: 10px;
+  font-size: 11px; color: var(--text-faint); background: var(--bg-code);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; cursor: text;
+}
+.cm-src:hover { color: var(--text-dim); }
