@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AppState, Project, STAGES } from "../types";
-import { fmtAgo } from "../ai";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { labelMenuItems, viewMenuItems } from "../menus";
 
@@ -33,7 +32,7 @@ export function Sidebar({ state, project, update }: Props) {
       <aside className="sidebar min">
         <button className="fold" onClick={toggleMin} title="Abrir la barra">»</button>
         <button className="foot-btn vert" onClick={openLabels} title="Etiquetas">
-          Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
+          <span className="star">★</span>Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
         </button>
         <button className="foot-btn vert" onClick={openView} title="Qué se ve y qué no">Ver…</button>
         {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
@@ -65,9 +64,6 @@ export function Sidebar({ state, project, update }: Props) {
         placeholder={"Idea…\n\n¿En qué andás? Una línea para cuando vuelvas."}
         spellCheck={false}
       />
-      {project.now && project.nowAt && (
-        <div className={"now-age" + (Date.now() - project.nowAt > 7 * 86_400_000 ? " stale" : "")}>escrito {fmtAgo(project.nowAt)}</div>
-      )}
 
       <div className="sidebar-foot tools">
         <button
@@ -75,7 +71,7 @@ export function Sidebar({ state, project, update }: Props) {
           title="Los títulos que usás siempre. Se ponen con el clic derecho en un cuadrado; acá se administran y se ven todos juntos."
           onClick={openLabels}
         >
-          Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
+          <span className="star">★</span>Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
         </button>
         <button
           className="foot-btn"

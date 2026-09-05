@@ -63,6 +63,7 @@ function RailItem({ p, index, active, onClick, onMenu }: { p: Project; index: nu
  * profundidad vivan. Van más chicas que los proyectos: ya sabés qué son.
  */
 function Pins({ state, update }: { state: AppState; update: (fn: (d: AppState) => void) => void }) {
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const p = state.projects.find((x) => x.id === state.activeProjectId);
   const pins = (p?.pins ?? [])
     .map((id) => {
@@ -93,13 +94,25 @@ function Pins({ state, update }: { state: AppState; update: (fn: (d: AppState) =
             key={x.id}
             className="rail-item pin"
             onClick={() => goToPane(update, { projectId: p.id, noteId: x.noteId, paneId: x.id })}
-            onContextMenu={(e) => { e.preventDefault(); unpin(x.id); }}
-            title={`${x.name || "Sin nombre"}\nClic: ir · clic derecho: dejar de fijar`}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              // Un clic derecho no lo suelta solo: primero el menú, después "Unfavorited".
+              setMenu({
+                x: e.clientX,
+                y: e.clientY,
+                items: [
+                  { label: `Ir a ${x.name || "el favorito"}`, onClick: () => goToPane(update, { projectId: p.id, noteId: x.noteId, paneId: x.id }) },
+                  { label: "Unfavorited", separator: true, danger: true, onClick: () => unpin(x.id) },
+                ],
+              });
+            }}
+            title={`${x.name || "Sin nombre"}\nClic: ir · clic derecho: menú`}
           >
             {thumb ? <img src={srcOf(thumb)} alt="" draggable={false} /> : <span>{initials}</span>}
           </button>
         );
       })}
+      {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </>
   );
 }

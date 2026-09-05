@@ -439,6 +439,8 @@ export function defaultState(): AppState {
     hiddenTabs: ["gallery"],
     bottomOpen: true,
     showCommands: false,
+    // La barra de la izquierda arranca plegada: el mapa es el punto de la app.
+    sidebarMin: true,
     keys: {},
   };
 }
@@ -506,7 +508,7 @@ export function migrate(raw: unknown): AppState {
     shortcut: s.shortcut ?? "Ctrl+Shift+Space",
     onboarded: s.onboarded ?? true,
     rail: s.rail ?? true,
-    sidebarMin: s.sidebarMin ?? false,
+    sidebarMin: s.sidebarMin ?? true,
     hiddenTabs: s.hiddenTabs ?? [],
     bottomOpen: s.bottomOpen ?? true,
     showCommands: s.showCommands ?? true,

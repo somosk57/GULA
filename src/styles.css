@@ -588,8 +588,6 @@ body.reordering * { cursor: grabbing !important; }
 .now-line { flex: 1; min-width: 0; font-size: 12px; color: var(--text); padding: 3px 4px; border-bottom: 1px solid transparent; }
 .now-line:focus { border-bottom-color: var(--border-strong); }
 .proj-age { color: var(--text-faint); }
-.now-age { font-size: 10px; color: var(--text-faint); margin: -6px 0 6px 6px; }
-.now-age.stale { color: var(--danger); }
 .now-line::placeholder { color: var(--text-faint); font-style: italic; }
 .filter-row { display: flex; gap: 4px; margin-bottom: 6px; }
 .filter-row .search { margin-bottom: 0; }
@@ -917,6 +915,7 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   display: flex; align-items: center; justify-content: center; gap: 5px;
 }
 .foot-btn:hover { color: var(--text); background: var(--bg-hover); border-color: var(--line); }
+.foot-btn .star { color: #f5c542; font-size: 11px; margin-right: 1px; }
 .foot-btn .count { font-size: 10px; text-transform: none; color: var(--text-faint); background: var(--bg-code); padding: 0 5px; border-radius: 8px; }
 
 /* ---------- Mosaico: el cuadrado muestra lo que tiene adentro ---------- */
@@ -1034,6 +1033,7 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   flex: none; width: 24px; padding: 10px 3px; justify-content: flex-start;
   letter-spacing: .1em;
 }
+.foot-btn.vert .star { writing-mode: horizontal-tb; transform: rotate(180deg); margin: 0 0 2px; }
 .foot-btn.vert .count { writing-mode: horizontal-tb; transform: rotate(180deg); padding: 0 4px; }
 /* El tirador de plegar */
 .fold {
