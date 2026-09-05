@@ -626,13 +626,19 @@ function CardMedia({ media }: { media: Media }) {
   );
 }
 
-/** Hasta cuatro archivos de adentro: un mapa se reconoce mirando, no leyendo. */
+/**
+ * La vista previa de una colección: los PRIMEROS CUATRO archivos que tenga
+ * adentro, en grilla. Con eso ya te das una idea; más sería ruido.
+ */
+const MOSAIC_MAX = 4;
+
 function Mosaic({ pane }: { pane: Pane }) {
   const all: Media[] = [];
+  const seen = new Set<string>();
   for (const b of boxesOf(pane)) {
     const m = firstMedia(b);
-    if (m) all.push(m);
-    if (all.length === 4) break;
+    if (m && !seen.has(m.src)) { seen.add(m.src); all.push(m); }
+    if (all.length === MOSAIC_MAX) break;
   }
   if (!all.length) return null;
   if (all.length === 1) return <CardMedia media={all[0]} />;
