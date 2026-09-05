@@ -193,7 +193,8 @@ export default function App() {
   useEffect(() => {
     const move = (e: MouseEvent) => {
       if (!dragging.current || !mainRef.current) return;
-      const r = mainRef.current.getBoundingClientRect();
+      const app = mainRef.current.parentElement!;
+      const r = app.getBoundingClientRect();
       const pct = ((e.clientY - r.top) / r.height) * 100;
       setSplit(Math.min(85, Math.max(25, pct)));
     };
@@ -254,7 +255,7 @@ export default function App() {
           onGo={(pid, nid) => (nid ? goToPane(update, { projectId: pid, noteId: nid }) : update((d) => (d.activeProjectId = pid)))}
         />
       )}
-      <div className="layout">
+      <div className="layout" ref={mainRef} style={{ flexBasis: bottomOpen ? `${split}%` : "100%" }}>
         {state.projects.length > 1 && !compact && state.rail !== false && (
           <ProjectRail state={state} update={update} onAdd={() => createProject(update)} />
         )}
@@ -267,16 +268,16 @@ export default function App() {
             <Sidebar state={state} project={project} update={update} />
           </div>
         )}
-        <div className="main" ref={mainRef}>
-          <div className="top" style={{ flexBasis: bottomOpen ? `${split}%` : "100%" }}>
-            <Editor project={project} update={update} keys={state.keys} />
-          </div>
-          {!bottomOpen && visibleTabs.length > 0 && (
+        <div className="main">
+          <Editor project={project} update={update} keys={state.keys} />
+        </div>
+      </div>
+      {!bottomOpen && visibleTabs.length > 0 && (
             <button className="bottom-show" onClick={() => update((d) => (d.bottomOpen = true))} title="Mostrar el panel de abajo">
               ▲ {visibleTabs.map((t) => t.label).join(" · ") || "Panel"}
             </button>
           )}
-          {bottomOpen && <>
+      {bottomOpen && <>
           <div
             className="divider"
             onMouseDown={() => {
@@ -325,9 +326,7 @@ export default function App() {
             {state.bottomTab === "cards" && <CardsPanel project={project} update={update} />}
             {state.bottomTab === "tasks" && <TasksPanel project={project} update={update} />}
           </div>
-          </>}
-        </div>
-      </div>
+      </>}
     </div>
   );
 }

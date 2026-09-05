@@ -9,6 +9,9 @@ interface Opts {
   attr?: string;
   /** Llamado al soltar: id arrastrado, id sobre el que se soltó, y si fue antes o después. */
   onDrop: (dragId: string, overId: string, before: boolean) => void;
+  /** Si está, soltar en el centro de un `into` mete el ítem ADENTRO de ese. */
+  intoSelector?: string;
+  onDropInto?: (dragId: string, targetId: string) => void;
   /** Eje principal: "y" para listas, "xy" para grillas. */
   axis?: "y" | "xy";
 }
@@ -27,6 +30,7 @@ export function useReorder<T extends HTMLElement>(opts: Opts) {
     let ghost: HTMLElement | null = null;
     let marker: HTMLElement | null = null;
     let over: { id: string; before: boolean } | null = null;
+    let into: HTMLElement | null = null;
 
     const items = () => Array.from(root.querySelectorAll<HTMLElement>(o.current.item));
 
@@ -68,6 +72,20 @@ export function useReorder<T extends HTMLElement>(opts: Opts) {
         const d = Math.hypot(e.clientX - cx, e.clientY - cy);
         if (!best || d < best.d) best = { el, d };
       }
+      // Soltar en el centro de una colección = meterlo adentro.
+      const sel = o.current.intoSelector;
+      const underEl = sel ? (document.elementFromPoint(e.clientX, e.clientY)?.closest(sel) as HTMLElement | null) : null;
+      const inner =
+        underEl && underEl !== dragEl && o.current.onDropInto
+          ? (() => {
+              const r = underEl.getBoundingClientRect();
+              const mx = (e.clientX - r.left) / r.width;
+              const my = (e.clientY - r.top) / r.height;
+              return mx > 0.25 && mx < 0.75 && my > 0.25 && my < 0.75 ? underEl : null;
+            })()
+          : null;
+      if (into !== inner) { into?.classList.remove("drop-in"); into = inner; into?.classList.add("drop-in"); }
+      if (into) { over = null; if (marker) marker.style.display = "none"; return; }
       if (best && best.d < 80) {
         const r = best.el.getBoundingClientRect();
         const before = o.current.axis === "xy"
@@ -93,9 +111,11 @@ export function useReorder<T extends HTMLElement>(opts: Opts) {
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      if (active && dragEl && over) {
+      if (active && dragEl) {
         const id = dragEl.getAttribute(attr) ?? "";
-        if (id && over.id && id !== over.id) o.current.onDrop(id, over.id, over.before);
+        const innerId = into?.getAttribute(attr) ?? "";
+        if (id && innerId && id !== innerId) o.current.onDropInto?.(id, innerId);
+        else if (id && over && over.id && id !== over.id) o.current.onDrop(id, over.id, over.before);
       }
       if (active) {
         // Evitar que el click de soltar seleccione el ítem.
@@ -103,6 +123,8 @@ export function useReorder<T extends HTMLElement>(opts: Opts) {
         root.addEventListener("click", stop, { capture: true, once: true });
         setTimeout(() => root.removeEventListener("click", stop, { capture: true }), 50);
       }
+      into?.classList.remove("drop-in");
+      into = null;
       dragEl?.classList.remove("drag-src");
       ghost?.remove(); marker?.remove();
       ghost = null; marker = null; dragEl = null; over = null; active = false;

@@ -69,6 +69,9 @@ input, textarea { font: inherit; color: inherit; background: none; border: 0; ou
 
 /* ---------- Layout ---------- */
 .layout { display: flex; flex: 1; min-height: 0; }
+/* El panel de abajo cruza la ventana entera, por debajo de la barra y del mapa. */
+.app > .bottom, .app > .divider, .app > .bottom-show { flex: none; }
+.app > .bottom { flex: 1; }
 .main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .top { min-height: 0; overflow: hidden; display: flex; }
 .divider {
@@ -994,3 +997,16 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 .now-line.big:focus { border-color: var(--border-strong); outline: none; }
 .sidebar-foot.tools { margin-top: auto; }
 .note-title.as-text { color: var(--text); font-weight: 600; padding: 4px 2px; }
+
+/* Fijados en la columna de la izquierda: más chicos que los proyectos */
+.rail-sep { width: 22px; height: 1px; background: var(--line); margin: 4px auto; flex: none; }
+.rail-item.pin { width: 30px; height: 30px; border-radius: 8px; font-size: 10px; }
+.rail-item.pin img { border-radius: 7px; }
+/* Una colección fijada lleva su estrellita */
+.coll-card.pinned::after {
+  content: "★"; position: absolute; bottom: 6px; right: 8px; z-index: 2;
+  font-size: 11px; color: var(--accent); text-shadow: 0 1px 2px rgba(0,0,0,.6);
+}
+/* Soltando un cuadrado adentro de una colección */
+.coll-card.drop-in { outline: 2px solid var(--accent); outline-offset: -2px; }
+.coll-card.drop-in::before { content: ""; position: absolute; inset: 0; background: rgba(79,140,255,.18); z-index: 4; }

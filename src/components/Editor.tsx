@@ -202,6 +202,16 @@ export function Editor({ project, update, keys }: Props) {
     item: ".coll-card:not(.add), .pane:not(.add)",
     attr: "data-pane",
     axis: "xy",
+    // Soltar en el centro de una colección lo mete adentro de ella.
+    intoSelector: ".coll-card:not(.add)",
+    onDropInto: (dragId, targetId) =>
+      editLevel((list) => {
+        const from = list.findIndex((x) => x.id === dragId);
+        const target = list.find((x) => x.id === targetId);
+        if (from < 0 || !target?.panes) return;
+        const [moved] = list.splice(from, 1);
+        target.panes.push(moved);
+      }),
     onDrop: (dragId, overId, before) =>
       editLevel((list) => {
         const from = list.findIndex((x) => x.id === dragId);
@@ -320,6 +330,17 @@ export function Editor({ project, update, keys }: Props) {
           if (t !== null) editPane(p.id, (x) => (x.title = t.trim()));
         },
       },
+      ...(isColl(p)
+        ? [{
+            label: (project.pins ?? []).includes(p.id) ? "★ Dejar de fijar a la izquierda" : "★ Fijar a la izquierda",
+            onClick: () =>
+              update((d) => {
+                const pr = d.projects.find((x) => x.id === project.id)!;
+                const pins = pr.pins ?? [];
+                pr.pins = pins.includes(p.id) ? pins.filter((x) => x !== p.id) : [...pins, p.id];
+              }),
+          }]
+        : []),
       { label: "Copiar el texto", onClick: () => copyPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
       { label: "⤓ Bajar a una carpeta…", onClick: () => downloadPane(p) },
@@ -483,7 +504,7 @@ export function Editor({ project, update, keys }: Props) {
             return (
               <div
                 key={p.id}
-                className={"coll-card" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "")}
+                className={"coll-card" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "") + ((project.pins ?? []).includes(p.id) ? " pinned" : "")}
                 data-pane={p.id}
                 style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
                 onClick={() => setPath([...path, p.id])}

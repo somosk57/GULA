@@ -13,6 +13,8 @@ const NOTES: [string, string][] = [
   ["○ en un cuadrado", "dejarlo pendiente: aparece en Tareas con el camino"],
   ["− en un cuadrado", "sacarlo"],
   ["Arrastrar un cuadrado", "reordenar el nivel"],
+  ["Soltarlo en el centro de una colección", "meterlo adentro de esa"],
+  ["Clic derecho en una colección", "fijarla en la columna de la izquierda"],
   ["Clic derecho en un cuadrado", "etiquetas, color, copiar, duplicar, bajar, sacar"],
   ["Clic en una imagen", "verla en grande (el video, con el ⤢ o doble clic)"],
   ["Clic derecho en un archivo", "abrir, abrir la carpeta, copiar la ruta"],

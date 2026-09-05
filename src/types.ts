@@ -243,6 +243,8 @@ export interface Project {
   marks: Record<string, Mark>;
   /** Etiquetas: títulos que usás seguido en los recuadros (Idea, Prompt, Imagen, Video…). */
   labels?: string[];
+  /** Colecciones fijadas: aparecen en la columna de la izquierda para volver de un clic. */
+  pins?: string[];
   /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
   hideMarks: Mark[];
   cards: Card[];
@@ -416,7 +418,7 @@ export function defaultState(): AppState {
   const guia = newNote("Cómo usar GULA");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Cada cuadrado tiene un **○** (dejarlo pendiente: aparece en Tareas con el camino para volver) y un **−** para sacarlo. Arrastrá para reordenar.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+K** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: queda en la columna, chiquita, para volver de un clic desde donde estés.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -477,6 +479,7 @@ export function migrate(raw: unknown): AppState {
     cards: p.cards ?? [],
     marks: p.marks ?? {},
     labels: p.labels ?? [],
+    pins: p.pins ?? [],
     hideMarks: p.hideMarks ?? [],
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.
     collections: p.collections ?? ((p as { assetsDir?: string }).assetsDir ? [{ id: "assets-" + (p.id ?? uid()), name: "Assets", path: (p as { assetsDir?: string }).assetsDir! }] : []),

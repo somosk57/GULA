@@ -109,7 +109,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       items: [
         { label: `Deshacer  (${mod}Z)`, onClick: onUndo },
         { label: `Rehacer  (${mod}Shift+Z)`, onClick: onRedo },
-        { label: `Buscar en todo  (${mod}K)`, onClick: onOpenSearch, separator: true },
+        { label: `Buscar en todo  (${mod}F)`, onClick: onOpenSearch, separator: true },
         { label: `Pegar como…  (${mod}Shift+V)`, onClick: onPasteAs },
         { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
         { label: `Atajos de teclado  (${mod}/)`, onClick: onKeys, separator: true },
@@ -148,7 +148,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v3.0.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v3.1.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
