@@ -68,11 +68,12 @@ input, textarea { font: inherit; color: inherit; background: none; border: 0; ou
 .backdrop { position: fixed; inset: 0; z-index: 19; }
 
 /* ---------- Layout ---------- */
-.layout { display: flex; flex: 1; min-height: 0; }
-/* El panel de abajo cruza la ventana entera, por debajo de la barra y del mapa. */
-.app > .bottom, .app > .divider, .app > .bottom-show { flex: none; }
-.app > .bottom { flex: 1; }
-.main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+/* El alto lo reparte el divisor: el mapa arriba (flex fijo por %), el panel abajo
+   ocupa lo que queda. Los dos con min-height:0 para que nadie se desborde. */
+.layout { display: flex; min-height: 0; overflow: hidden; }
+.app > .divider, .app > .bottom-show { flex: none; }
+.app > .bottom { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .top { min-height: 0; overflow: hidden; display: flex; }
 .divider {
   height: 5px; flex: none; cursor: row-resize;
@@ -86,7 +87,7 @@ input, textarea { font: inherit; color: inherit; background: none; border: 0; ou
 
 /* ---------- Sidebar ---------- */
 .sidebar {
-  width: 196px; flex: none;
+  width: 196px; flex: none; min-height: 0;
   background: var(--bg-side);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
@@ -161,7 +162,7 @@ input, textarea { font: inherit; color: inherit; background: none; border: 0; ou
 .empty.wide { grid-column: 1 / -1; padding: 24px 12px; }
 
 /* ---------- Editor ---------- */
-.editor { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 18px 28px 10px; }
+.editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: 18px 28px 10px; }
 .editor-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .note-title { flex: 1; font-size: 22px; font-weight: 600; min-width: 0; }
 .mode-btn {
@@ -966,7 +967,7 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 /* Un solo nivel: las colecciones son cuadrados 1×1, los recuadros ocupan 2×2
    y van abiertos. Los dos conviven, y la grilla los acomoda sola. */
 .map {
-  flex: 1; min-height: 0; overflow-y: auto; display: grid; gap: 12px;
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: grid; gap: 12px;
   grid-auto-flow: dense; align-content: start; padding: 2px 6px 14px 2px;
 }
 .map > .pane { grid-column: span 2; grid-row: span 2; height: 100%; }

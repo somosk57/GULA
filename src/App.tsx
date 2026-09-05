@@ -255,7 +255,11 @@ export default function App() {
           onGo={(pid, nid) => (nid ? goToPane(update, { projectId: pid, noteId: nid }) : update((d) => (d.activeProjectId = pid)))}
         />
       )}
-      <div className="layout" ref={mainRef} style={{ flexBasis: bottomOpen ? `${split}%` : "100%" }}>
+      <div
+        className="layout"
+        ref={mainRef}
+        style={{ flex: bottomOpen ? `0 0 ${split}%` : "1 1 auto" }}
+      >
         {state.projects.length > 1 && !compact && state.rail !== false && (
           <ProjectRail state={state} update={update} onAdd={() => createProject(update)} />
         )}
