@@ -16,6 +16,7 @@ async function fillVariables(body: string): Promise<string | null> {
 }
 import { AppState, Project, Prompt, uid } from "../types";
 import { copyText, pickFolder, readClipboard } from "../backend";
+import { ContextMenu, MenuItem } from "./ContextMenu";
 import { pick } from "../dialog";
 import { dumpTexts, textFiles } from "../dump";
 
@@ -35,6 +36,7 @@ function ago(t: number) {
 export function PromptsPanel({ project, update }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
   const edit = (id: string, fn: (p: Prompt) => void) =>
     update((d) => {
@@ -74,6 +76,36 @@ export function PromptsPanel({ project, update }: Props) {
     update((d) => {
       const pr = d.projects.find((x) => x.id === project.id)!;
       pr.prompts = pr.prompts.filter((x) => x.id !== p.id);
+    });
+  };
+
+  const promptMenu = (e: React.MouseEvent, p: Prompt) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: "Copiar", onClick: () => copy(p) },
+        { label: "Editar", onClick: () => setOpenId(p.id) },
+        {
+          label: "Renombrar",
+          onClick: async () => {
+            const t = await ask("Título del prompt", p.title);
+            if (t !== null) edit(p.id, (x) => (x.title = t.trim()));
+          },
+        },
+        {
+          label: "Duplicar",
+          onClick: () =>
+            update((d) => {
+              const pr = d.projects.find((x) => x.id === project.id)!;
+              const i = pr.prompts.findIndex((x) => x.id === p.id);
+              pr.prompts.splice(i + 1, 0, { id: uid(), title: p.title + " (copia)", body: p.body, updatedAt: Date.now(), lastUsedAt: null });
+            }),
+        },
+        { label: "Eliminar", danger: true, separator: true, onClick: () => remove(p) },
+      ],
     });
   };
 
@@ -117,7 +149,7 @@ export function PromptsPanel({ project, update }: Props) {
           const isOpen = openId === p.id;
           return (
             <div key={p.id} className={"prompt" + (p.id === lastId ? " last" : "") + (isOpen ? " open" : "")}>
-              <div className="prompt-row" onClick={() => setOpenId(isOpen ? null : p.id)}>
+              <div className="prompt-row" onClick={() => setOpenId(isOpen ? null : p.id)} onContextMenu={(e) => promptMenu(e, p)} title="Clic: abrir · clic derecho: copiar, renombrar, duplicar, eliminar">
                 <div className="prompt-meta">
                   <span className="prompt-title">{p.title || "(sin título)"}</span>
                   <span className="prompt-sub">
@@ -157,6 +189,7 @@ export function PromptsPanel({ project, update }: Props) {
             </div>
           );
         })}
+        {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
         {project.prompts.length === 0 && (
           <div className="empty wide">
             Guardá acá los prompts del proyecto. El último que copies queda marcado arriba.
