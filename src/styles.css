@@ -1022,3 +1022,24 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 /* Soltando un cuadrado adentro de una colección */
 .coll-card.drop-in { outline: 2px solid var(--accent); outline-offset: -2px; }
 .coll-card.drop-in::before { content: ""; position: absolute; inset: 0; background: rgba(79,140,255,.18); z-index: 4; }
+
+/* ---------- La barra de la izquierda, plegada ---------- */
+.sidebar.min {
+  width: 30px; padding: 8px 0; align-items: center; gap: 10px;
+  background: var(--bg-side); border-right: 1px solid var(--line);
+}
+/* Los dos botones leídos de abajo hacia arriba, apoyados contra la columna */
+.foot-btn.vert {
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  flex: none; width: 24px; padding: 10px 3px; justify-content: flex-start;
+  letter-spacing: .1em;
+}
+.foot-btn.vert .count { writing-mode: horizontal-tb; transform: rotate(180deg); padding: 0 4px; }
+/* El tirador de plegar */
+.fold {
+  flex: none; width: 20px; height: 20px; border: none; border-radius: 4px; cursor: pointer;
+  background: none; color: var(--text-faint); font-size: 12px; line-height: 1;
+}
+.fold:hover { color: var(--text); background: var(--bg-hover); }
+.fold.right { align-self: flex-end; margin: -4px -2px 2px 0; opacity: 0; transition: opacity .12s; }
+.sidebar:hover .fold.right { opacity: 1; }

@@ -275,6 +275,8 @@ export interface AppState {
   onboarded: boolean;
   /** Columna de proyectos a la izquierda (cuando hay más de uno). */
   rail?: boolean;
+  /** La barra de la izquierda plegada: solo Etiquetas y Ver…, en vertical. */
+  sidebarMin?: boolean;
   /** Pestañas del panel de abajo que el usuario apagó. */
   hiddenTabs?: Tab[];
   /** Panel de abajo visible. */
@@ -504,6 +506,7 @@ export function migrate(raw: unknown): AppState {
     shortcut: s.shortcut ?? "Ctrl+Shift+Space",
     onboarded: s.onboarded ?? true,
     rail: s.rail ?? true,
+    sidebarMin: s.sidebarMin ?? false,
     hiddenTabs: s.hiddenTabs ?? [],
     bottomOpen: s.bottomOpen ?? true,
     showCommands: s.showCommands ?? true,

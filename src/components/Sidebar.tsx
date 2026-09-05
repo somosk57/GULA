@@ -19,9 +19,30 @@ export function Sidebar({ state, project, update }: Props) {
 
   const edit = (fn: (p: Project) => void) => update((d) => fn(d.projects.find((p) => p.id === project.id)!));
   const labels = project.labels ?? [];
+  const min = state.sidebarMin === true;
+  const toggleMin = () => update((d) => (d.sidebarMin = !d.sidebarMin));
+
+  const openLabels = (e: React.MouseEvent) =>
+    setMenu({ x: e.clientX, y: e.clientY, items: labelMenuItems(labels, update, project.id) });
+  const openView = (e: React.MouseEvent) => setMenu({ x: e.clientX, y: e.clientY, items: viewMenuItems(state, update) });
+
+  // Plegada: una tira contra la columna de proyectos, con los dos botones en vertical.
+  // El mapa es el punto de la app, así que acá se le devuelve el ancho.
+  if (min)
+    return (
+      <aside className="sidebar min">
+        <button className="fold" onClick={toggleMin} title="Abrir la barra">»</button>
+        <button className="foot-btn vert" onClick={openLabels} title="Etiquetas">
+          Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
+        </button>
+        <button className="foot-btn vert" onClick={openView} title="Qué se ve y qué no">Ver…</button>
+        {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
+      </aside>
+    );
 
   return (
     <aside className="sidebar">
+      <button className="fold right" onClick={toggleMin} title="Plegar la barra: más lugar para las colecciones">«</button>
       <div className="stage-box">
         <button
           className={"stage " + project.stage}
@@ -52,14 +73,14 @@ export function Sidebar({ state, project, update }: Props) {
         <button
           className="foot-btn"
           title="Los títulos que usás siempre. Se ponen con el clic derecho en un cuadrado; acá se administran y se ven todos juntos."
-          onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, items: labelMenuItems(labels, update, project.id) })}
+          onClick={openLabels}
         >
           Etiquetas{labels.length > 0 && <span className="count">{labels.length}</span>}
         </button>
         <button
           className="foot-btn"
           title="Qué se ve y qué no: tema, columna de proyectos, panel de abajo y pestañas"
-          onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, items: viewMenuItems(state, update) })}
+          onClick={openView}
         >
           Ver…
         </button>

@@ -23,6 +23,10 @@ export function viewMenuItems(state: AppState, update: Update): MenuItem[] {
       onClick: () => update((d) => (d.rail = d.rail === false)),
     },
     {
+      label: `${check(state.sidebarMin !== true)}  Barra de la izquierda abierta`,
+      onClick: () => update((d) => (d.sidebarMin = d.sidebarMin !== true)),
+    },
+    {
       label: `${check(state.bottomOpen !== false)}  Panel de abajo`,
       onClick: () => update((d) => (d.bottomOpen = d.bottomOpen === false)),
     },

@@ -23,7 +23,7 @@ const NOTES: [string, string][] = [
   [`${mod}Enter`, "marcar / desmarcar la tarea de la línea"],
   ["Clic derecho en un proyecto", "renombrar, etapa, exportar, eliminar"],
   ["Clic derecho en la barra de arriba", "el menú de ⋯ (incluye Recargar)"],
-  ["Abajo a la izquierda", "Etiquetas y Ver…"],
+  ["« de la barra izquierda", "plegarla: queda una tira con Etiquetas y Ver… en vertical"],
   ["Galería: ← → · 1 2 3 4 · 0 · N · Enter", "pasar · marcar · quitar marca · nueva entrada · abrir"],
 ];
 
