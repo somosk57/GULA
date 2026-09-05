@@ -28,6 +28,7 @@ export const ACTIONS: KeyAction[] = [
   { id: "pasteAs", label: "Pegar como…", group: "Panel de abajo", def: "Ctrl+Shift+V" },
 
   { id: "keys", label: "Este panel de atajos", group: "General", def: "Ctrl+/" },
+  { id: "reload", label: "Recargar la app", group: "General", def: "Ctrl+R" },
   { id: "undo", label: "Deshacer", group: "General", def: "Ctrl+Z", fixed: true },
   { id: "redo", label: "Rehacer", group: "General", def: "Ctrl+Shift+Z", fixed: true },
 ];

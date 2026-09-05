@@ -92,6 +92,13 @@ export function useAppState() {
     });
   }, []);
 
+  /** Guarda ya mismo y espera. Se usa antes de recargar la app. */
+  const flush = useCallback(async () => {
+    if (timer.current) window.clearTimeout(timer.current);
+    if (latest.current) await saveState(latest.current);
+    dirty.current = false;
+  }, []);
+
   // Guardar al cerrar por las dudas.
   useEffect(() => {
     const flush = () => {
@@ -102,7 +109,7 @@ export function useAppState() {
   }, []);
 
   void histVersion;
-  return { state, update, replace, undo, redo, canUndo: past.current.length > 0, canRedo: future.current.length > 0 };
+  return { state, update, replace, undo, redo, flush, canUndo: past.current.length > 0, canRedo: future.current.length > 0 };
 }
 
 export function activeProject(s: AppState): Project {

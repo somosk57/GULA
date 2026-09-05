@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppState, activeProject } from "./store";
 import { TitleBar, createProject } from "./components/TitleBar";
 import { ProjectRail } from "./components/ProjectRail";
@@ -29,7 +29,7 @@ const SPLIT_KEY = "gula-split";
 const IS_MAC_APP = /Mac/i.test(navigator.platform);
 
 export default function App() {
-  const { state, update, replace, undo, redo } = useAppState();
+  const { state, update, replace, undo, redo, flush } = useAppState();
   const [searchOpen, setSearchOpen] = useState(false);
   const [homeOpen, setHomeOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
@@ -101,6 +101,12 @@ export default function App() {
     if (state) win.setAlwaysOnTop(state.alwaysOnTop);
   }, [state?.alwaysOnTop]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Recargar la ventana, guardando primero lo que esté sin guardar. */
+  const reload = useCallback(async () => {
+    try { await flush(); } catch { /* si falla el guardado, igual recargamos */ }
+    location.reload();
+  }, [flush]);
+
   // Atajos (configurables desde Ctrl+/)
   useEffect(() => {
     const K = state?.keys;
@@ -121,6 +127,7 @@ export default function App() {
       else if (is("search")) { e.preventDefault(); setSearchOpen((v) => !v); }
       else if (is("home")) { e.preventDefault(); setHomeOpen((v) => !v); }
       else if (is("keys")) { e.preventDefault(); setKeysOpen((v) => !v); }
+      else if (is("reload")) { e.preventDefault(); reload(); }
       else if (is("bottom")) { e.preventDefault(); update((d) => (d.bottomOpen = d.bottomOpen === false)); }
       else if (is("pasteAs")) {
         e.preventDefault();
@@ -185,7 +192,7 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [update, compact, undo, redo, state?.keys]);
+  }, [update, compact, undo, redo, reload, state?.keys]);
 
   // Divisor arrastrable entre editor y panel de abajo
   useEffect(() => {
@@ -240,6 +247,7 @@ export default function App() {
         onPasteAs={() => pasteAs(project, state.activeNoteId[project.id], update)}
         onHome={() => setHomeOpen(true)}
         onKeys={() => setKeysOpen(true)}
+        onReload={reload}
       />
       <UpdateBanner />
       <Dialogs />

@@ -23,6 +23,7 @@ interface Props {
   onPasteAs: () => void;
   onHome: () => void;
   onKeys: () => void;
+  onReload: () => void;
 }
 
 const I = {
@@ -65,7 +66,7 @@ export async function createProject(update: (fn: (d: AppState) => void) => void)
   });
 }
 
-export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome, onKeys }: Props) {
+export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar, onUndo, onRedo, onReplace, onOpenSearch, onPasteAs, onHome, onKeys, onReload }: Props) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -112,6 +113,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: `Pegar como…  (${mod}Shift+V)`, onClick: onPasteAs },
         { label: `Hoy: todos los proyectos  (${mod}H)`, onClick: onHome },
         { label: `Atajos de teclado  (${mod}/)`, onClick: onKeys },
+        { label: `Recargar la app  (${mod}R)`, onClick: onReload },
         {
           label: `Tema: ${t === "dark" ? "oscuro" : t === "light" ? "claro" : "sistema"}`,
           separator: true,
@@ -164,13 +166,17 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v2.12.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v2.12.1 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
 
   return (
-    <div className={"titlebar" + (IS_MAC ? " mac" : "")} data-tauri-drag-region>
+    <div
+      className={"titlebar" + (IS_MAC ? " mac" : "")}
+      data-tauri-drag-region
+      onContextMenu={(e) => { if ((e.target as HTMLElement).closest("button, input")) return; settingsMenu(e); }}
+    >
       {IS_MAC && <TrafficLights />}
       <button
         className={"tb-btn sm" + (state.alwaysOnTop ? " active" : "")}
