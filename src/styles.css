@@ -902,3 +902,14 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; cursor: text;
 }
 .cm-src:hover { color: var(--text-dim); }
+
+/* Segunda fila del pie de la barra: Etiquetas y Settings */
+.sidebar-foot.tools { border-top: 1px solid var(--line); padding-top: 6px; margin-top: -2px; }
+.foot-btn {
+  flex: 1; padding: 5px 8px; border-radius: 5px; font-size: 11px; letter-spacing: .04em;
+  text-transform: uppercase; font-weight: 600; color: var(--text-faint);
+  background: none; border: 1px solid transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.foot-btn:hover { color: var(--text); background: var(--bg-hover); border-color: var(--line); }
+.foot-btn .count { font-size: 10px; text-transform: none; color: var(--text-faint); background: var(--bg-code); padding: 0 5px; border-radius: 8px; }

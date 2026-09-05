@@ -18,6 +18,7 @@ const NOTES: [string, string][] = [
   ["Clic derecho en un recuadro", "etiquetas, copiar, bajar a una carpeta, duplicar, renombrar, color, sacar"],
   ["Clic derecho en un proyecto", "renombrar, etapa, exportar, eliminar"],
   ["Clic derecho en la barra de arriba", "el menú de ⋯ (incluye Recargar)"],
+  ["Abajo a la izquierda", "Etiquetas y Settings"],
   ["Arrastrar desde el borde de un recuadro", "reordenar"],
   ["− del recuadro", "sacarlo"],
   ["Clic derecho en una pestaña", "ocultarla (vuelve desde el menú ⋯)"],

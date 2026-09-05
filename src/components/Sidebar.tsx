@@ -6,6 +6,7 @@ import { fmtAgo } from "../ai";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { ContextMenu, MenuItem } from "./ContextMenu";
+import { labelMenuItems, viewMenuItems } from "../menus";
 
 interface Props {
   state: AppState;
@@ -345,6 +346,22 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       <div className="sidebar-foot">
         <button className="add-note" onClick={() => newNoteAsking()} title="Nueva nota (Ctrl+N crea una directo)">+ Nota</button>
         <button className="add-note" onClick={addGroup} title="Nueva sección">+ Sección</button>
+      </div>
+      <div className="sidebar-foot tools">
+        <button
+          className="foot-btn"
+          title="Los títulos que usás siempre en los recuadros. Se ponen con el clic derecho en un recuadro."
+          onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, items: labelMenuItems(project.labels ?? [], update, project.id) })}
+        >
+          Etiquetas{(project.labels?.length ?? 0) > 0 && <span className="count">{project.labels!.length}</span>}
+        </button>
+        <button
+          className="foot-btn"
+          title="Qué se ve y qué no: tema, columnas, panel de abajo y pestañas"
+          onClick={(e) => setMenu({ x: e.clientX, y: e.clientY, items: viewMenuItems(state, update) })}
+        >
+          Settings
+        </button>
       </div>
 
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
