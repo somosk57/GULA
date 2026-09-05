@@ -260,6 +260,29 @@ export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP, 
   return { id: uid(), title, body, panes: [first], pinned: false, updatedAt: Date.now(), createdAt: Date.now(), group, autoTitle: title === "Nueva nota", kind };
 }
 
+/** Copia entera de una nota: mismo tipo, mismos recuadros (y los de adentro), con ids nuevos. */
+export function cloneNote(n: Note, title = n.title): Note {
+  const copyPane = (p: Pane): Pane => ({
+    id: uid(),
+    title: p.title,
+    body: p.body,
+    ...(p.mark ? { mark: p.mark } : {}),
+    ...(p.panes ? { panes: p.panes.map(copyPane) } : {}),
+  });
+  const c: Note = {
+    ...n,
+    id: uid(),
+    title,
+    autoTitle: false,
+    panes: n.panes.map(copyPane),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    hidePaneMarks: n.hidePaneMarks ? [...n.hidePaneMarks] : undefined,
+  };
+  syncNote(c);
+  return c;
+}
+
 /** Texto completo de una nota a partir de sus recuadros (dos niveles si es colección). */
 export function joinPanes(panes: Pane[], depth = 2): string {
   if (panes.length <= 1 && !panes[0]?.panes?.length) return panes[0]?.body ?? "";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ask, confirmDlg, pick } from "../dialog";
 import { useReorder } from "../reorder";
-import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, allBoxes, markColor, newNote, noteMark, uid } from "../types";
+import { AppState, DEFAULT_GROUP, MARKS, MARK_ORDER, Mark, Note, Project, STAGES, allBoxes, cloneNote, markColor, newNote, noteMark, uid } from "../types";
 import { fmtAgo } from "../ai";
 import { assetUrl, isAudioPath, isVideoPath } from "../backend";
 import { matchImage } from "./MarkdownEditor";
@@ -93,6 +93,9 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
       if (k === "boxes" && template?.kind !== "collection" && template && template.panes.length > 1)
         n.panes = template.panes.map((x) => ({ id: uid(), title: x.title, body: "" }));
       else if (k === "boxes" && n.panes.length === 1) n.panes.push({ id: uid(), title: "", body: "" });
+      // De una colección se hereda la forma de su primera colección: los mismos recuadros, sin texto.
+      else if (k === "collection" && template?.kind === "collection" && template.panes[0]?.panes?.length)
+        n.panes = [{ id: uid(), title: "", body: "", panes: template.panes[0].panes!.map((x) => ({ id: uid(), title: x.title, body: "" })) }];
       p.notes.splice(lastIdx < 0 ? p.notes.length : lastIdx + 1, 0, n);
       d.activeNoteId[p.id] = n.id;
     });
@@ -166,14 +169,15 @@ export function Sidebar({ state, project, update, search, onSearch }: Props) {
           },
         },
         {
-          label: "Nueva a partir de esta (mismos recuadros, vacíos)",
+          label: note.kind === "collection" ? "Nueva colección vacía como esta" : "Nueva a partir de esta (mismos recuadros, vacíos)",
           onClick: () => addNote(note.group, note),
         },
         {
           label: "Duplicar",
           onClick: () =>
             edit((p, d) => {
-              const n = newNote(note.title + " (copia)", note.body, note.group);
+              // Copia de verdad: si era una colección, sigue siendo una colección con todo adentro.
+              const n = cloneNote(note, note.title + " (copia)");
               p.notes.splice(p.notes.findIndex((x) => x.id === noteId) + 1, 0, n);
               d.activeNoteId[p.id] = n.id;
             }),
