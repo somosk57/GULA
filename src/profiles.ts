@@ -8,7 +8,6 @@ export interface ProfileTemplate {
   id: ProfileId;
   name: string;
   hint: string;
-  notes: { title: string; body: string; group: string }[];
   blocks: { title: string; body: string; enabled: boolean }[];
   prompts: { title: string; body: string }[];
   snippets: { title: string; body: string; kind: "command" | "text" }[];
@@ -20,14 +19,6 @@ export const PROFILES: ProfileTemplate[] = [
     id: "app",
     name: "App / software",
     hint: "Stack, decisiones, bugs, deploy. Pensado para vibe coding.",
-    notes: [
-      { title: "Idea principal", body: "# {name}\n\n¿Qué problema resuelve y para quién?\n\n", group: "General" },
-      { title: "Requisitos", body: "## Debe tener\n- [ ] \n\n## Estaría bueno\n- [ ] \n", group: "General" },
-      { title: "Tareas", body: "## Hoy\n- [ ] \n\n## Después\n- [ ] \n", group: "General" },
-      { title: "Bugs conocidos", body: "- [ ] \n", group: "Desarrollo" },
-      { title: "Deploy", body: "Dónde está publicado, cómo se despliega, variables de entorno (sin secretos).\n", group: "Desarrollo" },
-      { title: "Ideas", body: "- \n", group: "Ideas futuras" },
-    ],
     blocks: [
       { title: "Qué es", body: "{name}: (una o dos líneas: qué hace y para quién)", enabled: true },
       { title: "Stack", body: "- Frontend:\n- Backend / base de datos:\n- Hosting:\n- Otras herramientas:", enabled: true },
@@ -50,14 +41,6 @@ export const PROFILES: ProfileTemplate[] = [
     id: "novel",
     name: "Novela / escritura",
     hint: "Fichas de personajes, lugares y escenas; guía de estilo; capítulos.",
-    notes: [
-      { title: "Premisa", body: "# {name}\n\n¿De qué trata, en tres líneas? ¿Qué pregunta hace la historia?\n\n", group: "General" },
-      { title: "Tareas", body: "- [ ] \n", group: "General" },
-      { title: "Línea de tiempo", body: "- \n", group: "Biblia" },
-      { title: "Reglas del mundo", body: "Lo que puede y no puede pasar. Magia, tecnología, política, época.\n", group: "Biblia" },
-      { title: "Capítulo 1", body: "", group: "Capítulos" },
-      { title: "Ideas sueltas", body: "- \n", group: "Ideas futuras" },
-    ],
     blocks: [
       { title: "Qué es", body: "{name}: (género, extensión, público, en qué etapa está)", enabled: true },
       { title: "Guía de estilo", body: "- Persona narrativa y tiempo:\n- Tono:\n- Frases cortas o largas:\n- Palabras o recursos que NO quiero:\n- Un párrafo mío de ejemplo:", enabled: true },
@@ -75,12 +58,6 @@ export const PROFILES: ProfileTemplate[] = [
     id: "content",
     name: "Contenido / marca",
     hint: "Canal, cuenta o marca: voz, audiencia, calendario de piezas.",
-    notes: [
-      { title: "Sobre el canal", body: "# {name}\n\n¿Qué hago, para quién, y qué me diferencia?\n\n", group: "General" },
-      { title: "Calendario", body: "## Esta semana\n- [ ] \n\n## Próximas\n- [ ] \n", group: "General" },
-      { title: "Ideas de piezas", body: "- \n", group: "Ideas" },
-      { title: "Qué funcionó", body: "Piezas que anduvieron bien y por qué.\n", group: "Aprendizajes" },
-    ],
     blocks: [
       { title: "Qué es", body: "{name}: (plataforma, tema, frecuencia)", enabled: true },
       { title: "Voz de marca", body: "- Tono:\n- Cómo trato al público (vos / tú / usted):\n- Palabras que uso siempre:\n- Lo que nunca diría:", enabled: true },
@@ -98,14 +75,6 @@ export const PROFILES: ProfileTemplate[] = [
     id: "study",
     name: "Estudio / investigación",
     hint: "Aprender algo: glosario, fuentes, dudas abiertas.",
-    notes: [
-      { title: "Objetivo", body: "# {name}\n\n¿Qué quiero poder hacer o entender al final?\n\n", group: "General" },
-      { title: "Plan", body: "- [ ] \n", group: "General" },
-      { title: "Glosario", body: "- **Término**: definición corta con mis palabras\n", group: "Apuntes" },
-      { title: "Lo que ya entendí", body: "", group: "Apuntes" },
-      { title: "Dudas abiertas", body: "- [ ] \n", group: "Apuntes" },
-      { title: "Fuentes", body: "- \n", group: "Apuntes" },
-    ],
     blocks: [
       { title: "Qué estudio", body: "{name}: (tema, nivel actual, para qué)", enabled: true },
       { title: "Cómo me gusta aprender", body: "- Ejemplos antes que teoría / teoría antes que ejemplos\n- Comparaciones con lo que ya sé:\n- Idioma:", enabled: true },
@@ -121,7 +90,6 @@ export const PROFILES: ProfileTemplate[] = [
     id: "blank",
     name: "En blanco",
     hint: "Una nota y nada más.",
-    notes: [{ title: "Nueva nota", body: "", group: "General" }],
     blocks: [{ title: "Qué es", body: "", enabled: true }],
     prompts: [],
     snippets: [],

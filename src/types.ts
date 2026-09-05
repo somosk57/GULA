@@ -115,6 +115,8 @@ export function deriveTitle(n: Note): string {
 }
 
 export const DEFAULT_GROUP = "General";
+/** Segunda sección con la que arranca un proyecto. */
+export const NOTES_GROUP = "Apuntes";
 
 export interface Link {
   id: string;
@@ -277,6 +279,38 @@ export function syncNote(n: Note) {
   n.updatedAt = Date.now();
 }
 
+/**
+ * Con qué arranca un proyecto nuevo: lo mínimo para entender cómo se usa.
+ * GENERAL → "GULA", una nota de colección con Colección 1 y dos recuadros.
+ * APUNTES → "PROMPTS", una nota de recuadros con dos recuadros abiertos.
+ */
+export function defaultNotes(): Note[] {
+  const gula = newNote("GULA", "", DEFAULT_GROUP, "collection");
+  gula.autoTitle = false;
+  gula.panes = [
+    {
+      id: uid(),
+      title: "Colección 1",
+      body: "",
+      panes: [
+        { id: uid(), title: "HOLA 123", body: "HOLA 123" },
+        { id: uid(), title: "", body: "" },
+      ],
+    },
+  ];
+  syncNote(gula);
+
+  const prompts = newNote("PROMPTS", "", NOTES_GROUP, "boxes");
+  prompts.autoTitle = false;
+  prompts.panes = [
+    { id: uid(), title: "Primer Prompt", body: "- Hola Mundo.." },
+    { id: uid(), title: "", body: "" },
+  ];
+  syncNote(prompts);
+
+  return [gula, prompts];
+}
+
 export function newProject(name: string, profile: ProfileId = "blank"): Project {
   const t = profileById(profile);
   const fill = (x: string) => x.replace(/\{name\}/g, name);
@@ -286,7 +320,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     profile,
     stage: "idea",
     now: "",
-    notes: t.notes.map((n) => newNote(n.title, fill(n.body), n.group, "boxes")),
+    notes: defaultNotes(),
     links: [],
     prompts: t.prompts.map((p) => ({ id: uid(), title: p.title, body: p.body, updatedAt: Date.now(), lastUsedAt: null })),
     blocks: t.blocks.map((b) => ({ id: uid(), title: b.title, body: fill(b.body), enabled: b.enabled })),
@@ -307,10 +341,13 @@ export { PROFILES };
 
 export function defaultState(): AppState {
   const p = newProject("Mi proyecto", "blank");
-  p.notes[0].title = "Cómo usar GULA";
-  p.notes[0].autoTitle = false;
-  p.notes[0].panes[0].body = p.notes[0].body =
+  // La nota de bienvenida va primera, antes de GULA y PROMPTS. Se puede borrar.
+  const guia = newNote("Cómo usar GULA", "", DEFAULT_GROUP, "boxes");
+  guia.autoTitle = false;
+  guia.panes[0].body =
     "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- Clic derecho en un recuadro o en una colección: **Etiquetas** (los títulos que usás siempre: Idea, Prompt, Imagen…, se ponen de un clic), copiar, bajar a una carpeta, duplicar, renombrar, color. Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala. Clic derecho en un proyecto (arriba o en la columna de la izquierda): renombrar, etapa, exportar, eliminar.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+  syncNote(guia);
+  p.notes.unshift(guia);
   return {
     version: 3,
     projects: [p],
