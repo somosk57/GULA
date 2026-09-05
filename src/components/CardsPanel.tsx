@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AppState, Card, CardKind, Project, SceneStatus, uid } from "../types";
 import { assetUrl, openPath, pickImage } from "../backend";
-import { ask, confirmDlg } from "../dialog";
+import { ask, confirmDlg, notify, pick } from "../dialog";
+import { allCollections, cardFromCollection, collectionFromCard, collectionNotes } from "../cards-collections";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { useReorder } from "../reorder";
@@ -63,6 +64,44 @@ export function CardsPanel({ project, update }: Props) {
       }),
   });
 
+  /** Traer una colección como ficha: la colección ES la ficha. */
+  const fromCollection = async () => {
+    const colls = allCollections(project);
+    if (!colls.length)
+      return notify("No hay colecciones", "Creá una nota de colección y armá adentro lo que quieras traer como ficha.");
+    const which = await pick(
+      "¿Qué colección traés?",
+      colls.map((c) => ({ id: c.paneId, label: c.label, hint: `${c.boxes} recuadro${c.boxes === 1 ? "" : "s"}` })),
+    );
+    if (!which) return;
+    const ref = colls.find((c) => c.paneId === which)!;
+    const k = await pick("¿Qué es?", KINDS.map((x) => ({ id: x.id, label: `${x.icon}  ${x.label}` })));
+    if (!k) return;
+    const card = cardFromCollection(ref, k as CardKind, colls.indexOf(ref));
+    update((d) => d.projects.find((p) => p.id === project.id)!.cards.push(card));
+    setOpenId(card.id);
+  };
+
+  /** Mandar una ficha a una nota de colección: se crea allá su colección. */
+  const toCollection = async (c: Card) => {
+    const notes = collectionNotes(project);
+    if (!notes.length) return notify("No hay notas de colección", "Creá una nota de tipo Colección y volvé a intentar.");
+    const noteId =
+      notes.length === 1
+        ? notes[0].id
+        : await pick("¿A qué nota va?", notes.map((n) => ({ id: n.id, label: n.title, hint: `${n.panes.length} colecciones` })));
+    if (!noteId) return;
+    const nueva = collectionFromCard(c);
+    update((d) => {
+      const p = d.projects.find((x) => x.id === project.id)!;
+      const n = p.notes.find((x) => x.id === noteId)!;
+      n.panes.push(nueva);
+      n.updatedAt = Date.now();
+      p.cards.find((x) => x.id === c.id)!.source = { noteId, paneId: nueva.id };
+    });
+    notify(`"${c.name}" está en ${notes.find((n) => n.id === noteId)!.title}`, "Se creó la colección con la ficha adentro.");
+  };
+
   const cardMenu = (e: React.MouseEvent, c: Card) => {
     e.preventDefault();
     e.stopPropagation();
@@ -79,6 +118,7 @@ export function CardsPanel({ project, update }: Props) {
           },
         },
         { label: c.inContext ? "Sacar de Copiar para la IA" : "Incluir en Copiar para la IA", onClick: () => edit(c.id, (x) => (x.inContext = !x.inContext)) },
+        { label: c.source ? "↑ Mandar de nuevo a una colección…" : "↑ Mandar a una colección…", separator: true, onClick: () => toCollection(c) },
         {
           label: "Duplicar",
           onClick: () =>
@@ -123,7 +163,14 @@ export function CardsPanel({ project, update }: Props) {
         <button
           className="chip add"
           onClick={(e) =>
-            setMenu({ x: e.clientX, y: e.clientY, items: KINDS.map((k) => ({ label: `${k.icon}  ${k.label}`, onClick: () => add(k.id) })) })
+            setMenu({
+              x: e.clientX,
+              y: e.clientY,
+              items: [
+                { label: "↓ Traer de una colección…", onClick: fromCollection },
+                ...KINDS.map((k, i) => ({ label: `${k.icon}  Crear ${k.label.toLowerCase()}`, separator: i === 0, onClick: () => add(k.id) })),
+              ],
+            })
           }
         >
           + Ficha
