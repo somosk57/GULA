@@ -200,6 +200,8 @@ export interface Project {
   copyTo?: string;
   /** Marcas por archivo (clave: ruta o URL tal como está en la nota). */
   marks: Record<string, Mark>;
+  /** Etiquetas: títulos que usás seguido en los recuadros (Idea, Prompt, Imagen, Video…). */
+  labels?: string[];
   /** Qué entra en "Copiar para la IA" además de los bloques encendidos. */
   pkg: { cards: boolean; tasks: boolean; sessions: 0 | 1 | 3; masters: boolean; lastPrompt: boolean };
   /** Marcas ocultas en la barra izquierda ("Hide rojo", etc.). */
@@ -292,6 +294,7 @@ export function newProject(name: string, profile: ProfileId = "blank"): Project 
     log: [],
     cards: [],
     marks: {},
+    labels: [],
     hideMarks: [],
     pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true },
     collections: [],
@@ -307,7 +310,7 @@ export function defaultState(): AppState {
   p.notes[0].title = "Cómo usar GULA";
   p.notes[0].autoTitle = false;
   p.notes[0].panes[0].body = p.notes[0].body =
-    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- Clic derecho en un recuadro o en una colección: copiar, duplicar, renombrar, color (azul maestro, verde sirve, amarillo, rojo). Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "Cada nota es una entrada del diario: qué hiciste, con qué prompt, qué salió, y si sirvió.\n\n- Al crear una nota elegís qué es: **Recuadros** (un proceso: Idea · Prompt · Imagen · Escena · Video) o **Colección** (colecciones, y adentro de cada una sus recuadros: 500 colecciones con 1500 recuadros si hace falta).\n- Los recuadros están siempre abiertos: escribís y pegás directo, uno al lado del otro. El recuadro punteado con **+** suma otro; el **−** de la esquina saca; arrastrá desde el borde para reordenar; la barrita de arriba cambia el ancho.\n- En una nota de colección primero ves las colecciones como cuadrados: entrás a una y ahí están sus recuadros abiertos. **Esc** vuelve.\n- Clic derecho en un recuadro o en una colección: **Etiquetas** (los títulos que usás siempre: Idea, Prompt, Imagen…, se ponen de un clic), copiar, bajar a una carpeta, duplicar, renombrar, color. Los 4 puntos de arriba filtran por color y al lado tenés el buscador.\n- Arrastrá imágenes, videos o audios desde el Explorador o desde la Galería a un recuadro.\n- Clic derecho en una nota de la barra: marcala de color, fijala, movela, duplicala. Clic derecho en un proyecto (arriba o en la columna de la izquierda): renombrar, etapa, exportar, eliminar.\n- **Galería** → *+ Colección* suma una carpeta de tu PC; *Sueltos* muestra lo que generaste y todavía no registraste; tecla **N** crea la entrada. *⤓ Bajar archivos* copia a una carpeta todo lo que ya pusiste en las notas.\n- **Prompts** → *⤓ Bajar textos* deja un .txt por recuadro, ordenado en carpetas por nota y colección.\n- **Copiar para la IA** (pestaña Contexto) arma lo que un chat nuevo necesita saber; en *Entra:* elegís qué va.\n- Al terminar un chat: *Prompt de cierre* → copiás la respuesta → Ctrl+Shift+V → *Repartir*: todo cae en la entrada del día.\n- Las pestañas de abajo se prenden y apagan desde ⋯ (o clic derecho en una); el × cierra el panel entero.\n- **Ctrl+E** alterna escribir / ver con formato. **Ctrl+/** muestra los atajos y te deja cambiarlos.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   return {
     version: 3,
     projects: [p],
@@ -367,6 +370,7 @@ export function migrate(raw: unknown): AppState {
     log: p.log ?? [],
     cards: p.cards ?? [],
     marks: p.marks ?? {},
+    labels: p.labels ?? [],
     hideMarks: p.hideMarks ?? [],
     pkg: { cards: true, tasks: true, sessions: 1, masters: true, lastPrompt: true, ...(p.pkg ?? {}) },
     // assetsDir de la 1.0 pasa a ser una colección "Assets" a la que se copia lo insertado.

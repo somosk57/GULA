@@ -74,72 +74,10 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
     await createProject(update);
   };
 
-  const projectMenu = (e: React.MouseEvent) => {
+  const projectMenu = (e: React.MouseEvent, p: Project = project) => {
     e.preventDefault();
     setOpen(false);
-    setMenu({
-      x: e.clientX,
-      y: e.clientY,
-      items: [
-        {
-          label: "Renombrar proyecto",
-          onClick: async () => {
-            const t = await ask("Nombre del proyecto", project.name);
-            if (t?.trim()) update((d) => (d.projects.find((p) => p.id === project.id)!.name = t.trim()));
-          },
-        },
-        { label: "Copiar todo para la IA", onClick: () => copyText(buildAiPackage(project)) },
-        {
-          label: "Informe del proyecto…",
-          onClick: async () => {
-            const range = await pick("¿Qué período?", [
-              { id: "all", label: "Todo el proyecto", hint: "desde el inicio" },
-              { id: "week", label: "Últimos 7 días", hint: "solo lo reciente" },
-            ]);
-            if (!range) return;
-            const depth = await pick("¿Cuánto detalle?", [
-              { id: "summary", label: "Resumido", hint: "título, fecha y primeras líneas de cada nota" },
-              { id: "full", label: "Completo", hint: "el texto entero de cada nota y ficha" },
-            ]);
-            if (!depth) return;
-            const text = buildReport(project, { range: range as "all" | "week", fullNotes: depth === "full" });
-            const what = await pick(`Informe listo (≈ ${Math.round(text.length / 4).toLocaleString("es-AR")} tokens)`, [
-              { id: "copy", label: "Copiar al portapapeles", hint: "para pegar en un chat" },
-              { id: "file", label: "Guardar como archivo .md…", hint: "elegís la carpeta" },
-              { id: "view", label: "Ver", hint: "leerlo acá" },
-            ]);
-            if (what === "copy") { await copyText(text); notify("Informe copiado"); }
-            else if (what === "file") {
-              const dir = await pickFolder();
-              if (dir) { await exportFiles(dir, [{ name: `informe-${project.name}.md`, content: text }]); notify("Informe guardado", dir); }
-            } else if (what === "view") notify("Informe del proyecto", text);
-          },
-        },
-        {
-          label: "Exportar a carpeta (.md)…",
-          onClick: async () => {
-            const dir = await pickFolder();
-            if (!dir) return;
-            const files = exportProject(project);
-            await exportFiles(dir, files);
-            notify(`Exportados ${files.length} archivos`, dir);
-          },
-        },
-        {
-          label: "Eliminar proyecto",
-          danger: true,
-          separator: true,
-          onClick: async () => {
-            if (state.projects.length === 1) return notify("No podés eliminar el único proyecto");
-            if (!(await confirmDlg(`¿Eliminar el proyecto "${project.name}"?`, "Se borran sus notas, prompts, comandos y sesiones. Ctrl+Z lo recupera mientras la app siga abierta.", { danger: true, okLabel: "Eliminar proyecto" }))) return;
-            update((d) => {
-              d.projects = d.projects.filter((p) => p.id !== project.id);
-              d.activeProjectId = d.projects[0].id;
-            });
-          },
-        },
-      ],
-    });
+    setMenu({ x: e.clientX, y: e.clientY, items: projectMenuItems(p, state, update) });
   };
 
   const restoreBackup = async () => {
@@ -226,7 +164,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v2.9.1 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v2.10.0 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };
@@ -258,7 +196,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       </button>
 
       <div className="tb-center" data-tauri-drag-region>
-        <button className="proj-name" onClick={() => setOpen((v) => !v)} onContextMenu={projectMenu} title="Cambiar de proyecto · clic derecho: opciones">
+        <button className="proj-name" onClick={() => setOpen((v) => !v)} onContextMenu={projectMenu} title="Cambiar de proyecto · clic derecho: renombrar, exportar, eliminar">
           {project.sessionStartedAt != null && <span className="session-dot" title="Sesión en curso" />}
           <span>{project.name}</span>
           {I.chev}
@@ -279,6 +217,8 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
                       update((d) => (d.activeProjectId = p.id));
                       setOpen(false);
                     }}
+                    onContextMenu={(e) => projectMenu(e, p)}
+                    title="Clic derecho: renombrar, exportar, eliminar"
                   >
                     <span className="proj-row">
                       <span className="proj-title">
@@ -312,4 +252,78 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
     </div>
   );
+}
+
+/** Opciones de un proyecto: sirven para el nombre de arriba, la lista y la columna de la izquierda. */
+export function projectMenuItems(
+  project: Project,
+  state: AppState,
+  update: (fn: (d: AppState) => void) => void,
+): MenuItem[] {
+  return [
+    {
+      label: "Renombrar proyecto",
+      onClick: async () => {
+        const t = await ask("Nombre del proyecto", project.name);
+        if (t?.trim()) update((d) => (d.projects.find((p) => p.id === project.id)!.name = t.trim()));
+      },
+    },
+    {
+      label: "Etapa: " + (STAGES.find((s) => s.id === project.stage)?.label ?? "Idea"),
+      onClick: async () => {
+        const id = await pick("¿En qué anda el proyecto?", STAGES.map((s) => ({ id: s.id, label: s.label })));
+        if (id) update((d) => (d.projects.find((p) => p.id === project.id)!.stage = id as Project["stage"]));
+      },
+    },
+    { label: "Copiar todo para la IA", separator: true, onClick: () => copyText(buildAiPackage(project)) },
+    {
+      label: "Informe del proyecto…",
+      onClick: async () => {
+        const range = await pick("¿Qué período?", [
+          { id: "all", label: "Todo el proyecto", hint: "desde el inicio" },
+          { id: "week", label: "Últimos 7 días", hint: "solo lo reciente" },
+        ]);
+        if (!range) return;
+        const depth = await pick("¿Cuánto detalle?", [
+          { id: "summary", label: "Resumido", hint: "título, fecha y primeras líneas de cada nota" },
+          { id: "full", label: "Completo", hint: "el texto entero de cada nota y ficha" },
+        ]);
+        if (!depth) return;
+        const text = buildReport(project, { range: range as "all" | "week", fullNotes: depth === "full" });
+        const what = await pick(`Informe listo (≈ ${Math.round(text.length / 4).toLocaleString("es-AR")} tokens)`, [
+          { id: "copy", label: "Copiar al portapapeles", hint: "para pegar en un chat" },
+          { id: "file", label: "Guardar como archivo .md…", hint: "elegís la carpeta" },
+          { id: "view", label: "Ver", hint: "leerlo acá" },
+        ]);
+        if (what === "copy") { await copyText(text); notify("Informe copiado"); }
+        else if (what === "file") {
+          const dir = await pickFolder();
+          if (dir) { await exportFiles(dir, [{ name: `informe-${project.name}.md`, content: text }]); notify("Informe guardado", dir); }
+        } else if (what === "view") notify("Informe del proyecto", text);
+      },
+    },
+    {
+      label: "Exportar a carpeta (.md)…",
+      onClick: async () => {
+        const dir = await pickFolder();
+        if (!dir) return;
+        const files = exportProject(project);
+        await exportFiles(dir, files);
+        notify(`Exportados ${files.length} archivos`, dir);
+      },
+    },
+    {
+      label: "Eliminar proyecto",
+      danger: true,
+      separator: true,
+      onClick: async () => {
+        if (state.projects.length === 1) return notify("No podés eliminar el único proyecto", "Creá otro primero y después borrá este.");
+        if (!(await confirmDlg(`¿Eliminar el proyecto "${project.name}"?`, "Se borran sus notas, colecciones, prompts, comandos y sesiones. Ctrl+Z lo recupera mientras la app siga abierta.", { danger: true, okLabel: "Eliminar proyecto" }))) return;
+        update((d) => {
+          d.projects = d.projects.filter((p) => p.id !== project.id);
+          if (!d.projects.some((p) => p.id === d.activeProjectId)) d.activeProjectId = d.projects[0].id;
+        });
+      },
+    },
+  ];
 }

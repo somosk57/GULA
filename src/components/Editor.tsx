@@ -6,7 +6,7 @@ import type { EditorView } from "@codemirror/view";
 import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickFolder, pickImage, win } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { Thumb } from "./GalleryPanel";
-import { ask, confirmDlg, notify } from "../dialog";
+import { ask, confirmDlg, notify, pick } from "../dialog";
 import { useReorder } from "../reorder";
 import { comboFor, comboFromEvent } from "../keys";
 import { dumpPane, paneFiles } from "../dump";
@@ -276,12 +276,56 @@ export function Editor({ project, note, update, keys }: Props) {
     }
   };
 
+  /** Etiquetas del proyecto: títulos que usás seguido, para ponerlos de un clic. */
+  const labels = project.labels ?? [];
+
+  const setLabels = (fn: (l: string[]) => string[]) =>
+    update((d) => {
+      const pr = d.projects.find((x) => x.id === project.id)!;
+      pr.labels = fn(pr.labels ?? []);
+    });
+
+  const labelMenu = (p: Pane): MenuItem => ({
+    label: "Etiquetas",
+    onClick: () => {},
+    items: [
+      ...labels.map((t) => ({
+        label: p.title.trim() === t ? `${t} ✓` : t,
+        onClick: () => setPane(p.id, (x) => (x.title = x.title.trim() === t ? "" : t)),
+      })),
+      {
+        label: "+ Nueva etiqueta…",
+        separator: labels.length > 0,
+        onClick: async () => {
+          const t = await ask("Nueva etiqueta", p.title.trim(), { placeholder: "Ej: Idea, Prompt, Imagen, Escena, Video…" });
+          const v = t?.trim();
+          if (!v) return;
+          setLabels((l) => (l.includes(v) ? l : [...l, v]));
+          setPane(p.id, (x) => (x.title = v));
+        },
+      },
+      ...(labels.length
+        ? [
+            {
+              label: "Borrar una etiqueta de la lista…",
+              onClick: async () => {
+                const id = await pick("¿Cuál sacás de la lista?", labels.map((t) => ({ id: t, label: t })));
+                if (!id) return;
+                setLabels((l) => l.filter((x) => x !== id));
+              },
+            },
+          ]
+        : []),
+    ],
+  });
+
   const paneMenu = (e: React.MouseEvent, p: Pane) => {
     e.preventDefault();
     const items: MenuItem[] = [
       { label: "Copiar el texto", onClick: () => copyPane(p) },
       { label: p.panes ? "⤓ Bajar la colección a una carpeta…" : "⤓ Bajar el recuadro a una carpeta…", onClick: () => downloadPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
+      { ...labelMenu(p), separator: true },
       {
         label: p.panes ? "Renombrar la colección" : "Renombrar el recuadro",
         onClick: async () => {
