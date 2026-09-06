@@ -9,7 +9,7 @@
 // listo. Para más habría que cambiar de esquema (todos contra un mixer).
 import { invoke, isTauri } from "./backend";
 
-export const VOICE_PORT = 57157;
+export const VOICE_PORT = 7157;
 export const VOICE_MAX = 3;
 
 export interface Member {
@@ -76,7 +76,8 @@ export class VoiceRoom {
     if (!isTauri) throw new Error("El canal de voz anda en la app de escritorio.");
     const addr = await invoke<string>("voice_start", { port });
     this.hosting = true;
-    await this.join(`127.0.0.1:${port}`);
+    // Si el puerto estaba ocupado, Rust abrió el siguiente y lo dice acá.
+    await this.join(`127.0.0.1:${Number(addr.split(":")[1]) || port}`);
     return addr;
   }
 

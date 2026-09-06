@@ -512,7 +512,15 @@ fn set_shortcut(app: AppHandle, accel: String) -> Result<(), String> {
         return Ok(());
     }
     let sc: Shortcut = accel.parse().map_err(|e| format!("Atajo inválido: {e}"))?;
-    gs.register(sc).map_err(|e| format!("No se pudo registrar {accel}: {e}"))
+    match gs.register(sc) {
+        Ok(()) => Ok(()),
+        // Si igual quedó registrado, está todo bien: no hay por qué asustar a nadie.
+        Err(e) if gs.is_registered(sc) => {
+            let _ = e;
+            Ok(())
+        }
+        Err(e) => Err(format!("No se pudo registrar {accel}: {e}")),
+    }
 }
 
 /// Copia un archivo a una carpeta (assets del proyecto). Devuelve la ruta nueva; si ya existe, no pisa.
@@ -715,6 +723,15 @@ fn voice_addr(port: Option<u16>) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Una sola GULA a la vez: dos procesos se peleaban por el atajo global
+        // (y por el archivo de datos). Si ya hay una abierta, se muestra ésa.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())

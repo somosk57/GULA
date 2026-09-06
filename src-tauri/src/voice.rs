@@ -17,7 +17,11 @@ use tungstenite::{accept, Message};
 
 /// Por ahora tres, como pediste. Subirlo es cambiar este número.
 pub const MAX_PEERS: usize = 3;
-pub const DEFAULT_PORT: u16 = 57157;
+/// Puerto bajo a propósito: Windows se reserva rangos altos (arriba de 49152)
+/// para Hyper-V y WSL, y ahí `bind` falla con "address already in use" aunque
+/// no haya nadie usándolo. Si éste está ocupado se prueban los diez siguientes.
+pub const DEFAULT_PORT: u16 = 7157;
+pub const PORT_TRIES: u16 = 10;
 
 type Peers = Arc<Mutex<HashMap<u32, Sender<String>>>>;
 
@@ -56,7 +60,22 @@ pub fn stop() {
 /// Prende el portero en `port`. Devuelve la dirección para pasarle a los demás.
 pub fn start(port: u16) -> Result<String, String> {
     stop();
-    let listener = TcpListener::bind(("0.0.0.0", port)).map_err(|e| format!("No pude abrir el puerto {port}: {e}"))?;
+    // El portero de antes puede tardar un pestañeo en soltar el puerto.
+    thread::sleep(Duration::from_millis(150));
+    let mut last = String::new();
+    let mut bound = None;
+    for p in port..port.saturating_add(PORT_TRIES) {
+        match TcpListener::bind(("0.0.0.0", p)) {
+            Ok(l) => {
+                bound = Some((l, p));
+                break;
+            }
+            Err(e) => last = e.to_string(),
+        }
+    }
+    let (listener, port) = bound.ok_or_else(|| {
+        format!("No pude abrir ningún puerto entre {port} y {}: {last}", port.saturating_add(PORT_TRIES) - 1)
+    })?;
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
     let stop_flag = Arc::new(AtomicBool::new(false));
     let peers: Peers = Arc::new(Mutex::new(HashMap::new()));
