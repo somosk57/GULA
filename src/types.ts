@@ -289,6 +289,8 @@ export interface AppState {
   rail?: boolean;
   /** La barra de la izquierda plegada: solo Etiquetas y Ver…, en vertical. */
   sidebarMin?: boolean;
+  /** La grilla pasó a tercios en la 3.5.1: marca que los tamaños ya se convirtieron. */
+  gridThirds?: boolean;
   /** Pestañas del panel de abajo que el usuario apagó. */
   hiddenTabs?: Tab[];
   /** Panel de abajo visible. */
@@ -453,6 +455,7 @@ export function defaultState(): AppState {
     showCommands: false,
     // La barra de la izquierda arranca plegada: el mapa es el punto de la app.
     sidebarMin: true,
+    gridThirds: true,
     keys: {},
   };
 }
@@ -504,6 +507,15 @@ export function migrate(raw: unknown): AppState {
     lastSessionAt: p.lastSessionAt ?? null,
     sessionStartedAt: p.sessionStartedAt ?? null,
   }));
+  // Antes un paso de la grilla era un cuadrado entero; ahora es un tercio.
+  // Los tamaños que ya elegiste se multiplican por 3 y quedan igual de grandes.
+  if (!s.gridThirds)
+    for (const p of projects)
+      for (const n of p.notes)
+        for (const pane of allPanes(n)) {
+          if (pane.w) pane.w *= 3;
+          if (pane.h) pane.h *= 3;
+        }
   if (projects.length === 0) return defaultState();
   for (const p of projects) foldLogIntoDiary(p);
   const activeProjectId = projects.some((p) => p.id === s.activeProjectId)
@@ -522,6 +534,7 @@ export function migrate(raw: unknown): AppState {
     onboarded: s.onboarded ?? true,
     rail: s.rail ?? true,
     sidebarMin: s.sidebarMin ?? true,
+    gridThirds: true,
     hiddenTabs: s.hiddenTabs ?? [],
     bottomOpen: s.bottomOpen ?? true,
     showCommands: s.showCommands ?? true,

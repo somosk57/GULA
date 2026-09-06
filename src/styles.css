@@ -982,9 +982,11 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
      armar tu propio acomodo estirándolos y nada se te mueve solo. */
   grid-auto-flow: row; align-content: start; padding: 2px 6px 14px 2px;
 }
-.map > .pane { grid-column: span 2; grid-row: span 2; height: 100%; }
-.map > .coll-card { height: 100%; }
-@media (max-width: 720px) { .map > .pane { grid-column: span 1; } }
+/* La grilla va en tercios: lo de fábrica son 3 pasos (colección) y 6 (recuadro),
+   así se puede afinar el tamaño sin que nada se superponga. */
+.map > .pane { grid-column: span 6; grid-row: span 6; height: 100%; }
+.map > .coll-card { grid-column: span 3; grid-row: span 3; height: 100%; }
+@media (max-width: 720px) { .map > .pane { grid-column: span 3; } }
 
 /* El "+" con su nombre, para saber qué crea cada uno */
 .coll-card.add {

@@ -108,13 +108,15 @@ export function Editor({ project, update, keys }: Props) {
    * y lo nuevo entra siempre después de lo último.
    */
   const GAP = 12;
+  /** La grilla va en tercios: un cuadrado "de fábrica" son 3 pasos, no 1. */
+  const unit = (size - 2 * GAP) / 3;
   const startResize = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     const el = (e.currentTarget as HTMLElement).closest(".pane, .coll-card") as HTMLElement | null;
     const grid = gridRef.current;
     if (!el || !grid) return;
-    const cell = size + GAP;
+    const cell = unit + GAP;
     const cols = Math.max(1, Math.floor((grid.clientWidth + GAP) / cell));
     const r0 = el.getBoundingClientRect();
     const x0 = e.clientX;
@@ -123,7 +125,7 @@ export function Editor({ project, update, keys }: Props) {
     el.classList.add("resizing");
     const move = (ev: MouseEvent) => {
       const w = Math.min(cols, Math.max(1, Math.round((r0.width + ev.clientX - x0 + GAP) / cell)));
-      const h = Math.min(8, Math.max(1, Math.round((r0.height + ev.clientY - y0 + GAP) / cell)));
+      const h = Math.min(24, Math.max(1, Math.round((r0.height + ev.clientY - y0 + GAP) / cell)));
       last = { w, h };
       el.style.gridColumn = `span ${w}`;
       el.style.gridRow = `span ${h}`;
@@ -138,10 +140,10 @@ export function Editor({ project, update, keys }: Props) {
     window.addEventListener("mouseup", up);
   };
 
-  /** El tamaño de un cuadrado: el que elegiste, o el de fábrica (colección 1×1, recuadro 2×2). */
+  /** El tamaño de un cuadrado, en tercios: de fábrica una colección es 3×3 y un recuadro 6×6. */
   const spanOf = (p: Pane): React.CSSProperties => {
-    const w = p.w ?? (isColl(p) ? 1 : 2);
-    const h = p.h ?? (isColl(p) ? 1 : 2);
+    const w = p.w ?? (isColl(p) ? 3 : 6);
+    const h = p.h ?? (isColl(p) ? 3 : 6);
     return { gridColumn: `span ${w}`, gridRow: `span ${h}` };
   };
 
@@ -531,7 +533,7 @@ export function Editor({ project, update, keys }: Props) {
           className="map"
           ref={gridRef}
           onContextMenu={bgMenu}
-          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))`, gridAutoRows: `${size}px` }}
+          style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${unit}px, 1fr))`, gridAutoRows: `${unit}px` }}
         >
           {colls.map((p) => {
             const color = markColor(p.mark);
