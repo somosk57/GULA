@@ -12,7 +12,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { assetUrl, isAudioPath, isImagePath, isVideoPath, saveImage } from "../backend";
+import { assetUrl, copyText, isAudioPath, isImagePath, isVideoPath, saveImage } from "../backend";
 import { openMedia, openMediaMenu } from "./MediaViewer";
 
 interface Props {
@@ -251,13 +251,144 @@ export function insertImage(view: EditorView, path: string) {
   view.focus();
 }
 
-/** Ctrl+V con una imagen en el portapapeles → se guarda y se inserta. */
+
+// ---- Prompts: el texto largo que pegás entra plegado ----
+// Un bloque ```prompt se ve como una fichita con las primeras palabras y un
+// botón para copiarlo entero. Clic en la fichita y se abre (```prompt+), y el
+// texto queda como cualquier otro. Es siempre el mismo texto: sólo cambia cómo
+// se muestra, así el recuadro no se llena de párrafos.
+const OPEN_FENCE = /^```prompt(\+?)\s*$/;
+const CLOSE_FENCE = /^```\s*$/;
+
+/** Las primeras palabras, para reconocerlo de un vistazo. */
+export function promptHead(text: string, words = 5): string {
+  const flat = text.trim().replace(/\s+/g, " ");
+  const head = flat.split(" ").slice(0, words).join(" ");
+  return head + (flat.length > head.length ? "…" : "");
+}
+
+/** Saca las marcas de los bloques de prompt: el texto pelado, para copiar o bajar. */
+export const unfencePrompts = (body: string) =>
+  body.replace(/^```prompt\+?[ \t]*\n([\s\S]*?)\n```[ \t]*$/gm, "$1");
+
+/** Cambia ```prompt por ```prompt+ y al revés: plegar / desplegar. */
+function togglePrompt(view: EditorView, at: number) {
+  const line = view.state.doc.lineAt(at);
+  const m = line.text.match(OPEN_FENCE);
+  if (!m) return;
+  view.dispatch({ changes: { from: line.from, to: line.to, insert: m[1] ? "```prompt" : "```prompt+" } });
+}
+
+const copyBtn = (text: string) => {
+  const b = document.createElement("button");
+  b.className = "cm-prompt-copy";
+  b.textContent = "⧉";
+  b.title = "Copiar el prompt entero";
+  b.onmousedown = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    copyText(text);
+    b.textContent = "✓";
+    setTimeout(() => (b.textContent = "⧉"), 900);
+  };
+  return b;
+};
+
+/** Plegado: [ primeras palabras ] ⧉ */
+class PromptChip extends WidgetType {
+  constructor(readonly text: string, readonly at: number) { super(); }
+  eq(o: PromptChip) { return o.text === this.text && o.at === this.at; }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-prompt";
+    const open = document.createElement("button");
+    open.className = "cm-prompt-open";
+    open.textContent = promptHead(this.text);
+    open.title = "Clic: ver el texto entero";
+    open.onmousedown = (ev) => { ev.preventDefault(); ev.stopPropagation(); togglePrompt(view, this.at); };
+    wrap.appendChild(open);
+    wrap.appendChild(copyBtn(this.text));
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+/** Desplegado: una barrita arriba del texto para volver a plegarlo. */
+class PromptBar extends WidgetType {
+  constructor(readonly text: string, readonly at: number) { super(); }
+  eq(o: PromptBar) { return o.text === this.text && o.at === this.at; }
+  toDOM(view: EditorView) {
+    const wrap = document.createElement("span");
+    wrap.className = "cm-prompt bar";
+    const fold = document.createElement("button");
+    fold.className = "cm-prompt-open";
+    fold.textContent = "▾ prompt";
+    fold.title = "Clic: volver a plegarlo";
+    fold.onmousedown = (ev) => { ev.preventDefault(); ev.stopPropagation(); togglePrompt(view, this.at); };
+    wrap.appendChild(fold);
+    wrap.appendChild(copyBtn(this.text));
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
+function buildPromptDecos(state: EditorState) {
+  const b = new RangeSetBuilder<Decoration>();
+  let i = 1;
+  while (i <= state.doc.lines) {
+    const open = state.doc.line(i);
+    const m = open.text.match(OPEN_FENCE);
+    if (!m) { i++; continue; }
+    let j = i + 1;
+    while (j <= state.doc.lines && !CLOSE_FENCE.test(state.doc.line(j).text)) j++;
+    if (j > state.doc.lines) { i++; continue; }
+    const close = state.doc.line(j);
+    const text = j > i + 1 ? state.sliceDoc(open.to + 1, close.from - 1) : "";
+    if (!m[1]) {
+      b.add(open.from, close.to, Decoration.replace({ widget: new PromptChip(text, open.from), block: true }));
+    } else {
+      b.add(open.from, open.to, Decoration.replace({ widget: new PromptBar(text, open.from) }));
+      // La línea de cierre se come el salto de arriba: no deja un renglón vacío.
+      b.add(close.from > open.to + 1 ? close.from - 1 : close.from, close.to, Decoration.replace({}));
+    }
+    i = j + 1;
+  }
+  return b.finish();
+}
+
+const promptField = StateField.define<DecorationSet>({
+  create: buildPromptDecos,
+  update(decos, tr) {
+    return tr.docChanged ? buildPromptDecos(tr.state) : decos.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+/** Pega el texto plegado como prompt. Lo corto (una línea sin mucho) va derecho. */
+export function insertPrompt(view: EditorView, text: string) {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const prefix = line.text.trim() ? "\n" : "";
+  const fence = "```";
+  const ins = `${prefix}${fence}prompt\n${text.trim()}\n${fence}\n`;
+  view.dispatch({ changes: { from: line.to, insert: ins }, selection: { anchor: line.to + ins.length } });
+  view.focus();
+}
+
+/** Ctrl+V: una imagen se guarda y se inserta; un texto largo entra plegado como prompt. */
 const pasteImages = EditorView.domEventHandlers({
   paste(e, view) {
     const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
-    if (!files.length) return false;
+    if (files.length) {
+      e.preventDefault();
+      saveImage(files[0]).then((p) => insertImage(view, p));
+      return true;
+    }
+    // Lo que pegás de la IA entra plegado: se ve el arranque y nada más.
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    if (!text.trim() || (!text.includes("\n") && text.trim().length < 80)) return false;
     e.preventDefault();
-    saveImage(files[0]).then((p) => insertImage(view, p));
+    insertPrompt(view, text);
     return true;
   },
 });
@@ -354,6 +485,7 @@ export function MarkdownEditor({ value, onChange, placeholder, autoFocus, compac
         checkboxPlugin,
         marksField,
         imageField,
+        promptField,
         pasteImages,
         mdKeymap,
         keymap.of([indentWithTab, ...historyKeymap, ...defaultKeymap]),

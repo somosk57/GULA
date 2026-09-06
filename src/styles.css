@@ -978,7 +978,9 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
    y van abiertos. Los dos conviven, y la grilla los acomoda sola. */
 .map {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: grid; gap: 12px;
-  grid-auto-flow: dense; align-content: start; padding: 2px 6px 14px 2px;
+  /* Sin "dense": los cuadrados quedan en el orden en que están, así podés
+     armar tu propio acomodo estirándolos y nada se te mueve solo. */
+  grid-auto-flow: row; align-content: start; padding: 2px 6px 14px 2px;
 }
 .map > .pane { grid-column: span 2; grid-row: span 2; height: 100%; }
 .map > .coll-card { height: 100%; }
@@ -1079,3 +1081,45 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint);
 }
 .shelf-new:hover { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
+
+/* ---------- Estirar un cuadrado desde la esquina de abajo a la derecha ---------- */
+/* El tamaño se guarda en celdas de la grilla: nada se superpone y lo nuevo
+   sigue entrando después de lo último. */
+.grip {
+  position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; z-index: 6;
+  cursor: nwse-resize; opacity: 0; transition: opacity .12s;
+}
+.grip::after {
+  content: ""; position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px;
+  border-right: 2px solid var(--text-faint); border-bottom: 2px solid var(--text-faint); border-radius: 0 0 2px 0;
+}
+.pane, .coll-card { position: relative; }
+.pane:hover > .grip, .coll-card:hover > .grip { opacity: 1; }
+.grip:hover::after { border-color: var(--accent); }
+.resizing { outline: 2px solid var(--accent); outline-offset: -2px; }
+.resizing .grip { opacity: 1; }
+
+/* ---------- Prompts plegados ---------- */
+/* Lo que pegás entra así: se ve el arranque y el botón para copiarlo entero.
+   Un clic en la fichita lo abre; el ▾ vuelve a plegarlo. */
+.cm-prompt { display: flex; align-items: center; gap: 4px; margin: 3px 0; max-width: 100%; }
+.cm-prompt.bar { display: inline-flex; margin: 0 0 2px; }
+.cm-prompt-open {
+  flex: 1; min-width: 0; text-align: left; cursor: pointer;
+  padding: 3px 9px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg-code); color: var(--text-dim); font-size: 11.5px; line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cm-prompt.bar .cm-prompt-open {
+  flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 1px 8px;
+}
+.cm-prompt-open::before { content: "["; margin-right: 4px; color: var(--text-faint); }
+.cm-prompt-open::after { content: "]"; margin-left: 4px; color: var(--text-faint); }
+.cm-prompt.bar .cm-prompt-open::before, .cm-prompt.bar .cm-prompt-open::after { content: none; }
+.cm-prompt-open:hover { color: var(--text); border-color: var(--border-strong); }
+.cm-prompt-copy {
+  flex: none; width: 22px; height: 22px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg-input); color: var(--text-faint); font-size: 12px; line-height: 1;
+}
+.cm-prompt-copy:hover { color: var(--text); border-color: var(--accent); }

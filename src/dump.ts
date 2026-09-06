@@ -2,7 +2,7 @@
 // (imágenes, videos, audios) y los textos de cada recuadro, como .txt.
 import { Pane, Project, allBoxes } from "./types";
 import { copyToDir, exportFiles } from "./backend";
-import { matchImage } from "./components/MarkdownEditor";
+import { matchImage, unfencePrompts } from "./components/MarkdownEditor";
 
 /** Todos los archivos locales que aparecen en las notas del proyecto, sin repetir. */
 export function projectFiles(p: Project): string[] {
@@ -49,7 +49,7 @@ function boxName(b: Pane, i: number): string {
   if (b.title.trim()) return `${nn(i)} - ${clean(b.title, "Recuadro")}`;
   for (const raw of b.body.split("\n")) {
     const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
-    if (l && !/^!\[/.test(raw.trim())) return `${nn(i)} - ${clean(l, "Recuadro")}`;
+    if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return `${nn(i)} - ${clean(l, "Recuadro")}`;
   }
   return `${nn(i)} - Recuadro ${i + 1}`;
 }
@@ -71,7 +71,7 @@ export function textFiles(p: Project): { name: string; content: string }[] {
   const walk = (list: Pane[], dir: string) => {
     list.forEach((x, i) => {
       if (x.panes) walk(x.panes, `${dir}/${nn(i)} - ${clean(x.title, `Colección ${i + 1}`)}`);
-      else if (x.body.trim()) push(`${dir}/${boxName(x, i)}.txt`, x.body.trim() + "\n");
+      else if (x.body.trim()) push(`${dir}/${boxName(x, i)}.txt`, unfencePrompts(x.body).trim() + "\n");
     });
   };
   p.notes.forEach((n, ni) => walk(n.panes, `${nn(ni)} - ${clean(n.title, "Nota")}`));
@@ -102,7 +102,7 @@ export async function dumpPane(
   onStep?: (done: number, total: number) => void,
 ): Promise<{ texts: number; copied: number; failed: string[] }> {
   const files = boxesOf(p)
-    .map((b, i) => ({ name: `${boxName(b, i)}.txt`, content: b.body.trim() + "\n" }))
+    .map((b, i) => ({ name: `${boxName(b, i)}.txt`, content: unfencePrompts(b.body).trim() + "\n" }))
     .filter((f) => f.content.trim());
   if (files.length) await exportFiles(dir, files);
   const media = paneFiles(p);
@@ -129,7 +129,7 @@ export function textFilesByCollection(p: Project): { name: string; content: stri
       const name = `${nn(i)} - ${clean(x.title, `Colección ${i + 1}`)}`;
       const body = boxesOf(x)
         .filter((b) => b.body.trim())
-        .map((b) => (b.title.trim() ? `## ${b.title.trim()}\n${b.body.trim()}` : b.body.trim()))
+        .map((b) => (b.title.trim() ? `## ${b.title.trim()}\n${unfencePrompts(b.body).trim()}` : unfencePrompts(b.body).trim()))
         .join("\n\n");
       if (body) out.push({ name: `${dir}/${name}.txt`, content: body + "\n" });
       walk(x.panes, `${dir}/${name}`);

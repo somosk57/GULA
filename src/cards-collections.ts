@@ -2,6 +2,7 @@
 // Se puede traer una colección como ficha, o mandar una ficha a una colección.
 import { Card, Note, Pane, Project, uid } from "./types";
 import { matchImage } from "./components/MarkdownEditor";
+import { unfencePrompts } from "./components/MarkdownEditor";
 
 export interface CollRef {
   noteId: string;
@@ -33,7 +34,7 @@ export function collLabel(c: Pane, i: number): string {
   for (const b of c.panes ?? [])
     for (const raw of (b.title || b.body).split("\n")) {
       const l = raw.replace(/^\s*(#+\s*|[-*+]\s+|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
-      if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 60);
+      if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return l.slice(0, 60);
     }
   return `Colección ${i + 1}`;
 }
@@ -52,7 +53,7 @@ export function firstImage(c: Pane): string | undefined {
 export function collText(c: Pane): string {
   return (c.panes?.length ? c.panes : [c])
     .filter((b) => b.body.trim())
-    .map((b) => (b.title.trim() ? `## ${b.title.trim()}\n${b.body.trim()}` : b.body.trim()))
+    .map((b) => (b.title.trim() ? `## ${b.title.trim()}\n${unfencePrompts(b.body).trim()}` : unfencePrompts(b.body).trim()))
     .join("\n\n");
 }
 
@@ -60,7 +61,7 @@ export function collText(c: Pane): string {
 export function firstLine(text: string): string {
   for (const raw of text.split("\n")) {
     const l = raw.replace(/^\s*(#+\s*|[-*+]\s+|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
-    if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 160);
+    if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return l.slice(0, 160);
   }
   return "";
 }

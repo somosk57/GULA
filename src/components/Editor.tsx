@@ -18,7 +18,7 @@ import {
   syncNote,
   uid,
 } from "../types";
-import { MarkdownEditor, insertImage, isImagePath, matchImage } from "./MarkdownEditor";
+import { MarkdownEditor, insertImage, isImagePath, matchImage, unfencePrompts } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
 import { assetUrl, copyText, copyToDir, isAudioPath, isVideoPath, openUrl, pickFolder, pickImage, win } from "../backend";
 import { ContextMenu, MenuItem } from "./ContextMenu";
@@ -101,6 +101,49 @@ export function Editor({ project, update, keys }: Props) {
       syncNote(n);
       if (n.autoTitle) n.title = deriveTitle(n);
     });
+
+  /**
+   * Agarrar la esquina de abajo a la derecha y estirar. El tamaño se guarda en
+   * celdas de la grilla, así que nada se superpone: la grilla acomoda el resto
+   * y lo nuevo entra siempre después de lo último.
+   */
+  const GAP = 12;
+  const startResize = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = (e.currentTarget as HTMLElement).closest(".pane, .coll-card") as HTMLElement | null;
+    const grid = gridRef.current;
+    if (!el || !grid) return;
+    const cell = size + GAP;
+    const cols = Math.max(1, Math.floor((grid.clientWidth + GAP) / cell));
+    const r0 = el.getBoundingClientRect();
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let last = { w: Math.round((r0.width + GAP) / cell) || 1, h: Math.round((r0.height + GAP) / cell) || 1 };
+    el.classList.add("resizing");
+    const move = (ev: MouseEvent) => {
+      const w = Math.min(cols, Math.max(1, Math.round((r0.width + ev.clientX - x0 + GAP) / cell)));
+      const h = Math.min(8, Math.max(1, Math.round((r0.height + ev.clientY - y0 + GAP) / cell)));
+      last = { w, h };
+      el.style.gridColumn = `span ${w}`;
+      el.style.gridRow = `span ${h}`;
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      el.classList.remove("resizing");
+      editPane(id, (x) => { x.w = last.w; x.h = last.h; });
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  /** El tamaño de un cuadrado: el que elegiste, o el de fábrica (colección 1×1, recuadro 2×2). */
+  const spanOf = (p: Pane): React.CSSProperties => {
+    const w = p.w ?? (isColl(p) ? 1 : 2);
+    const h = p.h ?? (isColl(p) ? 1 : 2);
+    return { gridColumn: `span ${w}`, gridRow: `span ${h}` };
+  };
 
   const setMark = (src: string, mark: Mark | null) =>
     update((d) => {
@@ -332,6 +375,7 @@ export function Editor({ project, update, keys }: Props) {
         },
       },
       ...(isColl(p) ? [pinMenuItem(p, project, update)] : []),
+      ...(p.w || p.h ? [{ label: "Volver al tamaño de fábrica", onClick: () => editPane(p.id, (x) => { delete x.w; delete x.h; }) }] : []),
       { label: "Copiar el texto", onClick: () => copyPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },
       { label: "⤓ Bajar a una carpeta…", onClick: () => downloadPane(p) },
@@ -497,7 +541,7 @@ export function Editor({ project, update, keys }: Props) {
                 key={p.id}
                 className={"coll-card" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "") + ((project.pins ?? []).includes(p.id) ? " pinned" : "")}
                 data-pane={p.id}
-                style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                style={{ ...spanOf(p), ...(color ? { boxShadow: `inset 3px 0 0 ${color}` } : {}) }}
                 onClick={() => setPath([...path, p.id])}
                 onContextMenu={(e) => paneMenu(e, p)}
                 title={`${inner} adentro`}
@@ -516,6 +560,7 @@ export function Editor({ project, update, keys }: Props) {
                   <span className="coll-kind">{inner} adentro</span>
                   <button className="coll-copy" title="Copiar el texto" onClick={(e) => { e.stopPropagation(); copyPane(p); }}>Copiar</button>
                 </span>
+                <span className="grip" title="Estirar: arrastrá esta esquina" onMouseDown={(e) => startResize(e, p.id)} />
               </div>
             );
           })}
@@ -527,9 +572,10 @@ export function Editor({ project, update, keys }: Props) {
                 key={p.id}
                 className={"pane" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "")}
                 data-pane={p.id}
-                style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
+                style={{ ...spanOf(p), ...(color ? { boxShadow: `inset 3px 0 0 ${color}` } : {}) }}
                 onContextMenu={(e) => paneMenu(e, p)}
               >
+                <span className="grip" title="Estirar: arrastrá esta esquina" onMouseDown={(e) => startResize(e, p.id)} />
                 <div className="pane-head">
                   <input
                     className="pane-title"
@@ -590,7 +636,7 @@ function boxesOf(p: Pane): Pane[] {
 
 /** El texto de un cuadrado y todo lo que tenga adentro. */
 function collText(p: Pane): string {
-  if (!p.panes) return p.body.trim();
+  if (!p.panes) return unfencePrompts(p.body).trim();
   return p.panes
     .map((x) => {
       const t = collText(x);
@@ -660,7 +706,7 @@ export function paneLabel(p: Pane, i: number): string {
   for (const b of boxesOf(p))
     for (const raw of (b.title || b.body).split("\n")) {
       const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
-      if (l && !/^!\[/.test(raw.trim())) return l.slice(0, 80);
+      if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return l.slice(0, 80);
     }
   return p.panes ? `Colección ${i + 1}` : `Recuadro ${i + 1}`;
 }
