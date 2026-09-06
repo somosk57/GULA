@@ -1,3 +1,5 @@
+mod voice;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -693,6 +695,23 @@ fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+/// Prende el canal de voz en esta PC. Devuelve "IP:puerto" para pasarle a los demás.
+#[tauri::command]
+fn voice_start(port: Option<u16>) -> Result<String, String> {
+    voice::start(port.unwrap_or(voice::DEFAULT_PORT))
+}
+
+#[tauri::command]
+fn voice_stop() {
+    voice::stop();
+}
+
+/// La dirección que verían los demás si prendés el canal acá.
+#[tauri::command]
+fn voice_addr(port: Option<u16>) -> String {
+    format!("{}:{}", voice::local_ip(), port.unwrap_or(voice::DEFAULT_PORT))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -747,7 +766,10 @@ pub fn run() {
             reveal_in_explorer,
             open_in_vscode,
             open_path,
-            path_exists
+            path_exists,
+            voice_start,
+            voice_stop,
+            voice_addr
         ])
         .build(tauri::generate_context!())
         .expect("error al iniciar GULA")

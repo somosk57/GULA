@@ -1,6 +1,6 @@
 [package]
 name = "gula"
-version = "3.4.1"
+version = "3.5.0"
 description = "GULA — Controla tu gula. Notas, carpetas, prompts y contexto para trabajar con IA."
 authors = ["Creator100k"]
 edition = "2021"
@@ -23,6 +23,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
 
 [profile.release]

@@ -228,7 +228,7 @@ export function LinksPanel({ project, update, showCommands = true }: Props) {
         >
           + Colección
         </button>
-        <button className="chip add" onClick={addMenu}>+ Agregar</button>
+        <button className="chip" onClick={addMenu}>+ Agregar</button>
       </div>
       <div className="grid" ref={gridRef}>
         {project.links.map((l) => (

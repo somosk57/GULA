@@ -25,6 +25,7 @@ import { TABS, newNote } from "./types";
 import { comboFor, comboFromEvent } from "./keys";
 import { collectTasks } from "./ai";
 import "./styles.css";
+import { VoiceBox } from "./components/VoiceBox";
 
 const SPLIT_KEY = "gula-split";
 const IS_MAC_APP = /Mac/i.test(navigator.platform);
@@ -283,6 +284,7 @@ export default function App() {
         )}
         <div className="main">
           <Editor project={project} update={update} keys={state.keys} />
+          <VoiceBox />
         </div>
       </div>
       {!bottomOpen && visibleTabs.length > 0 && (

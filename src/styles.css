@@ -73,7 +73,7 @@ input, textarea { font: inherit; color: inherit; background: none; border: 0; ou
 .layout { display: flex; min-height: 0; overflow: hidden; }
 .app > .divider, .app > .bottom-show { flex: none; }
 .app > .bottom { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-.main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.main { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .top { min-height: 0; overflow: hidden; display: flex; }
 .divider {
   height: 5px; flex: none; cursor: row-resize;
@@ -1130,3 +1130,41 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   font: inherit; font-size: 15px; font-weight: 600; letter-spacing: .04em; color: var(--text);
   padding: 8px 16px; border-radius: 8px; background: var(--bg-code); border: 1px solid var(--border-strong);
 }
+
+/* ---------- Canal de voz (abajo a la derecha del mapa) ---------- */
+/* El audio va directo entre las PCs; acá sólo se ve quién está y quién habla. */
+.voice { position: absolute; right: 14px; bottom: 12px; z-index: 30; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.voice-pill {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 12px; border-radius: 20px; border: 1px solid var(--line);
+  background: var(--bg-panel); color: var(--text-faint); font-size: 11.5px; font-weight: 600;
+  box-shadow: 0 4px 14px var(--shadow);
+}
+.voice-pill:hover { color: var(--text); border-color: var(--border-strong); }
+.voice-err { max-width: 260px; padding: 6px 10px; border-radius: 8px; background: var(--bg-panel); border: 1px solid var(--danger); color: var(--danger); font-size: 11px; line-height: 1.4; }
+.voice.on {
+  width: 210px; padding: 8px 10px 9px; border-radius: 10px; align-items: stretch;
+  background: var(--bg-panel); border: 1px solid var(--line); box-shadow: 0 6px 20px var(--shadow);
+}
+.voice.on.wait { opacity: .7; }
+.voice-head { display: flex; align-items: center; gap: 6px; }
+.voice-addr { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-dim); cursor: copy; }
+.voice-addr:hover { color: var(--text); }
+.voice-x { flex: none; width: 18px; height: 18px; border: none; border-radius: 4px; background: none; color: var(--text-faint); cursor: pointer; font-size: 12px; }
+.voice-x:hover { color: #ff5f57; background: var(--bg-hover); }
+.voice-people { display: flex; gap: 5px; }
+.voice-dot {
+  flex: 1; height: 30px; border-radius: 7px; display: grid; place-items: center;
+  background: var(--bg-input); border: 1px solid var(--line);
+  font-size: 10px; font-weight: 700; color: var(--text-dim); transition: border-color .1s, box-shadow .1s;
+}
+.voice-dot.me { color: var(--text); }
+.voice-dot.empty { color: var(--text-faint); border-style: dashed; }
+/* Verde mientras habla: se ve de reojo quién está diciendo algo. */
+.voice-dot.talk { border-color: #3ddc84; box-shadow: 0 0 0 1px #3ddc84, 0 0 10px rgba(61,220,132,.35); }
+.voice-mute {
+  padding: 4px; border-radius: 6px; border: 1px solid var(--line); background: none; cursor: pointer;
+  font-size: 10.5px; color: var(--text-faint);
+}
+.voice-mute:hover { color: var(--text); border-color: var(--border-strong); }
+.voice-mute.on { color: var(--danger); border-color: var(--danger); }

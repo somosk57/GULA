@@ -1,10 +1,11 @@
 // Capa fina sobre los comandos de Tauri. Si corre en el navegador (sin Tauri),
 // cae a localStorage para poder desarrollar la UI con `npm run dev`.
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+export { invoke };
 import { AppState } from "./types";
 import { ask, notify } from "./dialog";
 
-const isTauri = "__TAURI_INTERNALS__" in window;
+export const isTauri = "__TAURI_INTERNALS__" in window;
 const LS_KEY = "gula";
 
 export async function loadState(): Promise<AppState | null> {
