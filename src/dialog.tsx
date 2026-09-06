@@ -1,12 +1,14 @@
 // Diálogos propios. WebView2 (Windows) no implementa window.prompt(), y
 // alert/confirm se ven feos y bloquean; estos reemplazan a los tres.
 import { useEffect, useRef, useState } from "react";
+import { comboFromEvent } from "./keys";
 
 type Req =
   | { kind: "ask"; title: string; value: string; placeholder?: string; multiline?: boolean; resolve: (v: string | null) => void }
   | { kind: "confirm"; title: string; body?: string; danger?: boolean; okLabel?: string; resolve: (v: boolean) => void }
   | { kind: "notify"; title: string; body?: string; resolve: () => void }
-  | { kind: "pick"; title: string; options: { id: string; label: string; hint?: string }[]; resolve: (v: string | null) => void };
+  | { kind: "pick"; title: string; options: { id: string; label: string; hint?: string }[]; resolve: (v: string | null) => void }
+  | { kind: "combo"; title: string; body?: string; value: string; resolve: (v: string | null) => void };
 
 let listeners: ((q: Req[]) => void)[] = [];
 let queue: Req[] = [];
@@ -38,9 +40,19 @@ export function pick(title: string, options: { id: string; label: string; hint?:
   return new Promise<string | null>((resolve) => push({ kind: "pick", title, options, resolve }));
 }
 
+/**
+ * Pedir un atajo apretándolo. Devuelve el combo, "" si eligen quedarse sin
+ * atajo, o null si cancelan. Escribir "Ctrl+Shift+Space" a mano era pedirle
+ * al usuario que adivine cómo se llama cada tecla.
+ */
+export function askCombo(title: string, body: string, value = "") {
+  return new Promise<string | null>((resolve) => push({ kind: "combo", title, body, value, resolve }));
+}
+
 export function Dialogs() {
   const [q, setQ] = useState<Req[]>([]);
   const [text, setText] = useState("");
+  const [combo, setCombo] = useState("");
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   const cur = q[0];
 
@@ -62,14 +74,29 @@ export function Dialogs() {
     }
   }, [cur]);
 
+  // Capturar el atajo: se aprieta, no se escribe.
+  useEffect(() => {
+    if (cur?.kind !== "combo") return;
+    setCombo("");
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const c = comboFromEvent(e);
+      if (c) setCombo(c);
+    };
+    window.addEventListener("keydown", h, true);
+    return () => window.removeEventListener("keydown", h, true);
+  }, [cur]);
+
   if (!cur) return null;
 
   const done = (v: unknown) => {
     (cur.resolve as (v: unknown) => void)(v);
     pop();
   };
-  const cancel = () => done(cur.kind === "ask" || cur.kind === "pick" ? null : cur.kind === "confirm" ? false : undefined);
-  const ok = () => done(cur.kind === "ask" ? text : cur.kind === "confirm" ? true : undefined);
+  const cancel = () => done(cur.kind === "ask" || cur.kind === "pick" || cur.kind === "combo" ? null : cur.kind === "confirm" ? false : undefined);
+  const ok = () => done(cur.kind === "ask" ? text : cur.kind === "combo" ? combo : cur.kind === "confirm" ? true : undefined);
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") cancel();
@@ -90,6 +117,12 @@ export function Dialogs() {
           ) : (
             <input ref={inputRef} className="dlg-input" value={text} onChange={(e) => setText(e.target.value)} placeholder={cur.placeholder} spellCheck={false} />
           ))}
+        {cur.kind === "combo" && (
+          <div className="dlg-combo">
+            <kbd>{combo || cur.value || "apretá las teclas…"}</kbd>
+            <span className="dlg-hint">Probá con Ctrl, Alt o Shift + una tecla.</span>
+          </div>
+        )}
         {cur.kind === "pick" && (
           <div className="dlg-list">
             {cur.options.map((o) => (
@@ -103,13 +136,14 @@ export function Dialogs() {
         )}
         <div className="dlg-actions">
           {cur.kind !== "notify" && <button className="chip" onClick={cancel}>Cancelar</button>}
+          {cur.kind === "combo" && <button className="chip" onClick={() => done("")}>Quedarme sin atajo</button>}
           {cur.kind !== "pick" && <button
             className={"chip primary" + (cur.kind === "confirm" && cur.danger ? " danger-fill" : "")}
             onClick={ok}
             autoFocus={cur.kind !== "ask"}
-            disabled={cur.kind === "ask" && !text.trim()}
+            disabled={(cur.kind === "ask" && !text.trim()) || (cur.kind === "combo" && !combo)}
           >
-            {cur.kind === "confirm" ? cur.okLabel ?? "Aceptar" : cur.kind === "notify" ? "OK" : "Aceptar"}
+            {cur.kind === "confirm" ? cur.okLabel ?? "Aceptar" : cur.kind === "notify" ? "OK" : cur.kind === "combo" ? "Usar este" : "Aceptar"}
           </button>}
         </div>
       </div>

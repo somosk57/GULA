@@ -505,6 +505,10 @@ fn b64_decode(s: &str) -> Option<Vec<u8>> {
 fn set_shortcut(app: AppHandle, accel: String) -> Result<(), String> {
     let gs = app.global_shortcut();
     gs.unregister_all().map_err(|e| e.to_string())?;
+    // Vacío = quedarse sin atajo global, a propósito.
+    if accel.trim().is_empty() {
+        return Ok(());
+    }
     let sc: Shortcut = accel.parse().map_err(|e| format!("Atajo inválido: {e}"))?;
     gs.register(sc).map_err(|e| format!("No se pudo registrar {accel}: {e}"))
 }

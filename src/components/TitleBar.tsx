@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { copyText, dataDir, exportFiles, listBackups, loadState, openPath, pickFolder, readBackup, setDataLocation, snapshotNow, win } from "../backend";
-import { ask, confirmDlg, notify, pick } from "../dialog";
+import { ask, askCombo, confirmDlg, notify, pick } from "../dialog";
 import { migrate } from "../types";
 import { lastDiaryLine } from "../diary";
 import { AppState, PROFILES, Project, STAGES, newProject } from "../types";
@@ -123,11 +123,11 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
         { label: "Mostrar / ocultar", separator: true, onClick: () => {}, items: viewMenuItems(state, update) },
         { label: "Etiquetas", onClick: () => {}, items: labelMenuItems(project.labels ?? [], update, project.id) },
         {
-          label: `Atajo global: ${state.shortcut}`,
+          label: `Atajo global: ${state.shortcut || "sin atajo"}`,
           separator: true,
           onClick: async () => {
-            const v = await ask("Atajo para mostrar/ocultar GULA", state.shortcut, { placeholder: "Ej: Ctrl+Shift+Space, Alt+G, Ctrl+Alt+N" });
-            if (v?.trim()) update((d) => (d.shortcut = v.trim()));
+            const v = await askCombo("Atajo para mostrar y esconder GULA", "Apretá las teclas que quieras usar.", state.shortcut);
+            if (v !== null) update((d) => (d.shortcut = v.trim()));
           },
         },
         { label: "Restaurar copia de seguridad…", onClick: restoreBackup, separator: true },
@@ -148,7 +148,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v3.4.0 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v3.4.1 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };

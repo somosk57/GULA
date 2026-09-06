@@ -20,7 +20,7 @@ import { pasteAs } from "./pasteAs";
 import { HomeOverlay } from "./components/HomeOverlay";
 import { firstRun } from "./onboarding";
 import { setShortcut, win } from "./backend";
-import { notify } from "./dialog";
+import { askCombo } from "./dialog";
 import { TABS, newNote } from "./types";
 import { comboFor, comboFromEvent } from "./keys";
 import { collectTasks } from "./ai";
@@ -90,11 +90,20 @@ export default function App() {
 
   // Atajo global: registrar el guardado (y avisar si está tomado por otro programa).
   useEffect(() => {
-    if (!state?.shortcut) return;
-    setShortcut(state.shortcut).then((err) => {
-      if (err) notify("No pude registrar el atajo global", `${state.shortcut}: probablemente lo usa otro programa. Cambialo desde el menú ⋯.`);
+    if (state?.shortcut === undefined) return;
+    let gone = false;
+    setShortcut(state.shortcut).then(async (err) => {
+      if (!err || gone || !state.shortcut) return;
+      // En vez de un "OK" que no arregla nada: elegí otro acá mismo.
+      const v = await askCombo(
+        "Ese atajo está ocupado",
+        `${state.shortcut} lo debe estar usando otro programa. Apretá el que quieras para mostrar y esconder GULA.`,
+      );
+      if (v === null) return; // cancelaste: se vuelve a preguntar la próxima vez
+      update((d) => (d.shortcut = v)); // "" = sin atajo, y no molesta más
     });
-  }, [state?.shortcut]);
+    return () => { gone = true; };
+  }, [state?.shortcut]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aplicar "siempre arriba" al arrancar
   useEffect(() => {
