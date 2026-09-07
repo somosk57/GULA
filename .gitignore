@@ -6,3 +6,6 @@ src-tauri/gen/schemas
 .DS_Store
 # NUNCA subir la clave privada de firma
 *.key
+
+# Fixtures del banco de pruebas: se generan con bench/generate.mjs
+bench/*.json
