@@ -376,7 +376,8 @@ export function Editor({ project, update, keys }: Props) {
           if (t !== null) editPane(p.id, (x) => (x.title = t.trim()));
         },
       },
-      ...(isColl(p) ? [pinMenuItem(p, project, update)] : []),
+      // Colecciones y recuadros: los dos se pueden fijar y los dos van a un estante.
+      pinMenuItem(p, project, update),
       ...(p.w || p.h ? [{ label: "Volver al tamaño de fábrica", onClick: () => editPane(p.id, (x) => { delete x.w; delete x.h; }) }] : []),
       { label: "Copiar el texto", onClick: () => copyPane(p) },
       { label: "Duplicar", onClick: () => dupPane(p) },

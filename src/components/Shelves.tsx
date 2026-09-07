@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { AppState, Pane, Project, Shelf, uid } from "../types";
 import { assetUrl } from "../backend";
 import { collectMedia } from "./GalleryPanel";
-import { goToPane, locatePane, paneHas, walkPanes } from "../navigate";
+import { goToPane, locatePane, paneHas, paneName, walkPanes } from "../navigate";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { ask, confirmDlg, pick } from "../dialog";
 
@@ -34,11 +34,15 @@ export function Shelves({ project, update }: Props) {
     edit((l) => [...l, { id: uid(), title: t, ids: [] }]);
   };
 
-  /** Elegir una colección del proyecto, de donde sea, y ponerla en el estante. */
+  /** Elegir un cuadrado del proyecto —colección o recuadro— y ponerlo en el estante. */
   const addTo = async (sh: Shelf) => {
-    const all = walkPanes(project, true).filter((x) => x.pane.panes && !sh.ids.includes(x.paneId));
-    if (!all.length) return void (await confirmDlg("No hay colecciones para agregar", "Creá una colección en el mapa y volvé.", { okLabel: "Listo" }));
-    const id = await pick(`Poner en ${sh.title}`, all.map((x) => ({ id: x.paneId, label: x.pane.title || "Sin nombre", hint: x.path })));
+    const all = walkPanes(project, true).filter((x) => !sh.ids.includes(x.paneId));
+    if (!all.length) return void (await confirmDlg("No hay nada para agregar", "Creá una colección o un recuadro en el mapa y volvé.", { okLabel: "Listo" }));
+    const id = await pick(`Poner en ${sh.title}`, all.map((x) => ({
+      id: x.paneId,
+      label: (x.pane.panes ? "▣ " : "▤ ") + paneName(x.pane, x.pane.panes ? "Colección" : "Recuadro"),
+      hint: x.path,
+    })));
     if (!id) return;
     edit((l) => l.map((x) => (x.id === sh.id ? { ...x, ids: [...x.ids, id] } : x)));
   };
@@ -49,7 +53,7 @@ export function Shelves({ project, update }: Props) {
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "+ Agregar una colección…", onClick: () => addTo(sh) },
+        { label: "+ Agregar un cuadrado…", onClick: () => addTo(sh) },
         {
           label: "Renombrar…",
           separator: true,
@@ -115,7 +119,7 @@ export function Shelves({ project, update }: Props) {
           onItemMenu={(e, id) => itemMenu(e, sh, id)}
         />
       ))}
-      <button className="shelf-new" onClick={addShelf} title="Una fila con nombre para juntar colecciones de distintos lados">
+      <button className="shelf-new" onClick={addShelf} title="Una fila con nombre para juntar cuadrados de distintos lados del mapa">
         + Estante
       </button>
       {menu && <ContextMenu {...menu} onClose={() => setMenu(null)} />}
@@ -162,16 +166,16 @@ function ShelfRow({
             return (
               <button
                 key={x.id}
-                className="shelf-item"
+                className={"shelf-item" + (x.pane.panes ? "" : " box")}
                 onClick={() => onGo(x.noteId, x.id)}
                 onContextMenu={(e) => onItemMenu(e, x.id)}
-                title={`${x.name || "Sin nombre"}\nClic: ir · clic derecho: mover o sacar`}
+                title={`${paneName(x.pane, x.pane.panes ? "Colección" : "Recuadro")}\nClic: ir · clic derecho: mover o sacar`}
               >
-                {thumb ? <img src={srcOf(thumb)} alt="" draggable={false} /> : <span>{(x.name || "··").slice(0, 2).toUpperCase()}</span>}
+                {thumb ? <img src={srcOf(thumb)} alt="" draggable={false} /> : <span>{paneName(x.pane, "··").slice(0, 2).toUpperCase()}</span>}
               </button>
             );
           })}
-          <button className="shelf-item add" onClick={onAdd} title="Agregar una colección a este estante">+</button>
+          <button className="shelf-item add" onClick={onAdd} title="Agregar una colección o un recuadro a este estante">+</button>
         </div>
         <button className="shelf-arrow" onClick={() => scroll(1)} title="Ver lo de la derecha">›</button>
       </div>
