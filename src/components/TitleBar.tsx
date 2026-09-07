@@ -148,7 +148,7 @@ export function TitleBar({ state, project, update, sidebarOpen, onToggleSidebar,
             }
           },
         },
-        { label: "GULA v3.5.2 · Controla tu gula.", onClick: () => {}, separator: true },
+        { label: "GULA v3.5.3 · Controla tu gula.", onClick: () => {}, separator: true },
       ],
     });
   };

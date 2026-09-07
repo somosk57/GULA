@@ -449,7 +449,10 @@ const mdKeymap = keymap.of([
 const baseTheme = EditorView.theme({
   "&": { height: "100%", fontSize: "14px", backgroundColor: "transparent" },
   ".cm-scroller": { fontFamily: "inherit", lineHeight: "1.6", overflow: "auto" },
-  ".cm-content": { padding: "0 0 40px", caretColor: "var(--text)" },
+  // minHeight 100%: el área de escritura ocupa TODO el recuadro aunque haya
+  // una sola línea. Si no, hacer clic debajo del texto no ponía el cursor en
+  // ningún lado y el Ctrl+V se perdía: había que apretar Enter para "hacer lugar".
+  ".cm-content": { padding: "0 0 40px", minHeight: "100%", caretColor: "var(--text)" },
   ".cm-line": { padding: "0 2px" },
   "&.cm-focused": { outline: "none" },
   ".cm-activeLine": { backgroundColor: "transparent" },

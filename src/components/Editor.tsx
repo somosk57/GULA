@@ -576,6 +576,17 @@ export function Editor({ project, update, keys }: Props) {
                 data-pane={p.id}
                 style={{ ...spanOf(p), ...(color ? { boxShadow: `inset 3px 0 0 ${color}` } : {}) }}
                 onContextMenu={(e) => paneMenu(e, p)}
+                // Un clic en cualquier parte vacía del recuadro entra a escribir,
+                // con el cursor al final. Antes había que acertarle al texto.
+                onMouseDown={(e) => {
+                  const t = e.target as HTMLElement;
+                  if (t.closest(".cm-editor, .pane-head, .grip")) return;
+                  const v = views.current[p.id];
+                  if (!v) return;
+                  e.preventDefault();
+                  v.focus();
+                  v.dispatch({ selection: { anchor: v.state.doc.length } });
+                }}
               >
                 <span className="grip" title="Estirar: arrastrá esta esquina" onMouseDown={(e) => startResize(e, p.id)} />
                 <div className="pane-head">
