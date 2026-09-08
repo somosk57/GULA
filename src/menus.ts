@@ -3,6 +3,7 @@ import { AppState, TABS } from "./types";
 import { MenuItem } from "./components/ContextMenu";
 import { ask, confirmDlg, pick } from "./dialog";
 import { openLabelView } from "./components/LabelView";
+import { setCopyWatch } from "./backend";
 
 type Update = (fn: (d: AppState) => void) => void;
 
@@ -25,6 +26,14 @@ export function viewMenuItems(state: AppState, update: Update): MenuItem[] {
     {
       label: `${check(state.sidebarMin !== true)}  Barra de la izquierda abierta`,
       onClick: () => update((d) => (d.sidebarMin = d.sidebarMin !== true)),
+    },
+    {
+      label: `${check(state.copyWatch !== false)}  Copiar dos veces guarda en Copypastes`,
+      onClick: () =>
+        update((d) => {
+          d.copyWatch = d.copyWatch === false;
+          setCopyWatch(d.copyWatch);
+        }),
     },
     {
       label: `${check(state.bottomOpen !== false)}  Panel de abajo`,

@@ -265,3 +265,18 @@ export const win = {
     });
   },
 };
+
+/** Lo que el vigía del doble Ctrl+C manda cuando copiaste dos veces seguidas. */
+export type Copied = { kind: "text"; text: string } | { kind: "image"; path: string } | { kind: "error"; error: string };
+
+export async function onCopied(cb: (c: Copied) => void): Promise<() => void> {
+  if (!isTauri) return () => {};
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<Copied>("gula:copied", (e) => cb(e.payload));
+}
+
+/** Prende o apaga "copiar dos veces guarda en Copypastes". */
+export async function setCopyWatch(on: boolean) {
+  if (!isTauri) return;
+  try { await invoke("copy_watch", { on }); } catch { /* versión vieja del backend */ }
+}

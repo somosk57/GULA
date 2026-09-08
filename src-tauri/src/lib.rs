@@ -1,3 +1,4 @@
+mod copy;
 mod voice;
 
 use std::fs;
@@ -703,6 +704,12 @@ fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+/// Prender o apagar el "copiar dos veces guarda en Copypastes".
+#[tauri::command]
+fn copy_watch(on: bool) {
+    copy::set_enabled(on);
+}
+
 /// Prende el canal de voz en esta PC. Devuelve "IP:puerto" para pasarle a los demás.
 #[tauri::command]
 fn voice_start(port: Option<u16>) -> Result<String, String> {
@@ -750,6 +757,11 @@ pub fn run() {
         )
         .setup(|app| {
             setup_tray(app.handle())?;
+            // El vigía del doble Ctrl+C. Las imágenes copiadas se guardan como
+            // PNG al lado de los datos: el portapapeles se vacía, un archivo no.
+            if let Ok(dir) = data_dir_path(app.handle()) {
+                copy::watch(app.handle().clone(), dir.join("copias"));
+            }
             // El frontend registra el atajo guardado apenas carga (set_shortcut).
             let _ = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
             Ok(())
@@ -786,7 +798,8 @@ pub fn run() {
             path_exists,
             voice_start,
             voice_stop,
-            voice_addr
+            voice_addr,
+            copy_watch
         ])
         .build(tauri::generate_context!())
         .expect("error al iniciar GULA")

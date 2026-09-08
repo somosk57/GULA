@@ -6,7 +6,7 @@ export type Tab = "links" | "prompts" | "snippets" | "tasks" | "cards" | "galler
 export const TABS: { id: Tab; label: string }[] = [
   { id: "links", label: "Accesos" },
   { id: "gallery", label: "Galería" },
-  { id: "prompts", label: "Prompts" },
+  { id: "prompts", label: "Copypastes" },
   { id: "cards", label: "Fichas" },
   { id: "tasks", label: "Tareas" },
 ];
@@ -291,6 +291,8 @@ export interface AppState {
   sidebarMin?: boolean;
   /** La grilla pasó a tercios en la 3.5.1: marca que los tamaños ya se convirtieron. */
   gridThirds?: boolean;
+  /** Copiar dos veces seguidas guarda lo copiado en Copypastes. */
+  copyWatch?: boolean;
   /** Pestañas del panel de abajo que el usuario apagó. */
   hiddenTabs?: Tab[];
   /** Panel de abajo visible. */
@@ -434,7 +436,7 @@ export function defaultState(): AppState {
   const guia = newNote("Cómo usar GULA");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel, y los **dos botones laterales del mouse** hacen atrás y adelante como en el navegador. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Lo que **pegás** entra plegado: se ve el arranque entre corchetes y un **⧉** para copiarlo entero. Clic en la fichita y se abre; el **▾** lo vuelve a plegar.\n- Agarrá la **esquina de abajo a la derecha** de un cuadrado y estiralo: se queda de ese tamaño.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: en la columna (siempre a la vista) o en un **estante**, una fila con nombre (PERSONAJES, ESCENAS) donde juntás colecciones de lugares distintos y te movés con las flechas.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel, y los **dos botones laterales del mouse** hacen atrás y adelante como en el navegador. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Lo que **pegás** entra plegado: se ve el arranque entre corchetes y un **⧉** para copiarlo entero. Clic en la fichita y se abre; el **▾** lo vuelve a plegar.\n- Agarrá la **esquina de abajo a la derecha** de un cuadrado y estiralo: se queda de ese tamaño.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: en la columna (siempre a la vista) o en un **estante**, una fila con nombre (PERSONAJES, ESCENAS) donde juntás colecciones de lugares distintos y te movés con las flechas.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- **Copiá dos veces seguidas** (Ctrl+C, Ctrl+C) en cualquier programa y eso queda guardado en **Copypastes**, abajo. Texto o imagen. Se apaga desde Ver…\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -448,7 +450,7 @@ export function defaultState(): AppState {
     noteSort: "manual",
     shortcut: "Ctrl+Shift+Space",
     onboarded: false,
-    // De fábrica quedan a la vista solo Accesos, Prompts y Fichas. El resto se
+    // De fábrica quedan a la vista solo Accesos, Copypastes y Fichas. El resto se
     // prende desde ⋯ cuando haga falta.
     hiddenTabs: ["gallery"],
     bottomOpen: true,
@@ -535,6 +537,7 @@ export function migrate(raw: unknown): AppState {
     rail: s.rail ?? true,
     sidebarMin: s.sidebarMin ?? true,
     gridThirds: true,
+    copyWatch: true,
     hiddenTabs: s.hiddenTabs ?? [],
     bottomOpen: s.bottomOpen ?? true,
     showCommands: s.showCommands ?? true,

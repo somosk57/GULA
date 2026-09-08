@@ -1588,8 +1588,9 @@ dependencies = [
 
 [[package]]
 name = "gula"
-version = "3.5.5"
+version = "3.5.6"
 dependencies = [
+ "arboard",
  "image",
  "serde",
  "serde_json",

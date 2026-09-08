@@ -1172,3 +1172,10 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
 }
 .voice-mute:hover { color: var(--text); border-color: var(--border-strong); }
 .voice-mute.on { color: var(--danger); border-color: var(--danger); }
+
+/* Miniatura de una imagen guardada en Copypastes: se reconoce mirando. */
+.prompt-thumb {
+  flex: none; width: 40px; height: 40px; object-fit: cover; border-radius: 5px;
+  border: 1px solid var(--line); cursor: zoom-in; background: var(--bg-code);
+}
+.prompt-thumb:hover { border-color: var(--accent); }

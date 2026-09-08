@@ -15,7 +15,9 @@ async function fillVariables(body: string): Promise<string | null> {
   return body.replace(VAR_RE, (_, n) => values[n.trim()] ?? "");
 }
 import { AppState, Project, Prompt, uid } from "../types";
-import { copyText, pickFolder, readClipboard } from "../backend";
+import { assetUrl, copyText, pickFolder, readClipboard } from "../backend";
+import { matchImage } from "./MarkdownEditor";
+import { openMedia, openMediaMenu } from "./MediaViewer";
 import { ContextMenu, MenuItem } from "./ContextMenu";
 import { pick } from "../dialog";
 import { dumpTexts, textFiles } from "../dump";
@@ -45,7 +47,7 @@ export function PromptsPanel({ project, update }: Props) {
       pr.updatedAt = Date.now();
     });
 
-  const add = (body = "", title = "Nuevo prompt") => {
+  const add = (body = "", title = "Nuevo") => {
     const id = uid();
     update((d) => {
       d.projects.find((p) => p.id === project.id)!.prompts.unshift({
@@ -59,7 +61,7 @@ export function PromptsPanel({ project, update }: Props) {
     const t = await readClipboard();
     if (!t?.trim()) return notify("El portapapeles está vacío");
     const firstLine = t.trim().split("\n")[0].slice(0, 60);
-    add(t, firstLine || "Prompt pegado");
+    add(t, firstLine || "Pegado");
   };
 
   const copy = async (p: Prompt) => {
@@ -72,7 +74,7 @@ export function PromptsPanel({ project, update }: Props) {
   };
 
   const remove = async (p: Prompt) => {
-    if (!(await confirmDlg(`¿Eliminar el prompt "${p.title}"?`, undefined, { danger: true, okLabel: "Eliminar" }))) return;
+    if (!(await confirmDlg(`¿Eliminar "${p.title}"?`, undefined, { danger: true, okLabel: "Eliminar" }))) return;
     update((d) => {
       const pr = d.projects.find((x) => x.id === project.id)!;
       pr.prompts = pr.prompts.filter((x) => x.id !== p.id);
@@ -110,7 +112,7 @@ export function PromptsPanel({ project, update }: Props) {
         {
           label: "Renombrar",
           onClick: async () => {
-            const t = await ask("Título del prompt", p.title);
+            const t = await ask("Título", p.title);
             if (t !== null) edit(p.id, (x) => (x.title = t.trim()));
           },
         },
@@ -135,7 +137,7 @@ export function PromptsPanel({ project, update }: Props) {
   return (
     <div className="prompts">
       <div className="panel-actions">
-        <button className="chip" onClick={fromClipboard} title="Crea un prompt con lo que tengas copiado">
+        <button className="chip" onClick={fromClipboard} title="Guarda en Copypastes lo que tengas copiado">
           Pegar del portapapeles
         </button>
         <button
@@ -156,7 +158,7 @@ export function PromptsPanel({ project, update }: Props) {
             x: e.clientX,
             y: e.clientY,
             items: [
-              { label: "+ Nuevo prompt", onClick: () => add() },
+              { label: "+ Nuevo", onClick: () => add() },
               { label: "Pegar del portapapeles", onClick: fromClipboard },
               { label: "⤓ Bajar los textos del proyecto…", separator: true, onClick: dumpAll },
             ],
@@ -168,6 +170,22 @@ export function PromptsPanel({ project, update }: Props) {
           return (
             <div key={p.id} className={"prompt" + (p.id === lastId ? " last" : "") + (isOpen ? " open" : "")}>
               <div className="prompt-row" onClick={() => setOpenId(isOpen ? null : p.id)} onContextMenu={(e) => promptMenu(e, p)} title="Clic: abrir · clic derecho: copiar, renombrar, duplicar, eliminar">
+                {(() => {
+                  // Lo copiado también puede ser una imagen: se reconoce mirando.
+                  const src = matchImage(p.body.trim().split("\n")[0] ?? "");
+                  if (!src) return null;
+                  return (
+                    <img
+                      className="prompt-thumb"
+                      src={/^(https?:|data:)/i.test(src) ? src : assetUrl(src)}
+                      alt=""
+                      draggable={false}
+                      onClick={(e) => { e.stopPropagation(); openMedia(src); }}
+                      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); openMediaMenu(src, e.clientX, e.clientY); }}
+                      title="Clic: ver en grande"
+                    />
+                  );
+                })()}
                 <div className="prompt-meta">
                   <span className="prompt-title">{p.title || "(sin título)"}</span>
                   <span className="prompt-sub">
@@ -178,7 +196,7 @@ export function PromptsPanel({ project, update }: Props) {
                 <button
                   className={"chip copy" + (copied === p.id ? " ok" : "")}
                   onClick={(e) => { e.stopPropagation(); copy(p); }}
-                  title="Copiar prompt"
+                  title="Copiar"
                 >
                   {copied === p.id ? "Copiado ✓" : "Copiar"}
                 </button>
@@ -194,7 +212,7 @@ export function PromptsPanel({ project, update }: Props) {
                   <textarea
                     value={p.body}
                     onChange={(e) => edit(p.id, (x) => (x.body = e.target.value))}
-                    placeholder={"Texto del prompt… Usá {{variable}} para que te lo pida al copiar."}
+                    placeholder={"Texto… Usá {{variable}} para que te lo pida al copiar."}
                     spellCheck={false}
                     autoFocus
                   />

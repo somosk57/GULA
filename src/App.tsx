@@ -19,9 +19,9 @@ import { SearchPalette, Hit } from "./components/SearchPalette";
 import { pasteAs } from "./pasteAs";
 import { HomeOverlay } from "./components/HomeOverlay";
 import { firstRun } from "./onboarding";
-import { setShortcut, win } from "./backend";
+import { onCopied, setCopyWatch, setShortcut, win } from "./backend";
 import { askCombo } from "./dialog";
-import { TABS, newNote } from "./types";
+import { TABS, newNote, uid } from "./types";
 import { comboFor, comboFromEvent } from "./keys";
 import { collectTasks } from "./ai";
 import "./styles.css";
@@ -105,6 +105,28 @@ export default function App() {
     });
     return () => { gone = true; };
   }, [state?.shortcut]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Doble Ctrl+C: lo copiado entra en Copypastes. El texto tal cual; la imagen
+  // ya viene guardada como PNG desde Rust, así que acá sólo se referencia.
+  useEffect(() => {
+    if (!state) return;
+    setCopyWatch(state.copyWatch !== false);
+    let off: (() => void) | null = null;
+    let live = true;
+    onCopied((c) => {
+      if (c.kind === "error") return;
+      update((d) => {
+        const p = activeProject(d);
+        const now = Date.now();
+        const item =
+          c.kind === "text"
+            ? { title: c.text.trim().split("\n").find((l) => l.trim())?.slice(0, 60) || "Copiado", body: c.text }
+            : { title: "Imagen", body: `![](<${c.path}>)` };
+        p.prompts.unshift({ id: uid(), ...item, updatedAt: now, lastUsedAt: null });
+      });
+    }).then((fn) => (live ? (off = fn) : fn()));
+    return () => { live = false; off?.(); };
+  }, [state?.copyWatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aplicar "siempre arriba" al arrancar
   useEffect(() => {
