@@ -78,6 +78,64 @@ export function Editor({ project, update, keys }: Props) {
 
   // ---- guardar ----
   /** Toca la lista del nivel donde estás y deja la nota consistente. */
+  // ---- Ir y volver, como en el navegador -------------------------------
+  // Los dos botones laterales del mouse hacen atrás y adelante. "Atrás" sube un
+  // nivel; "adelante" vuelve a entrar donde estabas. Entrar a mano a otro lado
+  // borra el camino de adelante, igual que en cualquier navegador.
+  const fwd = useRef<string[]>([]);
+
+  /** Sube uno o varios niveles, guardando el camino para poder volver. */
+  const goUp = (levels = 1) => {
+    if (!path.length) return;
+    const n = Math.min(levels, path.length);
+    fwd.current.push(...path.slice(path.length - n).reverse());
+    setPath(path.slice(0, path.length - n));
+  };
+
+  /** Entra a un cuadrado. Al navegar a mano, el camino de adelante se pierde. */
+  const goInto = (id: string) => {
+    fwd.current = [];
+    setPath([...path, id]);
+  };
+
+  /** Vuelve a bajar por donde subiste, si el cuadrado sigue estando. */
+  const goFwd = () => {
+    const id = fwd.current[fwd.current.length - 1];
+    if (!id) return;
+    if (!level.some((x) => x.id === id)) { fwd.current = []; return; }
+    fwd.current.pop();
+    setPath([...path, id]);
+  };
+
+  /** Salta a un nivel del camino (las migas), dejando el resto para "adelante". */
+  const goToDepth = (depth: number) => {
+    if (depth >= path.length) return;
+    fwd.current.push(...path.slice(depth).reverse());
+    setPath(path.slice(0, depth));
+  };
+
+  // Botones 3 y 4 del mouse: atrás y adelante. Se cancela el `mousedown` para
+  // que el WebView no intente navegar el historial de la página y se quede en blanco.
+  useEffect(() => {
+    const busy = () => !!document.querySelector(".dlg-backdrop");
+    const down = (e: MouseEvent) => { if (e.button === 3 || e.button === 4) e.preventDefault(); };
+    const up = (e: MouseEvent) => {
+      if (e.button !== 3 && e.button !== 4) return;
+      e.preventDefault();
+      if (busy()) return;
+      if (e.button === 3) goUp();
+      else goFwd();
+    };
+    window.addEventListener("mousedown", down);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("auxclick", down);
+    return () => {
+      window.removeEventListener("mousedown", down);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("auxclick", down);
+    };
+  });
+
   const editLevel = (fn: (list: Pane[], p: Project) => void) =>
     update((d) => {
       const p = d.projects.find((x) => x.id === project.id)!;
@@ -295,7 +353,7 @@ export function Editor({ project, update, keys }: Props) {
       const c = comboFromEvent(e);
       if (!c) return;
       if (c === comboFor(keys, "preview")) { e.preventDefault(); setPreview((v) => !v); }
-      else if (e.key === "Escape" && path.length) { e.preventDefault(); setPath(path.slice(0, -1)); }
+      else if (e.key === "Escape" && path.length) { e.preventDefault(); goUp(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -411,7 +469,7 @@ export function Editor({ project, update, keys }: Props) {
     const items: MenuItem[] = [{ label: "+ Nueva colección", onClick: addColl }];
     if (!atRoot) items.push({ label: "+ Nuevo recuadro", onClick: addBox });
     items.push({ label: preview ? "Volver a escribir  (Ctrl+E)" : "Ver con formato  (Ctrl+E)", separator: true, onClick: () => setPreview((v) => !v) });
-    if (path.length) items.push({ label: "Subir un nivel  (Esc)", onClick: () => setPath(path.slice(0, -1)) });
+    if (path.length) items.push({ label: "Subir un nivel  (Esc, o el botón de atrás del mouse)", onClick: () => goUp() });
     if (hidden.length && here) items.push({ label: "Mostrar todos los colores", onClick: () => editPane(here.id, (x) => (x.hidePaneMarks = [])) });
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
@@ -503,7 +561,7 @@ export function Editor({ project, update, keys }: Props) {
       </div>
 
       <div className="crumbs">
-        <button className={"crumb" + (atRoot ? " here" : "")} onClick={() => setPath([])} onContextMenu={(e) => crumbMenu(e, 0)}>
+        <button className={"crumb" + (atRoot ? " here" : "")} onClick={() => goToDepth(0)} onContextMenu={(e) => crumbMenu(e, 0)}>
           {project.name}
         </button>
         {path.map((id, i) => {
@@ -513,7 +571,7 @@ export function Editor({ project, update, keys }: Props) {
               <span className="crumb-sep">›</span>
               <button
                 className={"crumb" + (i === path.length - 1 ? " here" : "")}
-                onClick={() => setPath(path.slice(0, i + 1))}
+                onClick={() => goToDepth(i + 1)}
                 onContextMenu={(e) => crumbMenu(e, i)}
                 title="Clic derecho: saltar a otra de este nivel"
               >
@@ -545,7 +603,7 @@ export function Editor({ project, update, keys }: Props) {
                 className={"coll-card" + (flash === p.id ? " flash" : "") + (p.todo ? " todo" : "") + ((project.pins ?? []).includes(p.id) ? " pinned" : "")}
                 data-pane={p.id}
                 style={{ ...spanOf(p), ...(color ? { boxShadow: `inset 3px 0 0 ${color}` } : {}) }}
-                onClick={() => setPath([...path, p.id])}
+                onClick={() => goInto(p.id)}
                 onContextMenu={(e) => paneMenu(e, p)}
                 title={`${inner} adentro`}
               >
