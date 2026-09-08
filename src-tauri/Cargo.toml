@@ -1,6 +1,6 @@
 [package]
 name = "gula"
-version = "3.5.6"
+version = "3.5.7"
 description = "GULA — Controla tu gula. Notas, carpetas, prompts y contexto para trabajar con IA."
 authors = ["Creator100k"]
 edition = "2021"
@@ -27,6 +27,11 @@ serde_json = "1"
 arboard = "3"
 tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+
+# Sólo para leer NSPasteboard.changeCount. arboard ya compila esta misma crate
+# con esta misma feature en Mac, así que no agrega nada al build.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSPasteboard"] }
 
 [profile.release]
 codegen-units = 1

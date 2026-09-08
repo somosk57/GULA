@@ -36,9 +36,17 @@ fn seq() -> u32 {
     unsafe { GetClipboardSequenceNumber() }
 }
 
-/// Fuera de Windows no hay un contador equivalente a mano, así que se mira si
-/// cambió el contenido. Copiar dos veces lo mismo no se puede distinguir todavía.
-#[cfg(not(windows))]
+/// En Mac el equivalente exacto es `NSPasteboard.changeCount`, que también sube
+/// con cada copia aunque copies dos veces lo mismo. Leer el contador no dispara
+/// el aviso de privacidad de macOS; leer el contenido (al capturar) sí, una vez.
+#[cfg(target_os = "macos")]
+fn seq() -> u32 {
+    objc2_app_kit::NSPasteboard::generalPasteboard().changeCount() as u32
+}
+
+/// En el resto sólo se puede mirar si cambió el contenido, así que copiar dos
+/// veces lo mismo no se distingue. No se compila para ningún sistema por ahora.
+#[cfg(not(any(windows, target_os = "macos")))]
 fn seq() -> u32 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

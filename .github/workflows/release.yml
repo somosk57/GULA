@@ -22,10 +22,8 @@ jobs:
         include:
           - platform: windows-latest
             args: ""
-          - platform: macos-latest      # Apple Silicon (M1/M2/M3/M4)
+          - platform: macos-latest      # Mac con chip M (M1/M2/M3/M4). Las Intel no se compilan.
             args: "--target aarch64-apple-darwin"
-          - platform: macos-15-intel    # Intel (macos-13 fue retirado por GitHub)
-            args: "--target x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -38,7 +36,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ contains(matrix.platform, 'macos') && 'aarch64-apple-darwin' || '' }}
 
       - uses: swatinem/rust-cache@v2
         with:
@@ -54,7 +52,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "GULA ${{ github.ref_name }}"
-          releaseBody: "Instaladores: Windows (.exe), macOS Apple Silicon y macOS Intel (.dmg). En Mac, la primera vez: clic derecho → Abrir."
+          releaseBody: "Instaladores: Windows (.exe) y macOS con chip M (.dmg). En Mac, la primera vez: clic derecho → Abrir."
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
