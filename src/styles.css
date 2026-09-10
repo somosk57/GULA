@@ -1179,3 +1179,7 @@ video.coll-thumb, img.coll-thumb { position: absolute; inset: 0; width: 100%; he
   border: 1px solid var(--line); cursor: zoom-in; background: var(--bg-code);
 }
 .prompt-thumb:hover { border-color: var(--accent); }
+
+/* "+ Agregar": de lo copiado a un recuadro en el mapa. */
+.chip.place { flex: none; white-space: nowrap; }
+.chip.place.ok { color: #3ddc84; border-color: #3ddc84; }

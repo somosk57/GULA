@@ -14,7 +14,8 @@ async function fillVariables(body: string): Promise<string | null> {
   }
   return body.replace(VAR_RE, (_, n) => values[n.trim()] ?? "");
 }
-import { AppState, Project, Prompt, uid } from "../types";
+import { AppState, Note, Pane, Project, Prompt, findPane, syncNote, uid } from "../types";
+import { paneName, walkPanes } from "../navigate";
 import { assetUrl, copyText, pickFolder, readClipboard } from "../backend";
 import { matchImage } from "./MarkdownEditor";
 import { openMedia, openMediaMenu } from "./MediaViewer";
@@ -73,6 +74,42 @@ export function PromptsPanel({ project, update }: Props) {
     setTimeout(() => setCopied(null), 1200);
   };
 
+  const [added, setAdded] = useState<string | null>(null);
+
+  /**
+   * Manda lo copiado a una colección, como un recuadro más.
+   * Es el paso de "lo guardé" a "sé dónde va": ubicar, no corregir un error.
+   */
+  const addToCollection = async (p: Prompt, alsoRemove = false) => {
+    const options = [
+      ...project.notes.map((n) => ({ id: n.id, label: n.title || "Sin nombre", hint: "en la raíz" })),
+      ...walkPanes(project, true)
+        .filter((x) => x.pane.panes)
+        .map((x) => ({ id: x.paneId, label: paneName(x.pane, "Colección"), hint: x.path })),
+    ];
+    if (!options.length) return notify("No hay colecciones", "Creá una colección en el mapa y volvé.");
+    const target = await pick(`¿Dónde va "${p.title || "esto"}"?`, options);
+    if (!target) return;
+
+    update((d) => {
+      const pr = d.projects.find((x) => x.id === project.id)!;
+      let note: Note | undefined;
+      let box: Pane | undefined;
+      for (const n of pr.notes) {
+        if (n.id === target) { note = n; box = n as unknown as Pane; break; }
+        const found = findPane(n, target);
+        if (found) { note = n; box = found; break; }
+      }
+      if (!box?.panes || !note) return;
+      box.panes.push({ id: uid(), title: p.title.trim(), body: p.body });
+      syncNote(note);
+      if (alsoRemove) pr.prompts = pr.prompts.filter((x) => x.id !== p.id);
+    });
+
+    setAdded(p.id);
+    setTimeout(() => setAdded(null), 1400);
+  };
+
   const remove = async (p: Prompt) => {
     if (!(await confirmDlg(`¿Eliminar "${p.title}"?`, undefined, { danger: true, okLabel: "Eliminar" }))) return;
     update((d) => {
@@ -108,7 +145,9 @@ export function PromptsPanel({ project, update }: Props) {
       y: e.clientY,
       items: [
         { label: "Copiar", onClick: () => copy(p) },
-        { label: "Editar", onClick: () => setOpenId(p.id) },
+        { label: "+ Agregar a una colección…", onClick: () => addToCollection(p) },
+        { label: "Agregar y sacar de acá…", onClick: () => addToCollection(p, true) },
+        { label: "Editar", separator: true, onClick: () => setOpenId(p.id) },
         {
           label: "Renombrar",
           onClick: async () => {
@@ -193,6 +232,13 @@ export function PromptsPanel({ project, update }: Props) {
                     {(() => { const n = new Set(Array.from(p.body.matchAll(VAR_RE), (m) => m[1])).size; return n ? ` · ${n} variable${n === 1 ? "" : "s"}` : ""; })()}
                   </span>
                 </div>
+                <button
+                  className={"chip place" + (added === p.id ? " ok" : "")}
+                  onClick={(e) => { e.stopPropagation(); addToCollection(p); }}
+                  title="Mandarlo a una colección del mapa, como un recuadro"
+                >
+                  {added === p.id ? "Agregado ✓" : "+ Agregar"}
+                </button>
                 <button
                   className={"chip copy" + (copied === p.id ? " ok" : "")}
                   onClick={(e) => { e.stopPropagation(); copy(p); }}
