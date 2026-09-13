@@ -60,6 +60,10 @@ export interface Pane {
   /** Tamaño elegido a mano, en celdas de la grilla (se agarra la esquina de abajo a la derecha). */
   w?: number;
   h?: number;
+  /** Cuándo se creó. Sirve de nombre cuando no le pusiste título: "domingo 7pm". */
+  createdAt?: number;
+  /** Último cambio de verdad (texto, título, tamaño, lugar). Abrir o mirar NO lo toca. */
+  updatedAt?: number;
 }
 
 /** ¿Es una colección (tiene hijos) o un recuadro (se escribe adentro)? */
@@ -293,6 +297,8 @@ export interface AppState {
   gridThirds?: boolean;
   /** Copiar dos veces seguidas guarda lo copiado en Copypastes. */
   copyWatch?: boolean;
+  /** Los cuadrados ya tienen createdAt/updatedAt (heredados de su nota al migrar). */
+  paneTimes?: boolean;
   /** Pestañas del panel de abajo que el usuario apagó. */
   hiddenTabs?: Tab[];
   /** Panel de abajo visible. */
@@ -315,7 +321,7 @@ export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP):
     id: uid(),
     title,
     body,
-    panes: [{ id: uid(), title: "", body }],
+    panes: [{ id: uid(), title: "", body, createdAt: Date.now(), updatedAt: Date.now() }],
     pinned: false,
     updatedAt: Date.now(),
     createdAt: Date.now(),
@@ -324,19 +330,50 @@ export function newNote(title = "Nueva nota", body = "", group = DEFAULT_GROUP):
   };
 }
 
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/**
+ * La fecha en pocas palabras, para que un cuadrado sin título igual diga algo:
+ * "hoy 7pm" · "ayer 7:20pm" · "domingo 11am" (esta semana) · "dom 12 sep 7pm".
+ * La idea es acordarse de en qué andabas ese día a esa hora sin tener que leer.
+ */
+export function whenShort(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const h24 = d.getHours();
+  const h = h24 % 12 || 12;
+  const m = d.getMinutes();
+  const hora = `${h}${m ? ":" + String(m).padStart(2, "0") : ""}${h24 < 12 ? "am" : "pm"}`;
+
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dias = Math.round((day(now) - day(d)) / 86_400_000);
+  if (dias === 0) return `hoy ${hora}`;
+  if (dias === 1) return `ayer ${hora}`;
+  // Adentro de la semana, el nombre del día ya lo identifica.
+  if (dias > 1 && dias < 7) return `${DIAS[d.getDay()]} ${hora}`;
+  const año = d.getFullYear() === now.getFullYear() ? "" : ` ${d.getFullYear()}`;
+  return `${DIAS_CORTOS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}${año} ${hora}`;
+}
+
 /** Un cuadrado nuevo: colección (con un recuadro adentro) o recuadro suelto. */
 export function newPane(coll: boolean, title = ""): Pane {
+  const at = Date.now();
   return coll
-    ? { id: uid(), title, body: "", panes: [{ id: uid(), title: "", body: "" }] }
-    : { id: uid(), title, body: "" };
+    ? { id: uid(), title, body: "", createdAt: at, updatedAt: at, panes: [newPane(false)] }
+    : { id: uid(), title, body: "", createdAt: at, updatedAt: at };
 }
 
 /** Copia entera de una nota: mismo tipo, mismos recuadros (y los de adentro), con ids nuevos. */
 export function cloneNote(n: Note, title = n.title): Note {
+  const at = Date.now();
   const copyPane = (p: Pane): Pane => ({
     id: uid(),
     title: p.title,
     body: p.body,
+    createdAt: at,
+    updatedAt: at,
     ...(p.mark ? { mark: p.mark } : {}),
     ...(p.panes ? { panes: p.panes.map(copyPane) } : {}),
   });
@@ -436,7 +473,7 @@ export function defaultState(): AppState {
   const guia = newNote("Cómo usar GULA");
   guia.autoTitle = false;
   guia.panes[0].body =
-    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- **Esc** sube un nivel, y los **dos botones laterales del mouse** hacen atrás y adelante como en el navegador. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Lo que **pegás** entra plegado: se ve el arranque entre corchetes y un **⧉** para copiarlo entero. Clic en la fichita y se abre; el **▾** lo vuelve a plegar.\n- Agarrá la **esquina de abajo a la derecha** de un cuadrado y estiralo: se queda de ese tamaño.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: en la columna (siempre a la vista) o en un **estante**, una fila con nombre (PERSONAJES, ESCENAS) donde juntás colecciones de lugares distintos y te movés con las flechas.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- **Copiá dos veces seguidas** (Ctrl+C, Ctrl+C) en cualquier programa y eso queda guardado en **Copypastes**, abajo. Texto o imagen. Se apaga desde Ver…\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
+    "GULA es un mapa. Hay una sola cosa, repetida hacia adentro.\n\n- Un **cuadrado con cosas adentro** es una **colección**: la abrís y ves lo que tiene.\n- Un **recuadro** es donde escribís y pegás archivos. Va siempre abierto: no hay que entrar.\n- En cualquier nivel podés sumar los dos, con los cuadrados punteados **+ Colección** y **+ Recuadro**. No hay límite de profundidad.\n- Un recuadro sin título dice **cuándo lo creaste** (\"domingo 7pm\"), así te acordás de en qué andabas ese día a esa hora. Le escribís un nombre y el nombre manda.\n- **Esc** sube un nivel, y los **dos botones laterales del mouse** hacen atrás y adelante como en el navegador. Arriba están las migas del camino: **clic derecho en una** y saltás a otra del mismo nivel sin subir y bajar.\n- Lo que **pegás** entra plegado: se ve el arranque entre corchetes y un **⧉** para copiarlo entero. Clic en la fichita y se abre; el **▾** lo vuelve a plegar.\n- Agarrá la **esquina de abajo a la derecha** de un cuadrado y estiralo: se queda de ese tamaño.\n- Cada cuadrado tiene un **○** (pendiente: aparece en Tareas con el camino) y un **−** para sacarlo. Arrastrá para reordenar, y **soltá un cuadrado en el centro de una colección para meterlo adentro**.\n- Clic derecho en una colección → **Fijar a la izquierda**: en la columna (siempre a la vista) o en un **estante**, una fila con nombre (PERSONAJES, ESCENAS) donde juntás colecciones de lugares distintos y te movés con las flechas.\n- Clic derecho en un cuadrado: etiquetas, color, copiar, duplicar, bajar a una carpeta.\n- Una colección muestra las imágenes que tiene adentro, así la reconocés mirando.\n- **Copiá dos veces seguidas** (Ctrl+C, Ctrl+C) en cualquier programa y eso queda guardado en **Copypastes**, abajo. Texto o imagen. Se apaga desde Ver…\n- Abajo a la izquierda: **Etiquetas** (los títulos que usás siempre, y “ver todos los de esa etiqueta” en todo el proyecto) y **Ver…** (qué se muestra).\n- **Ctrl+E** ve el texto con formato · **Ctrl+F** busca en todo · **Ctrl+/** los atajos, que podés cambiar.\n\nBorrá esta nota cuando quieras. Creá tu primer proyecto desde el nombre de arriba.";
   syncNote(guia);
   p.notes.unshift(guia);
   return {
@@ -458,6 +495,8 @@ export function defaultState(): AppState {
     // La barra de la izquierda arranca plegada: el mapa es el punto de la app.
     sidebarMin: true,
     gridThirds: true,
+    copyWatch: true,
+    paneTimes: true,
     keys: {},
   };
 }
@@ -518,6 +557,15 @@ export function migrate(raw: unknown): AppState {
           if (pane.w) pane.w *= 3;
           if (pane.h) pane.h *= 3;
         }
+  // El tiempo bajó al cuadrado (3.5.9). Los que ya existían heredan la fecha de
+  // su nota: no es exacta, pero ubica el día, que es de lo que se trata.
+  if (!s.paneTimes)
+    for (const p of projects)
+      for (const n of p.notes)
+        for (const pane of allPanes(n)) {
+          if (!pane.createdAt) pane.createdAt = n.createdAt;
+          if (!pane.updatedAt) pane.updatedAt = n.updatedAt ?? n.createdAt;
+        }
   if (projects.length === 0) return defaultState();
   for (const p of projects) foldLogIntoDiary(p);
   const activeProjectId = projects.some((p) => p.id === s.activeProjectId)
@@ -537,7 +585,8 @@ export function migrate(raw: unknown): AppState {
     rail: s.rail ?? true,
     sidebarMin: s.sidebarMin ?? true,
     gridThirds: true,
-    copyWatch: true,
+    copyWatch: s.copyWatch ?? true,
+    paneTimes: true,
     hiddenTabs: s.hiddenTabs ?? [],
     bottomOpen: s.bottomOpen ?? true,
     showCommands: s.showCommands ?? true,

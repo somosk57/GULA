@@ -1,6 +1,6 @@
 // Ir a un recuadro desde cualquier lado (Tareas, buscador, vista por etiqueta).
 // Con un mapa grande, poder saltar al lugar exacto es lo que evita perderse.
-import { AppState, Note, Pane, Project, findPane } from "./types";
+import { AppState, Note, Pane, Project, findPane, whenShort } from "./types";
 
 const GO = "gula:ir-recuadro";
 
@@ -42,7 +42,8 @@ export function paneName(p: Pane, fallback = "Recuadro"): string {
     const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
     if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return l.slice(0, 60);
   }
-  return fallback;
+  // Nada que leer: al menos decí cuándo fue.
+  return p.createdAt ? whenShort(p.createdAt) : fallback;
 }
 
 /** Recorre TODOS los cuadrados del proyecto, a cualquier profundidad, con su camino. */

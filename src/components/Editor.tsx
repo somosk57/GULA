@@ -17,6 +17,7 @@ import {
   pathTo,
   syncNote,
   uid,
+  whenShort,
 } from "../types";
 import { MarkdownEditor, insertImage, isImagePath, matchImage, unfencePrompts } from "./MarkdownEditor";
 import type { EditorView } from "@codemirror/view";
@@ -653,7 +654,10 @@ export function Editor({ project, update, keys }: Props) {
                     className="pane-title"
                     value={p.title}
                     onChange={(e) => editPane(p.id, (x) => (x.title = e.target.value))}
-                    placeholder="Título…"
+                    // Sin título, el recuadro dice cuándo nació: para acordarte
+                    // de en qué andabas ese día a esa hora, sin escribir nada.
+                    placeholder={p.createdAt ? whenShort(p.createdAt) : "Título…"}
+                    title={p.createdAt ? `Creado el ${new Date(p.createdAt).toLocaleString("es-AR")}` : undefined}
                     spellCheck={false}
                   />
                   <button
@@ -780,6 +784,7 @@ export function paneLabel(p: Pane, i: number): string {
       const l = raw.replace(/^\s*(#+\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+|>\s*)/, "").replace(/[*_`]/g, "").trim();
       if (l && !/^!\[/.test(raw.trim()) && !/^```/.test(raw.trim())) return l.slice(0, 80);
     }
+  if (p.createdAt) return whenShort(p.createdAt);
   return p.panes ? `Colección ${i + 1}` : `Recuadro ${i + 1}`;
 }
 
